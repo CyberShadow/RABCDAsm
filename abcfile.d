@@ -56,13 +56,13 @@ class ABCFile
 
 	struct Namespace
 	{
-		Constant kind;
+		ASType kind;
 		uint name;
 	}
 
 	struct Multiname
 	{
-		Constant kind;
+		ASType kind;
 		union
 		{
 			struct _QName
@@ -105,7 +105,7 @@ class ABCFile
 	struct OptionDetail
 	{
 		uint val;
-		Constant kind;
+		ASType kind;
 	}
 
 	struct Metadata
@@ -141,7 +141,7 @@ class ABCFile
 				uint slotId;
 				uint typeName;
 				uint vindex;
-				Constant vkind;
+				ASType vkind;
 			} _Slot Slot;
 			struct _Class
 			{
@@ -211,7 +211,7 @@ class ABCFile
 	}
 }
 
-enum Constant : ubyte
+enum ASType : ubyte
 {
     Void = 0x00,  // not actually interned
     Utf8 = 0x01,
@@ -472,7 +472,7 @@ final:
 	ABCFile.Namespace readNamespace()
 	{
 		ABCFile.Namespace r;
-		r.kind = cast(Constant)readU8();
+		r.kind = cast(ASType)readU8();
 		r.name = readU30();
 		return r;
 	}
@@ -489,31 +489,31 @@ final:
 	ABCFile.Multiname readMultiname()
 	{
 		ABCFile.Multiname r;
-		r.kind = cast(Constant)readU8();
+		r.kind = cast(ASType)readU8();
 		switch (r.kind)
 		{
-			case Constant.QName:
-			case Constant.QNameA:
+			case ASType.QName:
+			case ASType.QNameA:
 				r.QName.ns = readU30();
 				r.QName.name = readU30();
 				break;
-			case Constant.RTQName:
-			case Constant.RTQNameA:
+			case ASType.RTQName:
+			case ASType.RTQNameA:
 				r.RTQName.name = readU30();
 				break;
-			case Constant.RTQNameL:
-			case Constant.RTQNameLA:
+			case ASType.RTQNameL:
+			case ASType.RTQNameLA:
 				break;
-			case Constant.Multiname:
-			case Constant.MultinameA:
+			case ASType.Multiname:
+			case ASType.MultinameA:
 				r.Multiname.name = readU30();
 				r.Multiname.nsSet = readU30();
 				break;
-			case Constant.MultinameL:
-			case Constant.MultinameLA:
+			case ASType.MultinameL:
+			case ASType.MultinameLA:
 				r.MultinameL.nsSet = readU30();
 				break;
-			case Constant.TypeName:
+			case ASType.TypeName:
 				r.TypeName.name = readU30();
 				r.TypeName.params.length = readU30();
 				foreach (ref value; r.TypeName.params)
@@ -553,7 +553,7 @@ final:
 	{
 		ABCFile.OptionDetail r;
 		r.val = readU30();
-		r.kind = cast(Constant)readU8();
+		r.kind = cast(ASType)readU8();
 		return r;
 	}
 
@@ -602,7 +602,7 @@ final:
 				r.Slot.typeName = readU30();
 				r.Slot.vindex = readU30();
 				if (r.Slot.vindex)
-					r.Slot.vkind = cast(Constant)readU8();
+					r.Slot.vkind = cast(ASType)readU8();
 				break;
 			case TraitKind.Class:
 				r.Class.slotId = readU30();
@@ -852,28 +852,28 @@ final:
 		writeU8(v.kind);
 		switch (v.kind)
 		{
-			case Constant.QName:
-			case Constant.QNameA:
+			case ASType.QName:
+			case ASType.QNameA:
 				writeU30(v.QName.ns);
 				writeU30(v.QName.name);
 				break;
-			case Constant.RTQName:
-			case Constant.RTQNameA:
+			case ASType.RTQName:
+			case ASType.RTQNameA:
 				writeU30(v.RTQName.name);
 				break;
-			case Constant.RTQNameL:
-			case Constant.RTQNameLA:
+			case ASType.RTQNameL:
+			case ASType.RTQNameLA:
 				break;
-			case Constant.Multiname:
-			case Constant.MultinameA:
+			case ASType.Multiname:
+			case ASType.MultinameA:
 				writeU30(v.Multiname.name);
 				writeU30(v.Multiname.nsSet);
 				break;
-			case Constant.MultinameL:
-			case Constant.MultinameLA:
+			case ASType.MultinameL:
+			case ASType.MultinameLA:
 				writeU30(v.MultinameL.nsSet);
 				break;
-			case Constant.TypeName:
+			case ASType.TypeName:
 				writeU30(v.TypeName.name);
 				writeU30(v.TypeName.params.length);
 				foreach (value; v.TypeName.params)
