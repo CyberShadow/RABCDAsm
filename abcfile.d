@@ -18,8 +18,6 @@
 
 module abcfile;
 
-import std.stream;
-
 /** 
  * Implements a shallow representation of an .abc file. 
  * Loading and saving an .abc file using this class should produce 
@@ -202,14 +200,14 @@ class ABCFile
 		uint varName;
 	}
 
-	static ABCFile read(InputStream stream)
+	static ABCFile read(ubyte[] data)
 	{
-		return (new ABCReader(stream)).abc;
+		return (new ABCReader(data)).abc;
 	}
 
-	void write(OutputStream stream)
+	ubyte[] write()
 	{
-		new ABCWriter(this, stream);
+		return (new ABCWriter(this)).buf;
 	}
 }
 
@@ -331,12 +329,13 @@ enum TraitAttributes : ubyte
 
 class ABCReader
 {
-	InputStream stream;
+	ubyte[] buf;
+	size_t pos;
 	ABCFile abc;
 
-	this(InputStream stream)
+	this(ubyte[] buf)
 	{
-		this.stream = stream;
+		this.buf = buf;
 		abc = new ABCFile();
 
 		abc.minorVersion = readU16();
@@ -400,9 +399,8 @@ class ABCReader
 final:
 	ubyte readU8()
 	{
-		ubyte r;
-		stream.read(r);
-		return r;
+		assert(pos < buf.length);
+		return buf[pos++];
 	}
 
 	ushort readU16()
@@ -442,25 +440,32 @@ final:
 		return cast(uint)readU32() & 0x3FFFFFFF;
 	}
 
+	void readExact(void* ptr, size_t len)
+	{
+		assert(pos+len <= buf.length);
+		(cast(ubyte*)ptr)[0..len] = buf[pos..pos+len];
+		pos += len;
+	}
+
 	double readD64()
 	{
 		double r;
 		static assert(double.sizeof == 8);
-		stream.readExact(&r, 8);
+		readExact(&r, 8);
 		return r;
 	}
 
 	string readString()
 	{
 		string s = new char[readU30()];
-		stream.readExact(s.ptr, s.length);
+		readExact(s.ptr, s.length);
 		return s;
 	}
 
 	ubyte[] readBytes()
 	{
 		ubyte[] r = new ubyte[readU30()];
-		stream.readExact(r.ptr, r.length);
+		readExact(r.ptr, r.length);
 		return r;
 	}
 
@@ -678,12 +683,13 @@ final:
 class ABCWriter
 {
 	ABCFile abc;
-	OutputStream stream;
+	ubyte[] buf;
+	size_t pos;
 	
-	this(ABCFile abc, OutputStream stream)
+	this(ABCFile abc)
 	{
 		this.abc = abc;
-		this.stream = stream;
+		this.buf = new ubyte[1024];
 	
 		writeU16(abc.minorVersion);
 		writeU16(abc.majorVersion);
@@ -739,12 +745,16 @@ class ABCWriter
 		writeU30(abc.bodies.length);
 		foreach (ref value; abc.bodies)
 			writeMethodBody(value);
+
+		buf.length = pos;
 	}
 
 final:
 	void writeU8(ubyte v)
 	{
-		stream.write(v);
+		if (pos == buf.length)
+			buf.length = buf.length * 2;
+		buf[pos++] = v;
 	}
 
 	void writeU16(ushort v)
@@ -798,22 +808,30 @@ final:
 		writeU32(v);
 	}
 
+	void writeExact(void* ptr, size_t len)
+	{
+		while (pos+len > buf.length)
+			buf.length = buf.length * 2;
+		buf[pos..pos+len] = (cast(ubyte*)ptr)[0..len];
+		pos += len;
+	}
+
 	void writeD64(double v)
 	{
 		static assert(double.sizeof == 8);
-		stream.writeExact(&v, 8);
+		writeExact(&v, 8);
 	}
 
 	void writeString(string v)
 	{
 		writeU30(v.length);
-		stream.writeExact(v.ptr, v.length);
+		writeExact(v.ptr, v.length);
 	}
 
 	void writeBytes(ubyte[] v)
 	{
 		writeU30(v.length);
-		stream.writeExact(v.ptr, v.length);
+		writeExact(v.ptr, v.length);
 	}
 
 	void writeNamespace(ref ABCFile.Namespace v)
