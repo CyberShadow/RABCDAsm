@@ -1,4 +1,4 @@
-Ôªø/*
+/*
  *  Copyright (C) 2010 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
@@ -295,7 +295,7 @@ enum ConstantKind : ubyte
 
 enum MethodFlags : ubyte
 {
-	NEED_ARGUMENTS = 0x01, // Suggests to the run-time that an ‚Äúarguments‚Äù object (as specified by the ActionScript 3.0 Language Reference) be created. Must not be used together with NEED_REST. See Chapter 3.
+	NEED_ARGUMENTS = 0x01, // Suggests to the run-time that an ìargumentsî object (as specified by the ActionScript 3.0 Language Reference) be created. Must not be used together with NEED_REST. See Chapter 3.
 	NEED_ACTIVATION = 0x02, // Must be set if this method uses the newactivation opcode.
 	NEED_REST = 0x04, // This flag creates an ActionScript 3.0 rest arguments array. Must not be used with NEED_ARGUMENTS. See Chapter 3.
 	HAS_OPTIONAL = 0x08, // Must be set if this method has optional parameters and the options field is present in this method_info structure.
