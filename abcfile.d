@@ -45,6 +45,17 @@ class ABCFile
 	Script[] scripts;
 	MethodBody[] bodies;
 
+	this()
+	{
+		ints.length = 1;
+		uints.length = 1;
+		doubles.length = 1;
+		strings.length = 1;
+		namespaces.length = 1;
+		namespaceSets.length = 1;
+		multinames.length = 1;
+	}
+
 	struct Namespace
 	{
 		Constant kind;
@@ -194,6 +205,11 @@ class ABCFile
 	static ABCFile read(InputStream stream)
 	{
 		return (new ABCReader(stream)).abc;
+	}
+
+	void write(OutputStream stream)
+	{
+		new ABCWriter(this, stream);
 	}
 }
 
@@ -358,6 +374,7 @@ class ABCReader
 
 		abc.methods.length = readU30();
 		foreach (ref value; abc.methods)
+			value = readMethodInfo();
 
 		abc.metadata.length = readU30();
 		foreach (ref value; abc.metadata)
@@ -561,7 +578,7 @@ final:
 			value = readU30();
 		r.iinit = readU30();
 		r.traits.length = readU30();
-		foreach (i, ref value; r.traits)
+		foreach (ref value; r.traits)
 			value = readTrait();
 
 		return r;
@@ -655,5 +672,332 @@ final:
 		r.excType = readU30();
 		r.varName = readU30();
 		return r;
+	}
+}
+
+class ABCWriter
+{
+	ABCFile abc;
+	OutputStream stream;
+	
+	this(ABCFile abc, OutputStream stream)
+	{
+		this.abc = abc;
+		this.stream = stream;
+	
+		writeU16(abc.minorVersion);
+		writeU16(abc.majorVersion);
+
+		writeU30(abc.ints.length <= 1 ? 0 : abc.ints.length);
+		foreach (ref value; abc.ints[1..$])
+			writeS32(value);
+
+		writeU30(abc.uints.length <= 1 ? 0 : abc.uints.length);
+		foreach (ref value; abc.uints[1..$])
+			writeU32(value);
+		
+		writeU30(abc.doubles.length <= 1 ? 0 : abc.doubles.length);
+		foreach (ref value; abc.doubles[1..$])
+			writeD64(value);
+		
+		writeU30(abc.strings.length <= 1 ? 0 : abc.strings.length);
+		foreach (ref value; abc.strings[1..$])
+			writeString(value);
+		
+		writeU30(abc.namespaces.length <= 1 ? 0 : abc.namespaces.length);
+		foreach (ref value; abc.namespaces[1..$])
+			writeNamespace(value);
+		
+		writeU30(abc.namespaceSets.length <= 1 ? 0 : abc.namespaceSets.length);
+		foreach (ref value; abc.namespaceSets[1..$])
+			writeNamespaceSet(value);
+
+		writeU30(abc.multinames.length <= 1 ? 0 : abc.multinames.length);
+		foreach (ref value; abc.multinames[1..$])
+			writeMultiname(value);
+
+		writeU30(abc.methods.length);
+		foreach (ref value; abc.methods)
+			writeMethodInfo(value);
+
+		writeU30(abc.metadata.length);
+		foreach (ref value; abc.metadata)
+			writeMetadata(value);
+
+		writeU30(abc.instances.length);
+		foreach (ref value; abc.instances)
+			writeInstance(value);
+
+		assert(abc.classes.length == abc.instances.length);
+		foreach (ref value; abc.classes)
+			writeClass(value);
+
+		writeU30(abc.scripts.length);
+		foreach (ref value; abc.scripts)
+			writeScript(value);
+
+		writeU30(abc.bodies.length);
+		foreach (ref value; abc.bodies)
+			writeMethodBody(value);
+	}
+
+final:
+	void writeU8(ubyte v)
+	{
+		stream.write(v);
+	}
+
+	void writeU16(ushort v)
+	{
+		writeU8(v&0xFF);
+		writeU8(cast(ubyte)(v>>8));
+	}
+
+	/// Note: may return values larger than 0xFFFFFFFF.
+	void writeU32(ulong v)
+	{
+        if ( v < 128)
+        {
+            writeU8(cast(ubyte)(v));
+        }
+        else if ( v < 16384)
+        {
+            writeU8(cast(ubyte)((v & 0x7F) | 0x80));
+            writeU8(cast(ubyte)((v >> 7) & 0x7F));
+        }
+        else if ( v < 2097152)
+        {
+            writeU8(cast(ubyte)((v & 0x7F) | 0x80));
+            writeU8(cast(ubyte)((v >> 7) | 0x80));
+            writeU8(cast(ubyte)((v >> 14) & 0x7F));
+        }
+        else if (  v < 268435456)
+        {
+            writeU8(cast(ubyte)((v & 0x7F) | 0x80));
+            writeU8(cast(ubyte)(v >> 7 | 0x80));
+            writeU8(cast(ubyte)(v >> 14 | 0x80));
+            writeU8(cast(ubyte)((v >> 21) & 0x7F));
+        }
+        else
+        {
+            writeU8(cast(ubyte)((v & 0x7F) | 0x80));
+            writeU8(cast(ubyte)(v >> 7 | 0x80));
+            writeU8(cast(ubyte)(v >> 14 | 0x80));
+            writeU8(cast(ubyte)(v >> 21 | 0x80));
+            writeU8(cast(ubyte)((v >> 28) & 0x0F));
+        }
+	}
+
+	void writeS32(long v)
+	{
+		writeU32(cast(ulong)v);
+	}
+
+	void writeU30(uint v)
+	{
+		writeU32(v);
+	}
+
+	void writeD64(double v)
+	{
+		static assert(double.sizeof == 8);
+		stream.writeExact(&v, 8);
+	}
+
+	void writeString(string v)
+	{
+		writeU30(v.length);
+		stream.writeExact(v.ptr, v.length);
+	}
+
+	void writeBytes(ubyte[] v)
+	{
+		writeU30(v.length);
+		stream.writeExact(v.ptr, v.length);
+	}
+
+	void writeNamespace(ref ABCFile.Namespace v)
+	{
+		writeU8(v.kind);
+		writeU30(v.name);
+	}
+
+	void writeNamespaceSet(uint[] v)
+	{
+		writeU30(v.length);
+		foreach (value; v)
+			writeU30(value);
+	}
+
+	void writeMultiname(ref ABCFile.Multiname v)
+	{
+		writeU8(v.kind);
+		switch (v.kind)
+		{
+			case Constant.QName:
+			case Constant.QNameA:
+				writeU30(v.QName.ns);
+				writeU30(v.QName.name);
+				break;
+			case Constant.RTQName:
+			case Constant.RTQNameA:
+				writeU30(v.RTQName.name);
+				break;
+			case Constant.RTQNameL:
+			case Constant.RTQNameLA:
+				break;
+			case Constant.Multiname:
+			case Constant.MultinameA:
+				writeU30(v.Multiname.name);
+				writeU30(v.Multiname.nsSet);
+				break;
+			case Constant.MultinameL:
+			case Constant.MultinameLA:
+				writeU30(v.MultinameL.nsSet);
+				break;
+			case Constant.TypeName:
+				writeU30(v.TypeName.name);
+				writeU30(v.TypeName.params.length);
+				foreach (value; v.TypeName.params)
+					writeU30(value);
+				break;
+			default:
+				throw new Exception("Unknown Multiname kind");
+		}
+	}
+
+	void writeMethodInfo(ref ABCFile.MethodInfo v)
+	{
+		writeU30(v.params.length);
+		writeU30(v.returnType);
+		foreach (value; v.params)
+			writeU30(value);
+		writeU30(v.name);
+		writeU8(v.flags);
+		if (v.flags & MethodFlags.HAS_OPTIONAL)
+		{
+			writeU30(v.options.length);
+			foreach (ref option; v.options)
+				writeOptionDetail(option);
+		}
+		if (v.flags & MethodFlags.HAS_PARAM_NAMES)
+		{
+			assert(v.paramNames.length == v.params.length);
+			foreach (value; v.paramNames)
+				writeU30(value);
+		}
+	}
+
+	void writeOptionDetail(ref ABCFile.OptionDetail v)
+	{
+		writeU30(v.val);
+		writeU8(v.kind);
+	}
+
+	void writeMetadata(ref ABCFile.Metadata v)
+	{
+		writeU30(v.name);
+		writeU30(v.items.length);
+		foreach (ref value; v.items)
+		{
+			writeU30(value.key);
+			writeU30(value.value);
+		}
+	}
+
+	void writeInstance(ref ABCFile.Instance v)
+	{
+		writeU30(v.name);
+		writeU30(v.superName);
+		writeU8(v.flags);
+		if (v.flags & InstanceFlags.ProtectedNs)
+			writeU30(v.protectedNs);
+		writeU30(v.interfaces.length);
+		foreach (ref value; v.interfaces)
+			writeU30(value);
+		writeU30(v.iinit);
+		writeU30(v.traits.length);
+		foreach (ref value; v.traits)
+			writeTrait(value);
+	}
+
+	void writeTrait(ABCFile.TraitsInfo v)
+	{
+		writeU30(v.name);
+		writeU8(v.kindAttr);
+		switch (v.kind)
+		{
+			case TraitKind.Slot:
+			case TraitKind.Const:
+				writeU30(v.Slot.slotId);
+				writeU30(v.Slot.typeName);
+				writeU30(v.Slot.vindex);
+				if (v.Slot.vindex)
+					writeU8(v.Slot.vkind);
+				break;
+			case TraitKind.Class:
+				writeU30(v.Class.slotId);
+				writeU30(v.Class.classi);
+				break;
+			case TraitKind.Function:
+				writeU30(v.Function.slotId);
+				writeU30(v.Function.functioni);
+				break;
+			case TraitKind.Method:
+			case TraitKind.Getter:
+			case TraitKind.Setter:
+				writeU30(v.Method.dispId);
+				writeU30(v.Method.method);
+				break;
+			default:
+				throw new Exception("Unknown trait kind");
+		}
+		if (v.attr & TraitAttributes.Metadata)
+		{
+			writeU30(v.metadata.length);
+			foreach (ref value; v.metadata)
+				writeU30(value);
+		}
+	}
+
+	void writeClass(ABCFile.Class v)
+	{
+		writeU30(v.cinit);
+		writeU30(v.traits.length);
+		foreach (ref value; v.traits)
+			writeTrait(value);
+	}
+
+	void writeScript(ABCFile.Script v)
+	{
+		writeU30(v.init);
+		writeU30(v.traits.length);
+		foreach (ref value; v.traits)
+			writeTrait(value);
+	}
+
+	void writeMethodBody(ABCFile.MethodBody v)
+	{
+		writeU30(v.method);
+		writeU30(v.maxStack);
+		writeU30(v.localCount);
+		writeU30(v.initScopeDepth);
+		writeU30(v.maxScopeDepth);
+		writeBytes(v.code);
+		writeU30(v.exceptions.length);
+		foreach (ref value; v.exceptions)
+			writeExceptionInfo(value);
+		writeU30(v.traits.length);
+		foreach (ref value; v.traits)
+			writeTrait(value);
+	}
+
+	void writeExceptionInfo(ABCFile.ExceptionInfo v)
+	{
+		writeU30(v.from);
+		writeU30(v.to);
+		writeU30(v.target);
+		writeU30(v.excType);
+		writeU30(v.varName);
 	}
 }
