@@ -94,7 +94,7 @@ class ABCFile
 
 	struct MethodInfo
 	{
-		uint[] params;
+		uint[] paramTypes;
 		uint returnType;
 		uint name;
 		ubyte flags; // MethodFlags bitmask
@@ -214,6 +214,7 @@ class ABCFile
 enum ASType : ubyte
 {
     Void = 0x00,  // not actually interned
+    Undefined = Void,
     Utf8 = 0x01,
     Decimal = 0x02,
     Integer = 0x03,
@@ -528,9 +529,9 @@ final:
 	ABCFile.MethodInfo readMethodInfo()
 	{
 		ABCFile.MethodInfo r;
-		r.params.length = readU30();
+		r.paramTypes.length = readU30();
 		r.returnType = readU30();
-		foreach (ref value; r.params)
+		foreach (ref value; r.paramTypes)
 			value = readU30();
 		r.name = readU30();
 		r.flags = readU8();
@@ -542,7 +543,7 @@ final:
 		}
 		if (r.flags & MethodFlags.HAS_PARAM_NAMES)
 		{
-			r.paramNames.length = r.params.length;
+			r.paramNames.length = r.paramTypes.length;
 			foreach (ref value; r.paramNames)
 				value = readU30();
 		}
@@ -886,9 +887,9 @@ final:
 
 	void writeMethodInfo(ref ABCFile.MethodInfo v)
 	{
-		writeU30(v.params.length);
+		writeU30(v.paramTypes.length);
 		writeU30(v.returnType);
-		foreach (value; v.params)
+		foreach (value; v.paramTypes)
 			writeU30(value);
 		writeU30(v.name);
 		writeU8(v.flags);
@@ -900,7 +901,7 @@ final:
 		}
 		if (v.flags & MethodFlags.HAS_PARAM_NAMES)
 		{
-			assert(v.paramNames.length == v.params.length);
+			assert(v.paramNames.length == v.paramTypes.length);
 			foreach (value; v.paramNames)
 				writeU30(value);
 		}
