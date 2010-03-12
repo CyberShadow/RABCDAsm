@@ -18,6 +18,8 @@
 
 module abcfile;
 
+import std.string; // exception formatting
+
 /** 
  * Implements a shallow representation of an .abc file. 
  * Loading and saving an .abc file using this class should produce 
@@ -188,9 +190,24 @@ class ABCFile
 		uint localCount;
 		uint initScopeDepth;
 		uint maxScopeDepth;
-		ubyte[] code;
+		Instruction[] instructions;
 		ExceptionInfo[] exceptions;
 		TraitsInfo[] traits;
+	}
+
+	struct Instruction
+	{
+		Opcode opcode;
+		union Argument
+		{
+			ubyte ubytev;
+			ulong uintv;
+			uint index;
+			
+			uint jumpTarget;
+			uint[] switchTargets;
+		}
+		Argument[] arguments;
 	}
 
 	struct ExceptionInfo
@@ -213,39 +230,39 @@ class ABCFile
 
 enum ASType : ubyte
 {
-    Void = 0x00,  // not actually interned
-    Undefined = Void,
-    Utf8 = 0x01,
-    Decimal = 0x02,
-    Integer = 0x03,
-    UInteger = 0x04,
-    PrivateNamespace = 0x05,
-    Double = 0x06,
-    QName = 0x07,  // ns::name, const ns, const name
-    Namespace = 0x08,
-    Multiname = 0x09,    //[ns...]::name, const [ns...], const name
-    False = 0x0A,
-    True = 0x0B,
-    Null = 0x0C,
-    QNameA = 0x0D,    // @ns::name, const ns, const name
-    MultinameA = 0x0E,// @[ns...]::name, const [ns...], const name
-    RTQName = 0x0F,    // ns::name, var ns, const name
-    RTQNameA = 0x10,    // @ns::name, var ns, const name
-    RTQNameL = 0x11,    // ns::[name], var ns, var name
-    RTQNameLA = 0x12, // @ns::[name], var ns, var name
-    Namespace_Set = 0x15, // a set of namespaces - used by multiname
-    PackageNamespace = 0x16, // a namespace that was derived from a package
-    PackageInternalNs = 0x17, // a namespace that had no uri
-    ProtectedNamespace = 0x18,
-    ExplicitNamespace = 0x19,
-    StaticProtectedNs = 0x1A,
-    MultinameL = 0x1B,
-    MultinameLA = 0x1C,
-    TypeName = 0x1D,
+	Void = 0x00,  // not actually interned
+	Undefined = Void,
+	Utf8 = 0x01,
+	Decimal = 0x02,
+	Integer = 0x03,
+	UInteger = 0x04,
+	PrivateNamespace = 0x05,
+	Double = 0x06,
+	QName = 0x07,  // ns::name, const ns, const name
+	Namespace = 0x08,
+	Multiname = 0x09,    //[ns...]::name, const [ns...], const name
+	False = 0x0A,
+	True = 0x0B,
+	Null = 0x0C,
+	QNameA = 0x0D,    // @ns::name, const ns, const name
+	MultinameA = 0x0E,// @[ns...]::name, const [ns...], const name
+	RTQName = 0x0F,    // ns::name, var ns, const name
+	RTQNameA = 0x10,    // @ns::name, var ns, const name
+	RTQNameL = 0x11,    // ns::[name], var ns, var name
+	RTQNameLA = 0x12, // @ns::[name], var ns, var name
+	Namespace_Set = 0x15, // a set of namespaces - used by multiname
+	PackageNamespace = 0x16, // a namespace that was derived from a package
+	PackageInternalNs = 0x17, // a namespace that had no uri
+	ProtectedNamespace = 0x18,
+	ExplicitNamespace = 0x19,
+	StaticProtectedNs = 0x1A,
+	MultinameL = 0x1B,
+	MultinameLA = 0x1C,
+	TypeName = 0x1D,
 }
 
 /* These enumerations are as they are documented in the AVM bytecode specification.
-   They are actually a single enumeration (see above), but in some contexts only cert
+   They are actually a single enumeration (see above), but in some contexts only certain values are valid.
 
 enum NamespaceKind : ubyte
 {
@@ -328,7 +345,486 @@ enum TraitAttributes : ubyte
 	Metadata = 4
 }
 
-class ABCReader
+enum Opcode : ubyte
+{
+	OP_bkpt = 0x01,
+	OP_nop = 0x02,
+	OP_throw = 0x03,
+	OP_getsuper = 0x04,
+	OP_setsuper = 0x05,
+	OP_dxns = 0x06,
+	OP_dxnslate = 0x07,
+	OP_kill = 0x08,
+	OP_label = 0x09,
+	OP_ifnlt = 0x0C,
+	OP_ifnle = 0x0D,
+	OP_ifngt = 0x0E,
+	OP_ifnge = 0x0F,
+	OP_jump = 0x10,
+	OP_iftrue = 0x11,
+	OP_iffalse = 0x12,
+	OP_ifeq = 0x13,
+	OP_ifne = 0x14,
+	OP_iflt = 0x15,
+	OP_ifle = 0x16,
+	OP_ifgt = 0x17,
+	OP_ifge = 0x18,
+	OP_ifstricteq = 0x19,
+	OP_ifstrictne = 0x1A,
+	OP_lookupswitch = 0x1B,
+	OP_pushwith = 0x1C,
+	OP_popscope = 0x1D,
+	OP_nextname = 0x1E,
+	OP_hasnext = 0x1F,
+	OP_pushnull = 0x20,
+	OP_pushundefined = 0x21,
+	OP_pushuninitialized = 0x22,
+	OP_nextvalue = 0x23,
+	OP_pushbyte = 0x24,
+	OP_pushshort = 0x25,
+	OP_pushtrue = 0x26,
+	OP_pushfalse = 0x27,
+	OP_pushnan = 0x28,
+	OP_pop = 0x29,
+	OP_dup = 0x2A,
+	OP_swap = 0x2B,
+	OP_pushstring = 0x2C,
+	OP_pushint = 0x2D,
+	OP_pushuint = 0x2E,
+	OP_pushdouble = 0x2F,
+	OP_pushscope = 0x30,
+	OP_pushnamespace = 0x31,
+	OP_hasnext2 = 0x32,
+	OP_pushdecimal = 0x33,
+	OP_pushdnan = 0x34,
+	OP_li8 = 0x35,
+	OP_li16 = 0x36,
+	OP_li32 = 0x37,
+	OP_lf32 = 0x38,
+	OP_lf64 = 0x39,
+	OP_si8 = 0x3A,
+	OP_si16 = 0x3B,
+	OP_si32 = 0x3C,
+	OP_sf32 = 0x3D,
+	OP_sf64 = 0x3E,
+	OP_newfunction = 0x40,
+	OP_call = 0x41,
+	OP_construct = 0x42,
+	OP_callmethod = 0x43,
+	OP_callstatic = 0x44,
+	OP_callsuper = 0x45,
+	OP_callproperty = 0x46,
+	OP_returnvoid = 0x47,
+	OP_returnvalue = 0x48,
+	OP_constructsuper = 0x49,
+	OP_constructprop = 0x4A,
+	OP_callsuperid = 0x4B,
+	OP_callproplex = 0x4C,
+	OP_callinterface = 0x4D,
+	OP_callsupervoid = 0x4E,
+	OP_callpropvoid = 0x4F,
+	OP_sxi1 = 0x50,
+	OP_sxi8 = 0x51,
+	OP_sxi16 = 0x52,
+	OP_applytype = 0x53,
+	OP_newobject = 0x55,
+	OP_newarray = 0x56,
+	OP_newactivation = 0x57,
+	OP_newclass = 0x58,
+	OP_getdescendants = 0x59,
+	OP_newcatch = 0x5A,
+	OP_deldescendants = 0x5B,
+	OP_findpropstrict = 0x5D,
+	OP_findproperty = 0x5E,
+	OP_finddef = 0x5F,
+	OP_getlex = 0x60,
+	OP_setproperty = 0x61,
+	OP_getlocal = 0x62,
+	OP_setlocal = 0x63,
+	OP_getglobalscope = 0x64,
+	OP_getscopeobject = 0x65,
+	OP_getproperty = 0x66,
+	OP_getpropertylate = 0x67,
+	OP_initproperty = 0x68,
+	OP_setpropertylate = 0x69,
+	OP_deleteproperty = 0x6A,
+	OP_deletepropertylate = 0x6B,
+	OP_getslot = 0x6C,
+	OP_setslot = 0x6D,
+	OP_getglobalslot = 0x6E,
+	OP_setglobalslot = 0x6F,
+	OP_convert_s = 0x70,
+	OP_esc_xelem = 0x71,
+	OP_esc_xattr = 0x72,
+	OP_convert_i = 0x73,
+	OP_convert_u = 0x74,
+	OP_convert_d = 0x75,
+	OP_convert_b = 0x76,
+	OP_convert_o = 0x77,
+	OP_checkfilter = 0x78,
+	OP_convert_m = 0x79,
+	OP_convert_m_p = 0x7A,
+	OP_coerce = 0x80,
+	OP_coerce_b = 0x81,
+	OP_coerce_a = 0x82,
+	OP_coerce_i = 0x83,
+	OP_coerce_d = 0x84,
+	OP_coerce_s = 0x85,
+	OP_astype = 0x86,
+	OP_astypelate = 0x87,
+	OP_coerce_u = 0x88,
+	OP_coerce_o = 0x89,
+	OP_negate_p = 0x8F,
+	OP_negate = 0x90,
+	OP_increment = 0x91,
+	OP_inclocal = 0x92,
+	OP_decrement = 0x93,
+	OP_declocal = 0x94,
+	OP_typeof = 0x95,
+	OP_not = 0x96,
+	OP_bitnot = 0x97,
+	OP_concat = 0x9A,
+	OP_add_d = 0x9B,
+	OP_increment_p = 0x9C,
+	OP_inclocal_p = 0x9D,
+	OP_decrement_p = 0x9E,
+	OP_declocal_p = 0x9F,
+	OP_add = 0xA0,
+	OP_subtract = 0xA1,
+	OP_multiply = 0xA2,
+	OP_divide = 0xA3,
+	OP_modulo = 0xA4,
+	OP_lshift = 0xA5,
+	OP_rshift = 0xA6,
+	OP_urshift = 0xA7,
+	OP_bitand = 0xA8,
+	OP_bitor = 0xA9,
+	OP_bitxor = 0xAA,
+	OP_equals = 0xAB,
+	OP_strictequals = 0xAC,
+	OP_lessthan = 0xAD,
+	OP_lessequals = 0xAE,
+	OP_greaterthan = 0xAF,
+	OP_greaterequals = 0xB0,
+	OP_instanceof = 0xB1,
+	OP_istype = 0xB2,
+	OP_istypelate = 0xB3,
+	OP_in = 0xB4,
+	OP_add_p = 0xB5,
+	OP_subtract_p = 0xB6,
+	OP_multiply_p = 0xB7,
+	OP_divide_p = 0xB8,
+	OP_modulo_p = 0xB9,
+	OP_increment_i = 0xC0,
+	OP_decrement_i = 0xC1,
+	OP_inclocal_i = 0xC2,
+	OP_declocal_i = 0xC3,
+	OP_negate_i = 0xC4,
+	OP_add_i = 0xC5,
+	OP_subtract_i = 0xC6,
+	OP_multiply_i = 0xC7,
+	OP_getlocal0 = 0xD0,
+	OP_getlocal1 = 0xD1,
+	OP_getlocal2 = 0xD2,
+	OP_getlocal3 = 0xD3,
+	OP_setlocal0 = 0xD4,
+	OP_setlocal1 = 0xD5,
+	OP_setlocal2 = 0xD6,
+	OP_setlocal3 = 0xD7,
+	OP_debug = 0xEF,
+	OP_debugline = 0xF0,
+	OP_debugfile = 0xF1,
+	OP_bkptline = 0xF2,
+	OP_timestamp = 0xF3,
+}
+
+enum OpcodeArgumentType
+{
+	Unknown,
+
+	UByteLiteral,
+	UIntLiteral,
+
+	Int,
+	UInt,
+	Double,
+	String,
+	Namespace,
+	Multiname,
+	Class,
+	Method,
+
+	JumpTarget,
+	SwitchDefaultTarget,
+	SwitchTargets,
+}
+
+struct OpcodeInfo
+{
+	string name;
+	OpcodeArgumentType[] argumentTypes;
+}
+
+const OpcodeInfo[256] opcodeInfo = [
+	/* 0x00 */		{"0x00",				[OpcodeArgumentType.Unknown]},
+	/* 0x01 */		{"bkpt",				[OpcodeArgumentType.Unknown]},
+	/* 0x02 */		{"nop",					[]},
+	/* 0x03 */		{"throw",				[]},
+	/* 0x04 */		{"getsuper",			[OpcodeArgumentType.Multiname]},
+	/* 0x05 */		{"setsuper",			[OpcodeArgumentType.Multiname]},
+	/* 0x06 */		{"dxns",				[OpcodeArgumentType.String]},
+	/* 0x07 */		{"dxnslate",			[]},
+	/* 0x08 */		{"kill",				[OpcodeArgumentType.UIntLiteral]},
+	/* 0x09 */		{"label",				[]},
+	/* 0x0A */		{"0x0A",				[OpcodeArgumentType.Unknown]},
+	/* 0x0B */		{"0x0B",				[OpcodeArgumentType.Unknown]},
+	/* 0x0C */		{"ifnlt",				[OpcodeArgumentType.JumpTarget]},
+	/* 0x0D */		{"ifnle",				[OpcodeArgumentType.JumpTarget]},
+	/* 0x0E */		{"ifngt",				[OpcodeArgumentType.JumpTarget]},
+	/* 0x0F */		{"ifnge",				[OpcodeArgumentType.JumpTarget]},
+	/* 0x10 */		{"jump",				[OpcodeArgumentType.JumpTarget]},
+	/* 0x11 */		{"iftrue",				[OpcodeArgumentType.JumpTarget]},
+	/* 0x12 */		{"iffalse",				[OpcodeArgumentType.JumpTarget]},
+	/* 0x13 */		{"ifeq",				[OpcodeArgumentType.JumpTarget]},
+	/* 0x14 */		{"ifne",				[OpcodeArgumentType.JumpTarget]},
+	/* 0x15 */		{"iflt",				[OpcodeArgumentType.JumpTarget]},
+	/* 0x16 */		{"ifle",				[OpcodeArgumentType.JumpTarget]},
+	/* 0x17 */		{"ifgt",				[OpcodeArgumentType.JumpTarget]},
+	/* 0x18 */		{"ifge",				[OpcodeArgumentType.JumpTarget]},
+	/* 0x19 */		{"ifstricteq",			[OpcodeArgumentType.JumpTarget]},
+	/* 0x1A */		{"ifstrictne",			[OpcodeArgumentType.JumpTarget]},
+	/* 0x1B */		{"lookupswitch",		[OpcodeArgumentType.SwitchDefaultTarget, OpcodeArgumentType.SwitchTargets]},
+	/* 0x1C */		{"pushwith",			[]},
+	/* 0x1D */		{"popscope",			[]},
+	/* 0x1E */		{"nextname",			[]},
+	/* 0x1F */		{"hasnext",				[]},
+	/* 0x20 */		{"pushnull",			[]},
+	/* 0x21 */		{"pushundefined",		[]},
+	/* 0x22 */		{"pushuninitialized",	[OpcodeArgumentType.Unknown]},
+	/* 0x23 */		{"nextvalue",			[]},
+	/* 0x24 */		{"pushbyte",			[OpcodeArgumentType.UByteLiteral]},
+	/* 0x25 */		{"pushshort",			[OpcodeArgumentType.UIntLiteral]},
+	/* 0x26 */		{"pushtrue",			[]},
+	/* 0x27 */		{"pushfalse",			[]},
+	/* 0x28 */		{"pushnan",				[]},
+	/* 0x29 */		{"pop",					[]},
+	/* 0x2A */		{"dup",					[]},
+	/* 0x2B */		{"swap",				[]},
+	/* 0x2C */		{"pushstring",			[OpcodeArgumentType.String]},
+	/* 0x2D */		{"pushint",				[OpcodeArgumentType.Int]},
+	/* 0x2E */		{"pushuint",			[OpcodeArgumentType.UInt]},
+	/* 0x2F */		{"pushdouble",			[OpcodeArgumentType.Double]},
+	/* 0x30 */		{"pushscope",			[]},
+	/* 0x31 */		{"pushnamespace",		[OpcodeArgumentType.Namespace]},
+	/* 0x32 */		{"hasnext2",			[OpcodeArgumentType.UIntLiteral, OpcodeArgumentType.UIntLiteral]},
+	/* 0x33 */		{"pushdecimal",			[OpcodeArgumentType.Unknown]},
+	/* 0x34 */		{"pushdnan",			[OpcodeArgumentType.Unknown]},
+	/* 0x35 */		{"li8",					[OpcodeArgumentType.Unknown]},
+	/* 0x36 */		{"li16",				[OpcodeArgumentType.Unknown]},
+	/* 0x37 */		{"li32",				[OpcodeArgumentType.Unknown]},
+	/* 0x38 */		{"lf32",				[OpcodeArgumentType.Unknown]},
+	/* 0x39 */		{"lf64",				[OpcodeArgumentType.Unknown]},
+	/* 0x3A */		{"si8",					[OpcodeArgumentType.Unknown]},
+	/* 0x3B */		{"si16",				[OpcodeArgumentType.Unknown]},
+	/* 0x3C */		{"si32",				[OpcodeArgumentType.Unknown]},
+	/* 0x3D */		{"sf32",				[OpcodeArgumentType.Unknown]},
+	/* 0x3E */		{"sf64",				[OpcodeArgumentType.Unknown]},
+	/* 0x3F */		{"0x3F",				[OpcodeArgumentType.Unknown]},
+	/* 0x40 */		{"newfunction",			[OpcodeArgumentType.Method]},
+	/* 0x41 */		{"call",				[OpcodeArgumentType.UIntLiteral]},
+	/* 0x42 */		{"construct",			[OpcodeArgumentType.UIntLiteral]},
+	/* 0x43 */		{"callmethod",			[OpcodeArgumentType.UIntLiteral, OpcodeArgumentType.UIntLiteral]},
+	/* 0x44 */		{"callstatic",			[OpcodeArgumentType.Method, OpcodeArgumentType.UIntLiteral]},
+	/* 0x45 */		{"callsuper",			[OpcodeArgumentType.Multiname, OpcodeArgumentType.UIntLiteral]},
+	/* 0x46 */		{"callproperty",		[OpcodeArgumentType.Multiname, OpcodeArgumentType.UIntLiteral]},
+	/* 0x47 */		{"returnvoid",			[]},
+	/* 0x48 */		{"returnvalue",			[]},
+	/* 0x49 */		{"constructsuper",		[OpcodeArgumentType.UIntLiteral]},
+	/* 0x4A */		{"constructprop",		[OpcodeArgumentType.Multiname, OpcodeArgumentType.UIntLiteral]},
+	/* 0x4B */		{"callsuperid",			[OpcodeArgumentType.Unknown]},
+	/* 0x4C */		{"callproplex",			[OpcodeArgumentType.Multiname, OpcodeArgumentType.UIntLiteral]},
+	/* 0x4D */		{"callinterface",		[OpcodeArgumentType.Unknown]},
+	/* 0x4E */		{"callsupervoid",		[OpcodeArgumentType.Multiname, OpcodeArgumentType.UIntLiteral]},
+	/* 0x4F */		{"callpropvoid",		[OpcodeArgumentType.Multiname, OpcodeArgumentType.UIntLiteral]},
+	/* 0x50 */		{"sxi1",				[OpcodeArgumentType.Unknown]},
+	/* 0x51 */		{"sxi8",				[OpcodeArgumentType.Unknown]},
+	/* 0x52 */		{"sxi16",				[OpcodeArgumentType.Unknown]},
+	/* 0x53 */		{"applytype",			[OpcodeArgumentType.UIntLiteral]},
+	/* 0x54 */		{"0x54",				[OpcodeArgumentType.Unknown]},
+	/* 0x55 */		{"newobject",			[OpcodeArgumentType.UIntLiteral]},
+	/* 0x56 */		{"newarray",			[OpcodeArgumentType.UIntLiteral]},
+	/* 0x57 */		{"newactivation",		[]},
+	/* 0x58 */		{"newclass",			[OpcodeArgumentType.Class]},
+	/* 0x59 */		{"getdescendants",		[OpcodeArgumentType.Multiname]},
+	/* 0x5A */		{"newcatch",			[OpcodeArgumentType.UIntLiteral]}, // ExceptionInfo index
+	/* 0x5B */		{"deldescendants",		[OpcodeArgumentType.Unknown]},
+	/* 0x5C */		{"0x5C",				[OpcodeArgumentType.Unknown]},
+	/* 0x5D */		{"findpropstrict",		[OpcodeArgumentType.Multiname]},
+	/* 0x5E */		{"findproperty",		[OpcodeArgumentType.Multiname]},
+	/* 0x5F */		{"finddef",				[OpcodeArgumentType.Unknown]},
+	/* 0x60 */		{"getlex",				[OpcodeArgumentType.Multiname]},
+	/* 0x61 */		{"setproperty",			[OpcodeArgumentType.Multiname]},
+	/* 0x62 */		{"getlocal",			[OpcodeArgumentType.UIntLiteral]},
+	/* 0x63 */		{"setlocal",			[OpcodeArgumentType.UIntLiteral]},
+	/* 0x64 */		{"getglobalscope",		[]},
+	/* 0x65 */		{"getscopeobject",		[OpcodeArgumentType.UByteLiteral]},
+	/* 0x66 */		{"getproperty",			[OpcodeArgumentType.Multiname]},
+	/* 0x67 */		{"getpropertylate",		[OpcodeArgumentType.Unknown]},
+	/* 0x68 */		{"initproperty",		[OpcodeArgumentType.Multiname]},
+	/* 0x69 */		{"setpropertylate",		[OpcodeArgumentType.Unknown]},
+	/* 0x6A */		{"deleteproperty",		[OpcodeArgumentType.Multiname]},
+	/* 0x6B */		{"deletepropertylate",	[OpcodeArgumentType.Unknown]},
+	/* 0x6C */		{"getslot",				[OpcodeArgumentType.UIntLiteral]},
+	/* 0x6D */		{"setslot",				[OpcodeArgumentType.UIntLiteral]},
+	/* 0x6E */		{"getglobalslot",		[OpcodeArgumentType.UIntLiteral]},
+	/* 0x6F */		{"setglobalslot",		[OpcodeArgumentType.UIntLiteral]},
+	/* 0x70 */		{"convert_s",			[]},
+	/* 0x71 */		{"esc_xelem",			[]},
+	/* 0x72 */		{"esc_xattr",			[]},
+	/* 0x73 */		{"convert_i",			[]},
+	/* 0x74 */		{"convert_u",			[]},
+	/* 0x75 */		{"convert_d",			[]},
+	/* 0x76 */		{"convert_b",			[]},
+	/* 0x77 */		{"convert_o",			[]},
+	/* 0x78 */		{"checkfilter",			[]},
+	/* 0x79 */		{"convert_m",			[OpcodeArgumentType.Unknown]},
+	/* 0x7A */		{"convert_m_p",			[OpcodeArgumentType.Unknown]},
+	/* 0x7B */		{"0x7B",				[OpcodeArgumentType.Unknown]},
+	/* 0x7C */		{"0x7C",				[OpcodeArgumentType.Unknown]},
+	/* 0x7D */		{"0x7D",				[OpcodeArgumentType.Unknown]},
+	/* 0x7E */		{"0x7E",				[OpcodeArgumentType.Unknown]},
+	/* 0x7F */		{"0x7F",				[OpcodeArgumentType.Unknown]},
+	/* 0x80 */		{"coerce",				[OpcodeArgumentType.Multiname]},
+	/* 0x81 */		{"coerce_b",			[OpcodeArgumentType.Unknown]},
+	/* 0x82 */		{"coerce_a",			[]},
+	/* 0x83 */		{"coerce_i",			[OpcodeArgumentType.Unknown]},
+	/* 0x84 */		{"coerce_d",			[OpcodeArgumentType.Unknown]},
+	/* 0x85 */		{"coerce_s",			[]},
+	/* 0x86 */		{"astype",				[OpcodeArgumentType.Multiname]},
+	/* 0x87 */		{"astypelate",			[]},
+	/* 0x88 */		{"coerce_u",			[OpcodeArgumentType.Unknown]},
+	/* 0x89 */		{"coerce_o",			[OpcodeArgumentType.Unknown]},
+	/* 0x8A */		{"0x8A",				[OpcodeArgumentType.Unknown]},
+	/* 0x8B */		{"0x8B",				[OpcodeArgumentType.Unknown]},
+	/* 0x8C */		{"0x8C",				[OpcodeArgumentType.Unknown]},
+	/* 0x8D */		{"0x8D",				[OpcodeArgumentType.Unknown]},
+	/* 0x8E */		{"0x8E",				[OpcodeArgumentType.Unknown]},
+	/* 0x8F */		{"negate_p",			[OpcodeArgumentType.Unknown]},
+	/* 0x90 */		{"negate",				[]},
+	/* 0x91 */		{"increment",			[]},
+	/* 0x92 */		{"inclocal",			[OpcodeArgumentType.UIntLiteral]},
+	/* 0x93 */		{"decrement",			[]},
+	/* 0x94 */		{"declocal",			[OpcodeArgumentType.UIntLiteral]},
+	/* 0x95 */		{"typeof",				[]},
+	/* 0x96 */		{"not",					[]},
+	/* 0x97 */		{"bitnot",				[]},
+	/* 0x98 */		{"0x98",				[OpcodeArgumentType.Unknown]},
+	/* 0x99 */		{"0x99",				[OpcodeArgumentType.Unknown]},
+	/* 0x9A */		{"concat",				[OpcodeArgumentType.Unknown]},
+	/* 0x9B */		{"add_d",				[OpcodeArgumentType.Unknown]},
+	/* 0x9C */		{"increment_p",			[OpcodeArgumentType.Unknown]},
+	/* 0x9D */		{"inclocal_p",			[OpcodeArgumentType.Unknown]},
+	/* 0x9E */		{"decrement_p",			[OpcodeArgumentType.Unknown]},
+	/* 0x9F */		{"declocal_p",			[OpcodeArgumentType.Unknown]},
+	/* 0xA0 */		{"add",					[]},
+	/* 0xA1 */		{"subtract",			[]},
+	/* 0xA2 */		{"multiply",			[]},
+	/* 0xA3 */		{"divide",				[]},
+	/* 0xA4 */		{"modulo",				[]},
+	/* 0xA5 */		{"lshift",				[]},
+	/* 0xA6 */		{"rshift",				[]},
+	/* 0xA7 */		{"urshift",				[]},
+	/* 0xA8 */		{"bitand",				[]},
+	/* 0xA9 */		{"bitor",				[]},
+	/* 0xAA */		{"bitxor",				[]},
+	/* 0xAB */		{"equals",				[]},
+	/* 0xAC */		{"strictequals",		[]},
+	/* 0xAD */		{"lessthan",			[]},
+	/* 0xAE */		{"lessequals",			[]},
+	/* 0xAF */		{"greaterthan",			[]},
+	/* 0xB0 */		{"greaterequals",		[]},
+	/* 0xB1 */		{"instanceof",			[]},
+	/* 0xB2 */		{"istype",				[OpcodeArgumentType.Multiname]},
+	/* 0xB3 */		{"istypelate",			[]},
+	/* 0xB4 */		{"in",					[]},
+	/* 0xB5 */		{"add_p",				[OpcodeArgumentType.Unknown]},
+	/* 0xB6 */		{"subtract_p",			[OpcodeArgumentType.Unknown]},
+	/* 0xB7 */		{"multiply_p",			[OpcodeArgumentType.Unknown]},
+	/* 0xB8 */		{"divide_p",			[OpcodeArgumentType.Unknown]},
+	/* 0xB9 */		{"modulo_p",			[OpcodeArgumentType.Unknown]},
+	/* 0xBA */		{"0xBA",				[OpcodeArgumentType.Unknown]},
+	/* 0xBB */		{"0xBB",				[OpcodeArgumentType.Unknown]},
+	/* 0xBC */		{"0xBC",				[OpcodeArgumentType.Unknown]},
+	/* 0xBD */		{"0xBD",				[OpcodeArgumentType.Unknown]},
+	/* 0xBE */		{"0xBE",				[OpcodeArgumentType.Unknown]},
+	/* 0xBF */		{"0xBF",				[OpcodeArgumentType.Unknown]},
+	/* 0xC0 */		{"increment_i",			[]},
+	/* 0xC1 */		{"decrement_i",			[]},
+	/* 0xC2 */		{"inclocal_i",			[OpcodeArgumentType.UIntLiteral]},
+	/* 0xC3 */		{"declocal_i",			[OpcodeArgumentType.UIntLiteral]},
+	/* 0xC4 */		{"negate_i",			[]},
+	/* 0xC5 */		{"add_i",				[]},
+	/* 0xC6 */		{"subtract_i",			[]},
+	/* 0xC7 */		{"multiply_i",			[]},
+	/* 0xC8 */		{"0xC8",				[OpcodeArgumentType.Unknown]},
+	/* 0xC9 */		{"0xC9",				[OpcodeArgumentType.Unknown]},
+	/* 0xCA */		{"0xCA",				[OpcodeArgumentType.Unknown]},
+	/* 0xCB */		{"0xCB",				[OpcodeArgumentType.Unknown]},
+	/* 0xCC */		{"0xCC",				[OpcodeArgumentType.Unknown]},
+	/* 0xCD */		{"0xCD",				[OpcodeArgumentType.Unknown]},
+	/* 0xCE */		{"0xCE",				[OpcodeArgumentType.Unknown]},
+	/* 0xCF */		{"0xCF",				[OpcodeArgumentType.Unknown]},
+	/* 0xD0 */		{"getlocal0",			[]},
+	/* 0xD1 */		{"getlocal1",			[]},
+	/* 0xD2 */		{"getlocal2",			[]},
+	/* 0xD3 */		{"getlocal3",			[]},
+	/* 0xD4 */		{"setlocal0",			[]},
+	/* 0xD5 */		{"setlocal1",			[]},
+	/* 0xD6 */		{"setlocal2",			[]},
+	/* 0xD7 */		{"setlocal3",			[]},
+	/* 0xD8 */		{"0xD8",				[OpcodeArgumentType.Unknown]},
+	/* 0xD9 */		{"0xD9",				[OpcodeArgumentType.Unknown]},
+	/* 0xDA */		{"0xDA",				[OpcodeArgumentType.Unknown]},
+	/* 0xDB */		{"0xDB",				[OpcodeArgumentType.Unknown]},
+	/* 0xDC */		{"0xDC",				[OpcodeArgumentType.Unknown]},
+	/* 0xDD */		{"0xDD",				[OpcodeArgumentType.Unknown]},
+	/* 0xDE */		{"0xDE",				[OpcodeArgumentType.Unknown]},
+	/* 0xDF */		{"0xDF",				[OpcodeArgumentType.Unknown]},
+	/* 0xE0 */		{"0xE0",				[OpcodeArgumentType.Unknown]},
+	/* 0xE1 */		{"0xE1",				[OpcodeArgumentType.Unknown]},
+	/* 0xE2 */		{"0xE2",				[OpcodeArgumentType.Unknown]},
+	/* 0xE3 */		{"0xE3",				[OpcodeArgumentType.Unknown]},
+	/* 0xE4 */		{"0xE4",				[OpcodeArgumentType.Unknown]},
+	/* 0xE5 */		{"0xE5",				[OpcodeArgumentType.Unknown]},
+	/* 0xE6 */		{"0xE6",				[OpcodeArgumentType.Unknown]},
+	/* 0xE7 */		{"0xE7",				[OpcodeArgumentType.Unknown]},
+	/* 0xE8 */		{"0xE8",				[OpcodeArgumentType.Unknown]},
+	/* 0xE9 */		{"0xE9",				[OpcodeArgumentType.Unknown]},
+	/* 0xEA */		{"0xEA",				[OpcodeArgumentType.Unknown]},
+	/* 0xEB */		{"0xEB",				[OpcodeArgumentType.Unknown]},
+	/* 0xEC */		{"0xEC",				[OpcodeArgumentType.Unknown]},
+	/* 0xED */		{"0xED",				[OpcodeArgumentType.Unknown]},
+	/* 0xEE */		{"0xEE",				[OpcodeArgumentType.Unknown]},
+	/* 0xEF */		{"debug",				[OpcodeArgumentType.UByteLiteral, OpcodeArgumentType.String, OpcodeArgumentType.UByteLiteral, OpcodeArgumentType.UIntLiteral]},
+	/* 0xF0 */		{"debugline",			[OpcodeArgumentType.UIntLiteral]},
+	/* 0xF1 */		{"debugfile",			[OpcodeArgumentType.String]},
+	/* 0xF2 */		{"bkptline",			[OpcodeArgumentType.Unknown]},
+	/* 0xF3 */		{"timestamp",			[OpcodeArgumentType.Unknown]},
+	/* 0xF4 */		{"0xF4",				[OpcodeArgumentType.Unknown]},
+	/* 0xF5 */		{"0xF5",				[OpcodeArgumentType.Unknown]},
+	/* 0xF6 */		{"0xF6",				[OpcodeArgumentType.Unknown]},
+	/* 0xF7 */		{"0xF7",				[OpcodeArgumentType.Unknown]},
+	/* 0xF8 */		{"0xF8",				[OpcodeArgumentType.Unknown]},
+	/* 0xF9 */		{"0xF9",				[OpcodeArgumentType.Unknown]},
+	/* 0xFA */		{"0xFA",				[OpcodeArgumentType.Unknown]},
+	/* 0xFB */		{"0xFB",				[OpcodeArgumentType.Unknown]},
+	/* 0xFC */		{"0xFC",				[OpcodeArgumentType.Unknown]},
+	/* 0xFD */		{"0xFD",				[OpcodeArgumentType.Unknown]},
+	/* 0xFE */		{"0xFE",				[OpcodeArgumentType.Unknown]},
+	/* 0xFF */		{"0xFF",				[OpcodeArgumentType.Unknown]},
+];
+
+private class ABCReader
 {
 	ubyte[] buf;
 	size_t pos;
@@ -336,65 +832,70 @@ class ABCReader
 
 	this(ubyte[] buf)
 	{
-		this.buf = buf;
-		abc = new ABCFile();
+		try
+		{
+			this.buf = buf;
+			abc = new ABCFile();
 
-		abc.minorVersion = readU16();
-		abc.majorVersion = readU16();
+			abc.minorVersion = readU16();
+			abc.majorVersion = readU16();
 
-		static uint atLeastOne(uint n) { return n ? n : 1; }
+			static uint atLeastOne(uint n) { return n ? n : 1; }
 
-		abc.ints.length = atLeastOne(readU30());
-		foreach (ref value; abc.ints[1..$])
-			value = readS32();
+			abc.ints.length = atLeastOne(readU30());
+			foreach (ref value; abc.ints[1..$])
+				value = readS32();
 
-		abc.uints.length = atLeastOne(readU30());
-		foreach (ref value; abc.uints[1..$])
-			value = readU32();
+			abc.uints.length = atLeastOne(readU30());
+			foreach (ref value; abc.uints[1..$])
+				value = readU32();
 		
-		abc.doubles.length = atLeastOne(readU30());
-		foreach (ref value; abc.doubles[1..$])
-			value = readD64();
+			abc.doubles.length = atLeastOne(readU30());
+			foreach (ref value; abc.doubles[1..$])
+				value = readD64();
 		
-		abc.strings.length = atLeastOne(readU30());
-		foreach (ref value; abc.strings[1..$])
-			value = readString();
+			abc.strings.length = atLeastOne(readU30());
+			foreach (ref value; abc.strings[1..$])
+				value = readString();
 		
-		abc.namespaces.length = atLeastOne(readU30());
-		foreach (ref value; abc.namespaces[1..$])
-			value = readNamespace();
+			abc.namespaces.length = atLeastOne(readU30());
+			foreach (ref value; abc.namespaces[1..$])
+				value = readNamespace();
 		
-		abc.namespaceSets.length = atLeastOne(readU30());
-		foreach (ref value; abc.namespaceSets[1..$])
-			value = readNamespaceSet();
+			abc.namespaceSets.length = atLeastOne(readU30());
+			foreach (ref value; abc.namespaceSets[1..$])
+				value = readNamespaceSet();
 
-		abc.multinames.length = atLeastOne(readU30());
-		foreach (ref value; abc.multinames[1..$])
-			value = readMultiname();
+			abc.multinames.length = atLeastOne(readU30());
+			foreach (ref value; abc.multinames[1..$])
+				value = readMultiname();
 
-		abc.methods.length = readU30();
-		foreach (ref value; abc.methods)
-			value = readMethodInfo();
+			abc.methods.length = readU30();
+			foreach (ref value; abc.methods)
+				value = readMethodInfo();
 
-		abc.metadata.length = readU30();
-		foreach (ref value; abc.metadata)
-			value = readMetadata();
+			abc.metadata.length = readU30();
+			foreach (ref value; abc.metadata)
+				value = readMetadata();
 
-		abc.instances.length = readU30();
-		foreach (ref value; abc.instances)
-			value = readInstance();
+			abc.instances.length = readU30();
+			foreach (ref value; abc.instances)
+				value = readInstance();
 
-		abc.classes.length = abc.instances.length;
-		foreach (ref value; abc.classes)
-			value = readClass();
+			abc.classes.length = abc.instances.length;
+			foreach (ref value; abc.classes)
+				value = readClass();
 
-		abc.scripts.length = readU30();
-		foreach (ref value; abc.scripts)
-			value = readScript();
+			abc.scripts.length = readU30();
+			foreach (ref value; abc.scripts)
+				value = readScript();
 
-		abc.bodies.length = readU30();
-		foreach (ref value; abc.bodies)
-			value = readMethodBody();
+			abc.bodies.length = readU30();
+			foreach (ref value; abc.bodies)
+				value = readMethodBody();
+		}
+		catch (Object o)
+			throw new Exception(format("Error at %d (0x%X): %s", pos, pos, o));
 	}
 
 final:
@@ -409,22 +910,27 @@ final:
 		return readU8() | readU8() << 8;
 	}
 
+	int readS24()
+	{
+		return readU8() | readU8() << 8 | cast(int)(readU8() << 24) >> 8;
+	}
+
 	/// Note: may return values larger than 0xFFFFFFFF.
 	ulong readU32()
 	{
-	    ulong result = readU8();
-	    if (0==(result & 0x00000080))
-	        return result;
-	    result = result & 0x0000007f | readU8()<<7;
-	    if (0==(result & 0x00004000))
-	        return result;
-	    result = result & 0x00003fff | readU8()<<14;
-	    if (0==(result & 0x00200000))
-	        return result;
-	    result = result & 0x001fffff | readU8()<<21;
-	    if (0==(result & 0x10000000))
-	        return result;
-	    return   result & 0x0fffffff | readU8()<<28;
+		ulong result = readU8();
+		if (0==(result & 0x00000080))
+			return result;
+		result = result & 0x0000007f | readU8()<<7;
+		if (0==(result & 0x00004000))
+			return result;
+		result = result & 0x00003fff | readU8()<<14;
+		if (0==(result & 0x00200000))
+			return result;
+		result = result & 0x001fffff | readU8()<<21;
+		if (0==(result & 0x10000000))
+			return result;
+		return   result & 0x0fffffff | readU8()<<28;
 	}
 
 	long readS32()
@@ -659,7 +1165,7 @@ final:
 		r.localCount = readU30();
 		r.initScopeDepth = readU30();
 		r.maxScopeDepth = readU30();
-		r.code = readBytes();
+		r.instructions = readCode();
 		r.exceptions.length = readU30();
 		foreach (ref value; r.exceptions)
 			value = readExceptionInfo();
@@ -679,9 +1185,106 @@ final:
 		r.varName = readU30();
 		return r;
 	}
+
+	ABCFile.Instruction[] readCode()
+	{
+		size_t len = readU30();
+		size_t start = pos;
+		size_t end = pos + len;
+		
+		uint offset() { return pos - start; }
+		
+		ABCFile.Instruction[] instructions;
+		uint[] instructionAtOffset = new uint[len];
+		instructionAtOffset[] = uint.max;
+		while (pos < end)
+		{
+			uint instructionOffset = offset;
+			instructionAtOffset[instructionOffset] = instructions.length;
+			ABCFile.Instruction instruction;
+			instruction.opcode = cast(Opcode)readU8();
+			instruction.arguments.length = opcodeInfo[instruction.opcode].argumentTypes.length;
+			foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
+				switch (type)
+				{
+					case OpcodeArgumentType.Unknown:
+						throw new Exception("Don't know how to decode OP_" ~ opcodeInfo[instruction.opcode].name);
+
+					case OpcodeArgumentType.UByteLiteral:
+						instruction.arguments[i].ubytev = readU8();
+						break;
+					case OpcodeArgumentType.UIntLiteral:
+						instruction.arguments[i].uintv = readU32();
+						break;
+
+					case OpcodeArgumentType.Int:
+					case OpcodeArgumentType.UInt:
+					case OpcodeArgumentType.Double:
+					case OpcodeArgumentType.String:
+					case OpcodeArgumentType.Namespace:
+					case OpcodeArgumentType.Multiname:
+					case OpcodeArgumentType.Class:
+					case OpcodeArgumentType.Method:
+						instruction.arguments[i].index = readU30();
+						break;
+
+					case OpcodeArgumentType.JumpTarget:
+						int delta = readS24();
+						instruction.arguments[i].jumpTarget = offset + delta;
+						break;
+
+					case OpcodeArgumentType.SwitchDefaultTarget:
+						instruction.arguments[i].jumpTarget = instructionOffset + readS24();
+						break;
+
+					case OpcodeArgumentType.SwitchTargets:
+						instruction.arguments[i].switchTargets.length = readU30()+1;
+						foreach (ref off; instruction.arguments[i].switchTargets)
+							off = instructionOffset + readS24();
+						break;
+					
+					default:
+						assert(0);
+				}
+			instructions ~= instruction;
+		}
+
+		if (pos > end)
+			throw new Exception("Out-of-bounds code read error");
+
+		void offsetToIndex(ref uint x)
+		{
+			if (x >= len)
+				throw new Exception("Jump out of bounds");
+			x = instructionAtOffset[x];
+			if (x == uint.max)
+				throw new Exception("Jump inside instruction");
+		}
+		
+		// convert jump target offsets to instruction indices
+		foreach (ref instruction; instructions)
+			foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
+				switch (type)
+				{
+					case OpcodeArgumentType.JumpTarget:
+						offsetToIndex(instruction.arguments[i].jumpTarget);
+						break;
+					case OpcodeArgumentType.SwitchDefaultTarget:
+						offsetToIndex(instruction.arguments[i].jumpTarget);
+						break;
+					case OpcodeArgumentType.SwitchTargets:
+						foreach (ref x; instruction.arguments[i].switchTargets)
+							offsetToIndex(x);
+						break;
+					default:
+						break;
+				}
+
+		return instructions;
+	}
 }
 
-class ABCWriter
+private class ABCWriter
 {
 	ABCFile abc;
 	ubyte[] buf;
@@ -764,39 +1367,46 @@ final:
 		writeU8(cast(ubyte)(v>>8));
 	}
 
+	void writeS24(int v)
+	{
+		writeU8(v&0xFF);
+		writeU8(cast(ubyte)(v>>8));
+		writeU8(cast(ubyte)(v>>16));
+	}
+
 	/// Note: may return values larger than 0xFFFFFFFF.
 	void writeU32(ulong v)
 	{
-        if ( v < 128)
-        {
-            writeU8(cast(ubyte)(v));
-        }
-        else if ( v < 16384)
-        {
-            writeU8(cast(ubyte)((v & 0x7F) | 0x80));
-            writeU8(cast(ubyte)((v >> 7) & 0x7F));
-        }
-        else if ( v < 2097152)
-        {
-            writeU8(cast(ubyte)((v & 0x7F) | 0x80));
-            writeU8(cast(ubyte)((v >> 7) | 0x80));
-            writeU8(cast(ubyte)((v >> 14) & 0x7F));
-        }
-        else if (  v < 268435456)
-        {
-            writeU8(cast(ubyte)((v & 0x7F) | 0x80));
-            writeU8(cast(ubyte)(v >> 7 | 0x80));
-            writeU8(cast(ubyte)(v >> 14 | 0x80));
-            writeU8(cast(ubyte)((v >> 21) & 0x7F));
-        }
-        else
-        {
-            writeU8(cast(ubyte)((v & 0x7F) | 0x80));
-            writeU8(cast(ubyte)(v >> 7 | 0x80));
-            writeU8(cast(ubyte)(v >> 14 | 0x80));
-            writeU8(cast(ubyte)(v >> 21 | 0x80));
-            writeU8(cast(ubyte)((v >> 28) & 0x0F));
-        }
+		if ( v < 128)
+		{
+			writeU8(cast(ubyte)(v));
+		}
+		else if ( v < 16384)
+		{
+			writeU8(cast(ubyte)((v & 0x7F) | 0x80));
+			writeU8(cast(ubyte)((v >> 7) & 0x7F));
+		}
+		else if ( v < 2097152)
+		{
+			writeU8(cast(ubyte)((v & 0x7F) | 0x80));
+			writeU8(cast(ubyte)((v >> 7) | 0x80));
+			writeU8(cast(ubyte)((v >> 14) & 0x7F));
+		}
+		else if (  v < 268435456)
+		{
+			writeU8(cast(ubyte)((v & 0x7F) | 0x80));
+			writeU8(cast(ubyte)(v >> 7 | 0x80));
+			writeU8(cast(ubyte)(v >> 14 | 0x80));
+			writeU8(cast(ubyte)((v >> 21) & 0x7F));
+		}
+		else
+		{
+			writeU8(cast(ubyte)((v & 0x7F) | 0x80));
+			writeU8(cast(ubyte)(v >> 7 | 0x80));
+			writeU8(cast(ubyte)(v >> 14 | 0x80));
+			writeU8(cast(ubyte)(v >> 21 | 0x80));
+			writeU8(cast(ubyte)((v >> 28) & 0x0F));
+		}
 	}
 
 	void writeS32(long v)
@@ -1002,13 +1612,102 @@ final:
 		writeU30(v.localCount);
 		writeU30(v.initScopeDepth);
 		writeU30(v.maxScopeDepth);
-		writeBytes(v.code);
+		writeCode(v.instructions);
 		writeU30(v.exceptions.length);
 		foreach (ref value; v.exceptions)
 			writeExceptionInfo(value);
 		writeU30(v.traits.length);
 		foreach (ref value; v.traits)
 			writeTrait(value);
+	}
+
+	void writeCode(ABCFile.Instruction[] instructions)
+	{
+		// we don't know the length before writing all the instructions - swap buffer with a temporary one
+		auto globalBuf = buf;
+		auto globalPos = pos;
+		buf = new ubyte[1024];
+		pos = 0;
+
+		uint[] instructionOffsets = new uint[instructions.length];
+
+		struct Fixup { uint target, pos, base; }
+		Fixup[] fixups;
+
+		foreach (ii, ref instruction; instructions)
+		{
+			uint instructionOffset = pos;
+			instructionOffsets[ii] = instructionOffset;
+			
+			writeU8(instruction.opcode);
+			
+			if (instruction.arguments.length != opcodeInfo[instruction.opcode].argumentTypes.length)
+				throw new Exception("Mismatching number of arguments");
+
+			foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
+				switch (type)
+				{
+					case OpcodeArgumentType.Unknown:
+						throw new Exception("Don't know how to encode OP_" ~ opcodeInfo[instruction.opcode].name);
+
+					case OpcodeArgumentType.UByteLiteral:
+						writeU8(instruction.arguments[i].ubytev);
+						break;
+					case OpcodeArgumentType.UIntLiteral:
+						writeU32(instruction.arguments[i].uintv);
+						break;
+
+					case OpcodeArgumentType.Int:
+					case OpcodeArgumentType.UInt:
+					case OpcodeArgumentType.Double:
+					case OpcodeArgumentType.String:
+					case OpcodeArgumentType.Namespace:
+					case OpcodeArgumentType.Multiname:
+					case OpcodeArgumentType.Class:
+					case OpcodeArgumentType.Method:
+						writeU30(instruction.arguments[i].index);
+						break;
+
+					case OpcodeArgumentType.JumpTarget:
+						fixups ~= Fixup(instruction.arguments[i].jumpTarget, pos, pos+3);
+						writeS24(0);
+						break;
+
+					case OpcodeArgumentType.SwitchDefaultTarget:
+						fixups ~= Fixup(instruction.arguments[i].jumpTarget, pos, instructionOffset);
+						writeS24(0);
+						break;
+
+					case OpcodeArgumentType.SwitchTargets:
+						if (instruction.arguments[i].switchTargets.length < 1)
+							throw new Exception("Too few switch cases");
+						writeU30(instruction.arguments[i].switchTargets.length-1);
+						foreach (off; instruction.arguments[i].switchTargets)
+						{
+							fixups ~= Fixup(off, pos, instructionOffset);
+							writeS24(0);
+						}
+						break;
+					
+					default:
+						assert(0);
+				}
+		}
+
+		buf.length = pos;
+
+		foreach (ref fixup; fixups)
+		{
+			pos = fixup.pos;
+			writeS24(instructionOffsets[fixup.target]-fixup.base);
+		}
+
+		auto code = buf;
+		// restore global buffer
+		buf = globalBuf;
+		pos = globalPos;
+
+		writeBytes(code);
 	}
 
 	void writeExceptionInfo(ABCFile.ExceptionInfo v)
