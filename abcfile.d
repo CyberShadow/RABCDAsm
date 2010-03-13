@@ -23,7 +23,12 @@ import std.string; // exception formatting
 /** 
  * Implements a shallow representation of an .abc file. 
  * Loading and saving an .abc file using this class should produce 
- * output identical to the input.
+ * output identical to the input - with one exception:
+ * 
+ * exception_info's "to" field may point inside an instruction.
+ * This is apparently valid according to the implementation, however 
+ * the exact offset inside the instruction is not preserved - instead, 
+ * the field will point to the beginning of the next instruction.
  */
 
 class ABCFile
@@ -1165,10 +1170,117 @@ final:
 		r.localCount = readU30();
 		r.initScopeDepth = readU30();
 		r.maxScopeDepth = readU30();
-		r.instructions = readCode();
+		r.instructions = null;
+		
+		size_t len = readU30();
+		uint[] instructionAtOffset = new uint[len];
+
+		void offsetToIndex(ref uint x, bool relaxed = false)
+		{
+			if (x >= len)
+				throw new Exception("Jump out of bounds");
+			if (relaxed)
+				while (instructionAtOffset[x] == uint.max)
+				{
+					x++;
+					if (x >= len)
+						throw new Exception("Relaxed jump inside last instruction");
+				}
+			x = instructionAtOffset[x];
+			if (x == uint.max)
+				throw new Exception("Jump inside instruction");
+		}
+		
+		{
+			size_t start = pos;
+			size_t end = pos + len;
+		
+			uint offset() { return pos - start; }
+		
+			instructionAtOffset[] = uint.max;
+			while (pos < end)
+			{
+				uint instructionOffset = offset;
+				instructionAtOffset[instructionOffset] = r.instructions.length;
+				ABCFile.Instruction instruction;
+				instruction.opcode = cast(Opcode)readU8();
+				instruction.arguments.length = opcodeInfo[instruction.opcode].argumentTypes.length;
+				foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
+					switch (type)
+					{
+						case OpcodeArgumentType.Unknown:
+							throw new Exception("Don't know how to decode OP_" ~ opcodeInfo[instruction.opcode].name);
+
+						case OpcodeArgumentType.UByteLiteral:
+							instruction.arguments[i].ubytev = readU8();
+							break;
+						case OpcodeArgumentType.UIntLiteral:
+							instruction.arguments[i].uintv = readU32();
+							break;
+
+						case OpcodeArgumentType.Int:
+						case OpcodeArgumentType.UInt:
+						case OpcodeArgumentType.Double:
+						case OpcodeArgumentType.String:
+						case OpcodeArgumentType.Namespace:
+						case OpcodeArgumentType.Multiname:
+						case OpcodeArgumentType.Class:
+						case OpcodeArgumentType.Method:
+							instruction.arguments[i].index = readU30();
+							break;
+
+						case OpcodeArgumentType.JumpTarget:
+							int delta = readS24();
+							instruction.arguments[i].jumpTarget = offset + delta;
+							break;
+
+						case OpcodeArgumentType.SwitchDefaultTarget:
+							instruction.arguments[i].jumpTarget = instructionOffset + readS24();
+							break;
+
+						case OpcodeArgumentType.SwitchTargets:
+							instruction.arguments[i].switchTargets.length = readU30()+1;
+							foreach (ref off; instruction.arguments[i].switchTargets)
+								off = instructionOffset + readS24();
+							break;
+					
+						default:
+							assert(0);
+					}
+				r.instructions ~= instruction;
+			}
+
+			if (pos > end)
+				throw new Exception("Out-of-bounds code read error");
+
+			// convert jump target offsets to instruction indices
+			foreach (ref instruction; r.instructions)
+				foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
+					switch (type)
+					{
+						case OpcodeArgumentType.JumpTarget:
+							offsetToIndex(instruction.arguments[i].jumpTarget);
+							break;
+						case OpcodeArgumentType.SwitchDefaultTarget:
+							offsetToIndex(instruction.arguments[i].jumpTarget);
+							break;
+						case OpcodeArgumentType.SwitchTargets:
+							foreach (ref x; instruction.arguments[i].switchTargets)
+								offsetToIndex(x);
+							break;
+						default:
+							break;
+					}
+		}
+		
 		r.exceptions.length = readU30();
 		foreach (ref value; r.exceptions)
+		{
 			value = readExceptionInfo();
+			offsetToIndex(value.from);
+			offsetToIndex(value.to, true);
+			offsetToIndex(value.target);
+		}
 		r.traits.length = readU30();
 		foreach (ref value; r.traits)
 			value = readTrait();
@@ -1184,103 +1296,6 @@ final:
 		r.excType = readU30();
 		r.varName = readU30();
 		return r;
-	}
-
-	ABCFile.Instruction[] readCode()
-	{
-		size_t len = readU30();
-		size_t start = pos;
-		size_t end = pos + len;
-		
-		uint offset() { return pos - start; }
-		
-		ABCFile.Instruction[] instructions;
-		uint[] instructionAtOffset = new uint[len];
-		instructionAtOffset[] = uint.max;
-		while (pos < end)
-		{
-			uint instructionOffset = offset;
-			instructionAtOffset[instructionOffset] = instructions.length;
-			ABCFile.Instruction instruction;
-			instruction.opcode = cast(Opcode)readU8();
-			instruction.arguments.length = opcodeInfo[instruction.opcode].argumentTypes.length;
-			foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
-				switch (type)
-				{
-					case OpcodeArgumentType.Unknown:
-						throw new Exception("Don't know how to decode OP_" ~ opcodeInfo[instruction.opcode].name);
-
-					case OpcodeArgumentType.UByteLiteral:
-						instruction.arguments[i].ubytev = readU8();
-						break;
-					case OpcodeArgumentType.UIntLiteral:
-						instruction.arguments[i].uintv = readU32();
-						break;
-
-					case OpcodeArgumentType.Int:
-					case OpcodeArgumentType.UInt:
-					case OpcodeArgumentType.Double:
-					case OpcodeArgumentType.String:
-					case OpcodeArgumentType.Namespace:
-					case OpcodeArgumentType.Multiname:
-					case OpcodeArgumentType.Class:
-					case OpcodeArgumentType.Method:
-						instruction.arguments[i].index = readU30();
-						break;
-
-					case OpcodeArgumentType.JumpTarget:
-						int delta = readS24();
-						instruction.arguments[i].jumpTarget = offset + delta;
-						break;
-
-					case OpcodeArgumentType.SwitchDefaultTarget:
-						instruction.arguments[i].jumpTarget = instructionOffset + readS24();
-						break;
-
-					case OpcodeArgumentType.SwitchTargets:
-						instruction.arguments[i].switchTargets.length = readU30()+1;
-						foreach (ref off; instruction.arguments[i].switchTargets)
-							off = instructionOffset + readS24();
-						break;
-					
-					default:
-						assert(0);
-				}
-			instructions ~= instruction;
-		}
-
-		if (pos > end)
-			throw new Exception("Out-of-bounds code read error");
-
-		void offsetToIndex(ref uint x)
-		{
-			if (x >= len)
-				throw new Exception("Jump out of bounds");
-			x = instructionAtOffset[x];
-			if (x == uint.max)
-				throw new Exception("Jump inside instruction");
-		}
-		
-		// convert jump target offsets to instruction indices
-		foreach (ref instruction; instructions)
-			foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
-				switch (type)
-				{
-					case OpcodeArgumentType.JumpTarget:
-						offsetToIndex(instruction.arguments[i].jumpTarget);
-						break;
-					case OpcodeArgumentType.SwitchDefaultTarget:
-						offsetToIndex(instruction.arguments[i].jumpTarget);
-						break;
-					case OpcodeArgumentType.SwitchTargets:
-						foreach (ref x; instruction.arguments[i].switchTargets)
-							offsetToIndex(x);
-						break;
-					default:
-						break;
-				}
-
-		return instructions;
 	}
 }
 
@@ -1612,102 +1627,106 @@ final:
 		writeU30(v.localCount);
 		writeU30(v.initScopeDepth);
 		writeU30(v.maxScopeDepth);
-		writeCode(v.instructions);
+
+		uint[] instructionOffsets = new uint[v.instructions.length];
+
+		{
+			// we don't know the length before writing all the instructions - swap buffer with a temporary one
+			auto globalBuf = buf;
+			auto globalPos = pos;
+			buf = new ubyte[1024];
+			pos = 0;
+
+			struct Fixup { uint target, pos, base; }
+			Fixup[] fixups;
+
+			foreach (ii, ref instruction; v.instructions)
+			{
+				uint instructionOffset = pos;
+				instructionOffsets[ii] = instructionOffset;
+			
+				writeU8(instruction.opcode);
+			
+				if (instruction.arguments.length != opcodeInfo[instruction.opcode].argumentTypes.length)
+					throw new Exception("Mismatching number of arguments");
+
+				foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
+					switch (type)
+					{
+						case OpcodeArgumentType.Unknown:
+							throw new Exception("Don't know how to encode OP_" ~ opcodeInfo[instruction.opcode].name);
+
+						case OpcodeArgumentType.UByteLiteral:
+							writeU8(instruction.arguments[i].ubytev);
+							break;
+						case OpcodeArgumentType.UIntLiteral:
+							writeU32(instruction.arguments[i].uintv);
+							break;
+
+						case OpcodeArgumentType.Int:
+						case OpcodeArgumentType.UInt:
+						case OpcodeArgumentType.Double:
+						case OpcodeArgumentType.String:
+						case OpcodeArgumentType.Namespace:
+						case OpcodeArgumentType.Multiname:
+						case OpcodeArgumentType.Class:
+						case OpcodeArgumentType.Method:
+							writeU30(instruction.arguments[i].index);
+							break;
+
+						case OpcodeArgumentType.JumpTarget:
+							fixups ~= Fixup(instruction.arguments[i].jumpTarget, pos, pos+3);
+							writeS24(0);
+							break;
+
+						case OpcodeArgumentType.SwitchDefaultTarget:
+							fixups ~= Fixup(instruction.arguments[i].jumpTarget, pos, instructionOffset);
+							writeS24(0);
+							break;
+
+						case OpcodeArgumentType.SwitchTargets:
+							if (instruction.arguments[i].switchTargets.length < 1)
+								throw new Exception("Too few switch cases");
+							writeU30(instruction.arguments[i].switchTargets.length-1);
+							foreach (off; instruction.arguments[i].switchTargets)
+							{
+								fixups ~= Fixup(off, pos, instructionOffset);
+								writeS24(0);
+							}
+							break;
+					
+						default:
+							assert(0);
+					}
+			}
+
+			buf.length = pos;
+
+			foreach (ref fixup; fixups)
+			{
+				pos = fixup.pos;
+				writeS24(instructionOffsets[fixup.target]-fixup.base);
+			}
+
+			auto code = buf;
+			// restore global buffer
+			buf = globalBuf;
+			pos = globalPos;
+
+			writeBytes(code);
+		}
+
 		writeU30(v.exceptions.length);
 		foreach (ref value; v.exceptions)
+		{
+			value.from = instructionOffsets[value.from];
+			value.to = instructionOffsets[value.to];
+			value.target = instructionOffsets[value.target];
 			writeExceptionInfo(value);
+		}
 		writeU30(v.traits.length);
 		foreach (ref value; v.traits)
 			writeTrait(value);
-	}
-
-	void writeCode(ABCFile.Instruction[] instructions)
-	{
-		// we don't know the length before writing all the instructions - swap buffer with a temporary one
-		auto globalBuf = buf;
-		auto globalPos = pos;
-		buf = new ubyte[1024];
-		pos = 0;
-
-		uint[] instructionOffsets = new uint[instructions.length];
-
-		struct Fixup { uint target, pos, base; }
-		Fixup[] fixups;
-
-		foreach (ii, ref instruction; instructions)
-		{
-			uint instructionOffset = pos;
-			instructionOffsets[ii] = instructionOffset;
-			
-			writeU8(instruction.opcode);
-			
-			if (instruction.arguments.length != opcodeInfo[instruction.opcode].argumentTypes.length)
-				throw new Exception("Mismatching number of arguments");
-
-			foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
-				switch (type)
-				{
-					case OpcodeArgumentType.Unknown:
-						throw new Exception("Don't know how to encode OP_" ~ opcodeInfo[instruction.opcode].name);
-
-					case OpcodeArgumentType.UByteLiteral:
-						writeU8(instruction.arguments[i].ubytev);
-						break;
-					case OpcodeArgumentType.UIntLiteral:
-						writeU32(instruction.arguments[i].uintv);
-						break;
-
-					case OpcodeArgumentType.Int:
-					case OpcodeArgumentType.UInt:
-					case OpcodeArgumentType.Double:
-					case OpcodeArgumentType.String:
-					case OpcodeArgumentType.Namespace:
-					case OpcodeArgumentType.Multiname:
-					case OpcodeArgumentType.Class:
-					case OpcodeArgumentType.Method:
-						writeU30(instruction.arguments[i].index);
-						break;
-
-					case OpcodeArgumentType.JumpTarget:
-						fixups ~= Fixup(instruction.arguments[i].jumpTarget, pos, pos+3);
-						writeS24(0);
-						break;
-
-					case OpcodeArgumentType.SwitchDefaultTarget:
-						fixups ~= Fixup(instruction.arguments[i].jumpTarget, pos, instructionOffset);
-						writeS24(0);
-						break;
-
-					case OpcodeArgumentType.SwitchTargets:
-						if (instruction.arguments[i].switchTargets.length < 1)
-							throw new Exception("Too few switch cases");
-						writeU30(instruction.arguments[i].switchTargets.length-1);
-						foreach (off; instruction.arguments[i].switchTargets)
-						{
-							fixups ~= Fixup(off, pos, instructionOffset);
-							writeS24(0);
-						}
-						break;
-					
-					default:
-						assert(0);
-				}
-		}
-
-		buf.length = pos;
-
-		foreach (ref fixup; fixups)
-		{
-			pos = fixup.pos;
-			writeS24(instructionOffsets[fixup.target]-fixup.base);
-		}
-
-		auto code = buf;
-		// restore global buffer
-		buf = globalBuf;
-		pos = globalPos;
-
-		writeBytes(code);
 	}
 
 	void writeExceptionInfo(ABCFile.ExceptionInfo v)
