@@ -19,6 +19,7 @@
 module asprogram;
 
 import abcfile;
+import autodata;
 
 /** 
  * Represents a hierarchically-organized ActionScript program,
@@ -34,6 +35,17 @@ class ASProgram
 	{
 		ASType kind;
 		string name;
+
+		mixin AutoCompare;
+		//mixin ProcessAllData;
+
+		R processData(R, string prolog, string epilog, H)(ref H handler)
+		{
+			mixin(prolog);
+			mixin(addAutoField("kind"));
+			mixin(addAutoField("name"));
+			mixin(epilog);
+		}
 	}
 
 	static class Multiname
@@ -67,6 +79,45 @@ class ASProgram
 				Multiname name;
 				Multiname[] params;
 			} _TypeName vTypeName;
+		}
+
+		mixin AutoCompare;
+
+		R processData(R, string prolog, string epilog, H)(ref H handler)
+		{
+			mixin(prolog);
+			mixin(addAutoField("kind"));
+			switch (kind)
+			{
+				case ASType.QName:
+				case ASType.QNameA:
+					mixin(addAutoField("vQName.ns"));
+					mixin(addAutoField("vQName.name"));
+					break;
+				case ASType.RTQName:
+				case ASType.RTQNameA:
+					mixin(addAutoField("vRTQName.name"));
+					break;
+				case ASType.RTQNameL:
+				case ASType.RTQNameLA:
+					break;
+				case ASType.Multiname:
+				case ASType.MultinameA:
+					mixin(addAutoField("vMultiname.name"));
+					mixin(addAutoField("vMultiname.nsSet"));
+					break;
+				case ASType.MultinameL:
+				case ASType.MultinameLA:
+					mixin(addAutoField("vMultinameL.nsSet"));
+					break;
+				case ASType.TypeName:
+					mixin(addAutoField("vTypeName.name"));
+					mixin(addAutoField("vTypeName.params"));
+					break;
+				default:
+					throw new .Exception("Unknown Multiname kind");
+			}
+			mixin(epilog);
 		}
 	}
 
@@ -109,8 +160,8 @@ class ASProgram
 		ASType vkind;
 		union
 		{
-			int vint;             // Integer
-			uint vuint;           // UInteger
+			long vint;             // Integer
+			ulong vuint;           // UInteger
 			double vdouble;       // Double
 			string vstring;       // String
 			Namespace vnamespace; // Namespace, PackageNamespace, PackageInternalNs, ProtectedNamespace, ExplicitNamespace, StaticProtectedNs, PrivateNamespace
@@ -160,7 +211,7 @@ class ASProgram
 
 	static class Script
 	{
-		Method init;
+		Method sinit;
 		Trait[] traits;
 	}
 
@@ -171,14 +222,32 @@ class ASProgram
 		uint localCount;
 		uint initScopeDepth;
 		uint maxScopeDepth;
-		Instruction[] code;
+		Instruction[] instructions;
 		Exception[] exceptions;
 		Trait[] traits;
 	}
 
 	struct Instruction
 	{
-		ubyte opcode;
+		Opcode opcode;
+		union Argument
+		{
+			ubyte ubytev;
+			ulong uintv;
+
+			long intv;
+			// uint constants are in uintv
+			double doublev;
+			string stringv;
+			Namespace namespacev;
+			Multiname multinamev;
+			Class classv;
+			Method methodv;
+			
+			uint jumpTarget;
+			uint[] switchTargets;
+		}
+		Argument[] arguments;
 	}
 	
 	struct Exception
@@ -199,14 +268,15 @@ class ASProgram
 		return (new ABCtoAS(abc)).as;
 	}
 
-	ABCFile toABC()
+	final ABCFile toABC()
 	{
 		return (new AStoABC(this)).abc;
 	}
 }
 
-class ABCtoAS
+private class ABCtoAS
 {
+final:
 	ASProgram as;
 	ABCFile abc;
 
@@ -226,10 +296,10 @@ class ABCtoAS
 		switch (o.vkind)
 		{
 			case ASType.Integer:
-				o.vint = cast(int)abc.ints[val]; // WARNING: discarding extra bits
+				o.vint = abc.ints[val]; // WARNING: discarding extra bits
 				break;
 			case ASType.UInteger:
-				o.vuint = cast(uint)abc.uints[val]; // WARNING: discarding extra bits
+				o.vuint = abc.uints[val]; // WARNING: discarding extra bits
 				break;
 			case ASType.Double:
 				o.vdouble = abc.doubles[val];
@@ -276,7 +346,7 @@ class ABCtoAS
 			}
 
 		namespaceSets.length = abc.namespaceSets.length;
-		foreach (i, ref namespaceSet; abc.namespaceSets)
+		foreach (i, namespaceSet; abc.namespaceSets)
 			if (i)
 			{
 				auto n = new ASProgram.Namespace[namespaceSet.length];
@@ -435,7 +505,7 @@ class ABCtoAS
 		foreach (i, ref script; abc.scripts)
 		{
 			auto n = new ASProgram.Script;
-			n.init = methods[script.init];
+			n.sinit = methods[script.sinit];
 			n.traits = convertTraits(script.traits);
 			as.scripts[i] = n;
 		}
@@ -447,8 +517,10 @@ class ABCtoAS
 			n.maxStack = vbody.maxStack;
 			n.localCount = vbody.localCount;
 			n.initScopeDepth = vbody.initScopeDepth;
-			n.maxScopeDepth= vbody.maxScopeDepth;
-			n.code = disassemble(vbody.code);
+			n.maxScopeDepth = vbody.maxScopeDepth;
+			n.instructions.length = vbody.instructions.length;
+			foreach (ii, ref instruction; vbody.instructions)
+				n.instructions[ii] = convertInstruction(instruction);
 			n.exceptions.length = vbody.exceptions.length;
 			foreach (j, ref exc; vbody.exceptions)
 			{
@@ -465,17 +537,511 @@ class ABCtoAS
 		}
 	}
 
-	ASProgram.Instruction[] disassemble(ubyte[] code)
+	ASProgram.Instruction convertInstruction(ref ABCFile.Instruction instruction)
 	{
-		return null;
+		ASProgram.Instruction r;
+		r.opcode = instruction.opcode;
+		r.arguments.length = instruction.arguments.length;
+
+		foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
+			switch (type)
+			{
+				case OpcodeArgumentType.Unknown:
+					throw new Exception("Don't know how to convert OP_" ~ opcodeInfo[instruction.opcode].name);
+
+				case OpcodeArgumentType.UByteLiteral:
+					r.arguments[i].ubytev = instruction.arguments[i].ubytev;
+					break;
+				case OpcodeArgumentType.UIntLiteral:
+					r.arguments[i].uintv = instruction.arguments[i].uintv;
+					break;
+
+				case OpcodeArgumentType.Int:
+					r.arguments[i].intv = abc.ints[instruction.arguments[i].index];
+					break;
+				case OpcodeArgumentType.UInt:
+					r.arguments[i].uintv = abc.uints[instruction.arguments[i].index];
+					break;
+				case OpcodeArgumentType.Double:
+					r.arguments[i].doublev = abc.doubles[instruction.arguments[i].index];
+					break;
+				case OpcodeArgumentType.String:
+					r.arguments[i].stringv = abc.strings[instruction.arguments[i].index];
+					break;
+				case OpcodeArgumentType.Namespace:
+					r.arguments[i].namespacev = namespaces[instruction.arguments[i].index];
+					break;
+				case OpcodeArgumentType.Multiname:
+					r.arguments[i].multinamev = multinames[instruction.arguments[i].index];
+					break;
+				case OpcodeArgumentType.Class:
+					r.arguments[i].classv = classes[instruction.arguments[i].index];
+					break;
+				case OpcodeArgumentType.Method:
+					r.arguments[i].methodv = methods[instruction.arguments[i].index];
+					break;
+
+				case OpcodeArgumentType.JumpTarget:
+				case OpcodeArgumentType.SwitchDefaultTarget:
+					r.arguments[i].jumpTarget = instruction.arguments[i].jumpTarget;
+					break;
+
+				case OpcodeArgumentType.SwitchTargets:
+					r.arguments[i].switchTargets = instruction.arguments[i].switchTargets;
+					break;
+					
+				default:
+					assert(0);
+			}
+		return r;
 	}
 }
 
-class AStoABC
+private class AStoABC
 {
+final:
 	ABCFile abc;
 	ASProgram as;
-	
+
+	/// Maintain an unordered set of values; sort/index by usage count
+	struct Constant(T)
+	{
+		static Constant!(T)[T] pool;
+		static T[] values;
+
+		static bool add(T value) // return true if added
+		{
+			/*static if (is (typeof(value is null)))
+				if (value is null)
+					return false;*/
+			static if (is (T == class) || is(T == string))
+				{ if (value is null) return false; }
+			else
+				{ if (value == T.init) return false; }
+
+			auto cp = value in pool;
+			if (cp is null)
+			{
+				pool[value] = Constant!(T)(1, value);
+				return true;
+			}
+			else
+			{
+				cp.hits++;
+				return false;
+			}
+		}
+
+		static void sort()
+		{
+			auto all = pool.values;
+			all.sort;
+			values.length = all.length+1;
+			foreach (i, ref c; all)
+			{
+				pool[c.value].index = i+1;
+				values[i+1] = c.value;
+			}
+		}
+
+		static uint get(T value)
+		{
+			static if (is (T == class) || is(T == string))
+				{ if (value is null) return 0; }
+			else
+				{ if (value == T.init) return 0; }
+			return pool[value].index;
+		}
+
+		int opCmp(typeof(this) other)
+		{
+			return cast(int)other.hits - cast(int)hits;
+		}
+
+		uint hits;
+		T value;
+		uint index;
+	}
+
+	/// Maintain an ordered set of values
+	struct OrderedConstant(T)
+	{
+		static OrderedConstant!(T)[T] pool;
+		static T[] values;
+
+		static bool add(T value) // return true if added
+		{
+			/*static if (is (typeof(value is null)))
+				if (value is null)
+					return false;*/
+			static if (is (T == class))
+				{ if (value is null) return false; }
+			else
+				{ if (value == T.init) return false; }
+
+			auto cp = value in pool;
+			if (cp is null)
+			{
+				pool[value] = OrderedConstant!(T)(1);
+				values ~= value;
+				return true;
+			}
+			else
+			{
+				cp.hits++;
+				return false;
+			}
+		}
+
+		static bool notAdded(T value)
+		{
+			static if (is (T == class))
+				{ if (value is null) return false; }
+			else
+				{ if (value == T.init) return false; }
+
+			auto cp = value in pool;
+			
+			if (cp is null)
+				return true;
+			else
+				return false;
+		}
+
+		static void flip()
+		{
+			//values.reverse;
+			reindex();
+		}
+
+		static void reindex()
+		{
+			foreach (i, ref v; values)
+				pool[v].index = i;
+		}
+
+		static uint get(T value)
+		{
+			static if (is (T == class))
+				{ if (value is null) return 0; }
+			else
+				{ if (value == T.init) return 0; }
+			return pool[value].index + 1;
+		}
+
+		uint hits;
+		uint index;
+	}
+
+	/// Pair an index with class instances
+	struct Reference(T)
+	{
+		static Reference[void*] references;
+		static T[] objects;
+
+		static bool add(T obj) // return true if added
+		{
+			if (obj is null)
+				return false;
+			auto p = cast(void*)obj;
+			auto rp = p in references;
+			if (rp is null)
+			{
+				references[p] = Reference!(T)(1); //, objects.length
+				objects ~= obj;
+				return true;
+			}
+			else
+			{
+				rp.hits++;
+				return false;
+			}
+		}
+
+		static void flip()
+		{
+			objects.reverse;
+			//uint max = objects.length-1;
+			//foreach (ref r; references)
+			//	r.index = max - r.index;
+			reindex();
+		}
+
+		static void reindex()
+		{
+			foreach (i, o; objects)
+				references[cast(void*)o].index = i;
+		}
+
+		static uint get(T obj)
+		{
+			return references[cast(void*)obj].index;
+		}
+
+		uint hits, index;
+	}
+
+	typedef Constant!(long) IntC;
+	typedef Constant!(ulong) UIntC;
+	typedef Constant!(double) DoubleC;
+	typedef Constant!(string) StringC;
+	typedef Constant!(ASProgram.Namespace) NamespaceC;
+	typedef Constant!(ASProgram.Namespace[]) NamespaceSetC;
+	typedef OrderedConstant!(ASProgram.Multiname) MultinameC;
+	typedef Reference!(ASProgram.Class) ClassR;
+	typedef Reference!(ASProgram.Method) MethodR;
+    
+	void visitNamespace(ASProgram.Namespace ns)
+	{
+		if (NamespaceC.add(ns))
+			StringC.add(ns.name);
+	}
+
+	void visitNamespaceSet(ASProgram.Namespace[] nsSet)
+	{
+		if (NamespaceSetC.add(nsSet))
+			foreach (ns; nsSet)
+				visitNamespace(ns);
+	}
+
+	void visitMultiname(ASProgram.Multiname multiname)
+	{
+		if (MultinameC.notAdded(multiname))
+		{
+			with (multiname)
+				switch (kind)
+				{
+					case ASType.QName:
+					case ASType.QNameA:
+						visitNamespace(vQName.ns);
+						StringC.add(vQName.name);
+						break;
+					case ASType.RTQName:
+					case ASType.RTQNameA:
+						StringC.add(vRTQName.name);
+						break;
+					case ASType.RTQNameL:
+					case ASType.RTQNameLA:
+						break;
+					case ASType.Multiname:
+					case ASType.MultinameA:
+						StringC.add(vMultiname.name);
+						visitNamespaceSet(vMultiname.nsSet);
+						break;
+					case ASType.MultinameL:
+					case ASType.MultinameLA:
+						visitNamespaceSet(vMultinameL.nsSet);
+						break;
+					case ASType.TypeName:
+						visitMultiname(vTypeName.name);
+						foreach (param; vTypeName.params)
+							visitMultiname(param);
+						break;
+					default:
+						throw new .Exception("Unknown Multiname kind");
+				}
+			bool r = MultinameC.add(multiname);
+			assert(r);
+		}
+	}
+
+	void visitScript(ASProgram.Script script)
+	{
+		visitMethod(script.sinit);
+		visitTraits(script.traits);
+	}
+
+	void visitTraits(ASProgram.Trait[] traits)
+	{
+		foreach (ref trait; traits)
+		{
+			visitMultiname(trait.name);
+			switch (trait.kind)
+			{
+				case TraitKind.Slot:
+				case TraitKind.Const:
+					visitMultiname(trait.vSlot.typeName);
+					visitValue(trait.vSlot.value);
+					break;
+				case TraitKind.Class:
+					visitClass(trait.vClass.vclass);
+					break;
+				case TraitKind.Function:
+					visitMethod(trait.vFunction.vfunction);
+					break;
+				case TraitKind.Method:
+				case TraitKind.Getter:
+				case TraitKind.Setter:
+					visitMethod(trait.vMethod.vmethod);
+					break;
+				default:
+					throw new Exception("Unknown trait kind");
+			}
+		}
+	}
+
+	void visitValue(ref ASProgram.Value value)
+	{
+		switch (value.vkind)
+		{
+			case ASType.Integer:
+				IntC.add(value.vint);
+				break;
+			case ASType.UInteger:
+				UIntC.add(value.vuint);
+				break;
+			case ASType.Double:
+				DoubleC.add(value.vdouble);
+				break;
+			case ASType.Utf8:
+				StringC.add(value.vstring);
+				break;
+			case ASType.Namespace:
+			case ASType.PackageNamespace:
+			case ASType.PackageInternalNs:
+			case ASType.ProtectedNamespace:
+			case ASType.ExplicitNamespace:
+			case ASType.StaticProtectedNs:
+			case ASType.PrivateNamespace:
+				visitNamespace(value.vnamespace);
+				break;
+			case ASType.True:
+			case ASType.False:
+			case ASType.Null:
+			case ASType.Undefined:
+				break;
+			default:
+				throw new Exception("Unknown type");
+		}
+	}
+
+	void visitClass(ASProgram.Class vclass)
+	{
+		if (ClassR.add(vclass))
+		{
+			visitMethod(vclass.cinit);
+			visitTraits(vclass.traits);
+
+			visitInstance(vclass.instance);
+		}
+	}
+
+	void visitMethod(ASProgram.Method method)
+	{
+		if (MethodR.add(method))
+			with (method)
+			{
+				foreach (type; paramTypes)
+					visitMultiname(type);
+				visitMultiname(returnType);
+				StringC.add(name);
+				foreach (ref value; options)
+					visitValue(value);
+				foreach (name; paramNames)	
+					StringC.add(name);
+
+				if (vbody)
+					visitMethodBody(vbody);
+			}
+	}
+
+	void visitMethodBody(ASProgram.MethodBody vbody)
+	{
+		foreach (ref instruction; vbody.instructions)
+			foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
+				switch (type)
+				{
+					case OpcodeArgumentType.Unknown:
+						throw new Exception("Don't know how to visit OP_" ~ opcodeInfo[instruction.opcode].name);
+
+					case OpcodeArgumentType.UByteLiteral:
+					case OpcodeArgumentType.UIntLiteral:
+						break;
+
+					case OpcodeArgumentType.Int:
+						IntC.add(instruction.arguments[i].intv);
+						break;
+					case OpcodeArgumentType.UInt:
+						UIntC.add(instruction.arguments[i].uintv);
+						break;
+					case OpcodeArgumentType.Double:
+						DoubleC.add(instruction.arguments[i].doublev);
+						break;
+					case OpcodeArgumentType.String:
+						StringC.add(instruction.arguments[i].stringv);
+						break;
+					case OpcodeArgumentType.Namespace:
+						visitNamespace(instruction.arguments[i].namespacev);
+						break;
+					case OpcodeArgumentType.Multiname:
+						visitMultiname(instruction.arguments[i].multinamev);
+						break;
+					case OpcodeArgumentType.Class:
+						visitClass(instruction.arguments[i].classv);
+						break;
+					case OpcodeArgumentType.Method:
+						visitMethod(instruction.arguments[i].methodv);
+						break;
+
+					case OpcodeArgumentType.JumpTarget:
+					case OpcodeArgumentType.SwitchDefaultTarget:
+					case OpcodeArgumentType.SwitchTargets:
+						break;
+					
+					default:
+						assert(0);
+				}
+		
+		foreach (ref exception; vbody.exceptions)
+		{
+			StringC.add(exception.excType);
+			StringC.add(exception.varName);
+		}
+		
+		visitTraits(vbody.traits);
+	}
+
+	void visitInstance(ASProgram.Instance instance)
+	{
+		visitMultiname(instance.name);
+		visitMultiname(instance.superName);
+		visitNamespace(instance.protectedNs);
+		foreach (intf; instance.interfaces)
+			visitMultiname(intf);
+		visitMethod(instance.iinit);
+		visitTraits(instance.traits);
+	}
+
+	uint getValueIndex(ref ASProgram.Value value)
+	{
+		switch (value.vkind)
+		{
+			case ASType.Integer:
+				return IntC.get(value.vint);
+			case ASType.UInteger:
+				return UIntC.get(value.vuint);
+			case ASType.Double:
+				return DoubleC.get(value.vdouble);
+			case ASType.Utf8:
+				return StringC.get(value.vstring);
+			case ASType.Namespace:
+			case ASType.PackageNamespace:
+			case ASType.PackageInternalNs:
+			case ASType.ProtectedNamespace:
+			case ASType.ExplicitNamespace:
+			case ASType.StaticProtectedNs:
+			case ASType.PrivateNamespace:
+				return NamespaceC.get(value.vnamespace);
+			case ASType.True:
+			case ASType.False:
+			case ASType.Null:
+			case ASType.Undefined:
+				return 0;
+			default:
+				throw new Exception("Unknown type");
+		}
+	}
+
 	this(ASProgram as)
 	{
 		this.abc = new ABCFile();
@@ -484,6 +1050,259 @@ class AStoABC
 		abc.minorVersion = as.minorVersion;
 		abc.majorVersion = as.majorVersion;
 
-		// ...
+		foreach (script; as.scripts)
+			visitScript(script);
+
+		IntC.sort();
+		UIntC.sort();
+		DoubleC.sort();
+		StringC.sort();
+		NamespaceC.sort();
+		NamespaceSetC.sort();
+		//MultinameC.sort();
+		MultinameC.flip();
+		ClassR.flip();
+		MethodR.flip();
+
+		abc.ints = IntC.values;
+		abc.uints = UIntC.values;
+		abc.doubles = DoubleC.values;
+		abc.strings = StringC.values;
+
+		abc.namespaces.length = NamespaceC.values.length;
+		foreach (i, v; NamespaceC.values[1..$])
+		{
+			auto n = &abc.namespaces[i+1];
+			n.kind = v.kind;
+			n.name = StringC.get(v.name);
+		}
+
+		abc.namespaceSets.length = NamespaceSetC.values.length;
+		foreach (i, v; NamespaceSetC.values[1..$])
+		{
+			auto n = new uint[v.length];
+			foreach (j, ns; v)
+				n[j] = NamespaceC.get(ns);
+			abc.namespaceSets[i+1] = n;
+		}
+
+		abc.multinames.length = MultinameC.values.length+1;
+		foreach (i, v; MultinameC.values)
+		{
+			auto n = &abc.multinames[i+1];
+			n.kind = v.kind;
+			switch (v.kind)
+			{
+				case ASType.QName:
+				case ASType.QNameA:
+					n.QName.ns = NamespaceC.get(v.vQName.ns);
+					n.QName.name = StringC.get(v.vQName.name);
+					break;
+				case ASType.RTQName:
+				case ASType.RTQNameA:
+					n.RTQName.name = StringC.get(v.vRTQName.name);
+					break;
+				case ASType.RTQNameL:
+				case ASType.RTQNameLA:
+					break;
+				case ASType.Multiname:
+				case ASType.MultinameA:
+					n.Multiname.name = StringC.get(v.vMultiname.name);
+					n.Multiname.nsSet = NamespaceSetC.get(v.vMultiname.nsSet);
+					break;
+				case ASType.MultinameL:
+				case ASType.MultinameLA:
+					n.MultinameL.nsSet = NamespaceSetC.get(v.vMultinameL.nsSet);
+					break;
+				case ASType.TypeName:
+					n.TypeName.name = MultinameC.get(v.vTypeName.name);
+					n.TypeName.params.length = v.vTypeName.params.length;
+					foreach (j, param; v.vTypeName.params)
+						n.TypeName.params[j] = MultinameC.get(param);
+					break;
+				default:
+					throw new Exception("Unknown Multiname kind");
+			}
+		}
+
+		ASProgram.MethodBody[] bodies;
+
+		abc.methods.length = MethodR.objects.length;
+		foreach (i, o; MethodR.objects)
+		{
+			auto n = &abc.methods[i];
+			n.paramTypes.length = o.paramTypes.length;
+			foreach (j, p; o.paramTypes)
+				n.paramTypes[j] = MultinameC.get(p);
+			n.returnType = MultinameC.get(o.returnType);
+			n.name = StringC.get(o.name);
+			n.options.length = o.options.length;
+			foreach (j, ref value; o.options)
+			{
+				n.options[j].kind = value.vkind;
+				n.options[j].val = getValueIndex(value);
+			}
+			n.paramNames.length = o.paramNames.length;
+			foreach (j, name; o.paramNames)
+				n.paramNames[j] = StringC.get(name);
+			
+			if (o.vbody)
+				bodies ~= o.vbody;
+		}
+
+		abc.instances.length = ClassR.objects.length;
+		foreach (i, c; ClassR.objects)
+		{
+			auto o = c.instance;
+			auto n = &abc.instances[i];
+	
+			n.name = MultinameC.get(o.name);
+			n.superName = MultinameC.get(o.superName);
+			n.flags = o.flags;
+			n.protectedNs = NamespaceC.get(o.protectedNs);
+			n.interfaces.length = o.interfaces.length;
+			foreach (j, intf; o.interfaces)
+				n.interfaces[j] = MultinameC.get(intf);
+			n.iinit = MethodR.get(o.iinit);
+			n.traits = convertTraits(o.traits);
+		}
+
+		abc.classes.length = ClassR.objects.length;
+		foreach (i, o; ClassR.objects)
+		{
+			auto n = &abc.classes[i];
+			n.cinit = MethodR.get(o.cinit);
+			n.traits = convertTraits(o.traits);
+		}
+
+		abc.scripts.length = as.scripts.length;
+		foreach (i, o; as.scripts)
+		{
+			auto n = &abc.scripts[i];
+			n.sinit = MethodR.get(o.sinit);
+			n.traits = convertTraits(o.traits);
+		}
+
+		abc.bodies.length = bodies.length;
+		foreach (i, o; bodies)
+		{
+			auto n = &abc.bodies[i];
+			n.method = MethodR.get(o.method);
+			n.maxStack = o.maxStack;
+			n.localCount = o.localCount;
+			n.initScopeDepth = o.initScopeDepth;
+			n.maxScopeDepth = o.maxScopeDepth;
+			n.instructions.length = o.instructions.length;
+			foreach (ii, ref instruction; o.instructions)
+				n.instructions[ii] = convertInstruction(instruction);
+			n.exceptions.length = o.exceptions.length;
+			foreach (j, ref oe; o.exceptions)
+			{
+				auto ne = &n.exceptions[j];
+				ne.from = oe.from;
+				ne.to = oe.to;
+				ne.target = oe.target;
+				ne.excType = StringC.get(oe.excType);
+				ne.varName = StringC.get(oe.varName);
+			}
+			n.traits = convertTraits(o.traits);
+		}
+	}
+
+	ABCFile.TraitsInfo[] convertTraits(ASProgram.Trait[] traits)
+	{
+		auto r = new ABCFile.TraitsInfo[traits.length];
+		foreach (i, ref trait; traits)
+		{
+			r[i].name = MultinameC.get(trait.name);
+			r[i].kind = trait.kind;
+			r[i].attr = trait.attr;
+			switch (trait.kind)
+			{
+				case TraitKind.Slot:
+				case TraitKind.Const:
+					r[i].Slot.slotId = trait.vSlot.slotId;
+					r[i].Slot.typeName = MultinameC.get(trait.vSlot.typeName);
+					r[i].Slot.vkind = trait.vSlot.value.vkind;
+					r[i].Slot.vindex = getValueIndex(trait.vSlot.value);
+					break;
+				case TraitKind.Class:
+					r[i].Class.slotId = trait.vClass.slotId;
+					r[i].Class.classi = ClassR.get(trait.vClass.vclass);
+					break;
+				case TraitKind.Function:
+					r[i].Function.slotId = trait.vFunction.slotId;
+					r[i].Function.functioni = MethodR.get(trait.vFunction.vfunction);
+					break;
+				case TraitKind.Method:
+				case TraitKind.Getter:
+				case TraitKind.Setter:
+					r[i].Method.dispId = trait.vMethod.dispId;
+					r[i].Method.method = MethodR.get(trait.vMethod.vmethod);
+					break;
+				default:
+					throw new Exception("Unknown trait kind");
+			}
+		}
+		return r;
+	}
+
+	ABCFile.Instruction convertInstruction(ref ASProgram.Instruction instruction)
+	{
+		ABCFile.Instruction r;
+		r.opcode = instruction.opcode;
+		r.arguments.length = instruction.arguments.length;
+
+		foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
+			switch (type)
+			{
+				case OpcodeArgumentType.Unknown:
+					throw new Exception("Don't know how to convert OP_" ~ opcodeInfo[instruction.opcode].name);
+
+				case OpcodeArgumentType.UByteLiteral:
+					r.arguments[i].ubytev = instruction.arguments[i].ubytev;
+					break;
+				case OpcodeArgumentType.UIntLiteral:
+					r.arguments[i].uintv = instruction.arguments[i].uintv;
+					break;
+
+				case OpcodeArgumentType.Int:
+					r.arguments[i].index = IntC.get(instruction.arguments[i].intv);
+					break;
+				case OpcodeArgumentType.UInt:
+					r.arguments[i].index = UIntC.get(instruction.arguments[i].uintv);
+					break;
+				case OpcodeArgumentType.Double:
+					r.arguments[i].index = DoubleC.get(instruction.arguments[i].doublev);
+					break;
+				case OpcodeArgumentType.String:
+					r.arguments[i].index = StringC.get(instruction.arguments[i].stringv);
+					break;
+				case OpcodeArgumentType.Namespace:
+					r.arguments[i].index = NamespaceC.get(instruction.arguments[i].namespacev);
+					break;
+				case OpcodeArgumentType.Multiname:
+					r.arguments[i].index = MultinameC.get(instruction.arguments[i].multinamev);
+					break;
+				case OpcodeArgumentType.Class:
+					r.arguments[i].index = ClassR.get(instruction.arguments[i].classv);
+					break;
+				case OpcodeArgumentType.Method:
+					r.arguments[i].index = MethodR.get(instruction.arguments[i].methodv);
+					break;
+
+				case OpcodeArgumentType.JumpTarget:
+				case OpcodeArgumentType.SwitchDefaultTarget:
+					r.arguments[i].jumpTarget = instruction.arguments[i].jumpTarget;
+					break;
+
+				case OpcodeArgumentType.SwitchTargets:
+					r.arguments[i].switchTargets = instruction.arguments[i].switchTargets;
+					break;
+					
+				default:
+					assert(0);
+			}
+		return r;
 	}
 }

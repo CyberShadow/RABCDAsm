@@ -184,7 +184,7 @@ class ABCFile
 
 	struct Script
 	{
-		uint init;
+		uint sinit;
 		TraitsInfo[] traits;
 	}
 
@@ -971,6 +971,8 @@ final:
 	{
 		string s = new char[readU30()];
 		readExact(s.ptr, s.length);
+		if (s.length == 0)
+			s = ""; // not null!
 		return s;
 	}
 
@@ -1155,7 +1157,7 @@ final:
 	ABCFile.Script readScript()
 	{
 		ABCFile.Script r;
-		r.init = readU30();
+		r.sinit = readU30();
 		r.traits.length = readU30();
 		foreach (ref value; r.traits)
 			value = readTrait();
@@ -1614,7 +1616,7 @@ final:
 
 	void writeScript(ABCFile.Script v)
 	{
-		writeU30(v.init);
+		writeU30(v.sinit);
 		writeU30(v.traits.length);
 		foreach (ref value; v.traits)
 			writeTrait(value);
