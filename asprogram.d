@@ -36,6 +36,8 @@ class ASProgram
 		ASType kind;
 		string name;
 
+		uint privateIndex; // unique index for private namespaces
+
 		mixin AutoCompare;
 		//mixin ProcessAllData;
 
@@ -44,6 +46,7 @@ class ASProgram
 			mixin(prolog);
 			mixin(addAutoField("kind"));
 			mixin(addAutoField("name"));
+			mixin(addAutoField("privateIndex"));
 			mixin(epilog);
 		}
 	}
@@ -342,6 +345,7 @@ final:
 				auto n = new ASProgram.Namespace();
 				n.kind = namespace.kind;
 				n.name = abc.strings[namespace.name];
+				n.privateIndex = i;
 				namespaces[i] = n;
 			}
 
