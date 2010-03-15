@@ -253,8 +253,8 @@ class ASProgram
 	struct Exception
 	{
 		uint from, to, target;
-		string excType;
-		string varName;
+		Multiname excType;
+		Multiname varName;
 	}
 
 	this()
@@ -528,8 +528,8 @@ final:
 				e.from = exc.from;
 				e.to = exc.to;
 				e.target = exc.target;
-				e.excType = abc.strings[exc.excType];
-				e.varName = abc.strings[exc.varName];
+				e.excType = multinames[exc.excType];
+				e.varName = multinames[exc.varName];
 			}
 			n.traits = convertTraits(vbody.traits);
 
@@ -994,8 +994,8 @@ final:
 		
 		foreach (ref exception; vbody.exceptions)
 		{
-			StringC.add(exception.excType);
-			StringC.add(exception.varName);
+			visitMultiname(exception.excType);
+			visitMultiname(exception.varName);
 		}
 		
 		visitTraits(vbody.traits);
@@ -1202,8 +1202,8 @@ final:
 				ne.from = oe.from;
 				ne.to = oe.to;
 				ne.target = oe.target;
-				ne.excType = StringC.get(oe.excType);
-				ne.varName = StringC.get(oe.varName);
+				ne.excType = MultinameC.get(oe.excType);
+				ne.varName = MultinameC.get(oe.varName);
 			}
 			n.traits = convertTraits(o.traits);
 		}
