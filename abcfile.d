@@ -264,7 +264,41 @@ enum ASType : ubyte
 	MultinameL = 0x1B,
 	MultinameLA = 0x1C,
 	TypeName = 0x1D,
+	Max
 }
+
+string[ASType.Max] ASTypeNames = [
+	"Void",
+	"Utf8",
+	"Decimal",
+	"Integer",
+	"UInteger",
+	"PrivateNamespace",
+	"Double",
+	"QName",
+	"Namespace",
+	"Multiname",
+	"False",
+	"True",
+	"Null",
+	"QNameA",
+	"MultinameA",
+	"RTQName",
+	"RTQNameA",
+	"RTQNameL",
+	"RTQNameLA",
+	"???",
+	"???",
+	"Namespace_Set",
+	"PackageNamespace",
+	"PackageInternalNs",
+	"ProtectedNamespace",
+	"ExplicitNamespace",
+	"StaticProtectedNs",
+	"MultinameL",
+	"MultinameLA",
+	"TypeName",
+];
 
 /* These enumerations are as they are documented in the AVM bytecode specification.
    They are actually a single enumeration (see above), but in some contexts only certain values are valid.
