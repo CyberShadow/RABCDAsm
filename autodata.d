@@ -92,15 +92,15 @@ template ProcessAllData()
 				static assert(0, "DMD bug 2881 detected - can't use enums with ProcessAllData");
 			else
 			static if (is (typeof(this) == class))
-				mixin(addAutoField(this.tupleof[i].stringof[5..$]));
+				mixin(addAutoField(this.tupleof[i].stringof[5..$])); // remove "this."
 			else
-				mixin(addAutoField(this.tupleof[i].stringof[8..$]));
+				mixin(addAutoField(this.tupleof[i].stringof[8..$])); // remove "(*this)."
 		}
 		mixin(epilog);
 	}
 }
 
-/// For data handlers that only need to look at the raw data
+/// For data handlers that only need to look at the raw data (currently only HashDataHandler)
 template RawDataHandlerWrapper()
 {
 	static string process(T, string name)()
@@ -117,7 +117,7 @@ template RawDataHandlerWrapper()
 			static if (!hasAliasing!(U))
 				return processRaw(name ~ ".ptr", name ~ ".length");
 			else
-				return "foreach (ref _AutoDataArrayItem" ~ loopDepth ~ "; " ~ name ~ ") {" ~ processRecursive!(U, "_AutoDataArrayItem" ~ loopDepth, loopDepth~"_")() ~ "}";
+				return "foreach (ref _AutoDataArrayItem" ~ loopDepth ~ "; " ~ name ~ ") {" ~ processRecursive!(U, "_AutoDataArrayItem" ~ loopDepth, loopDepth~"Item")() ~ "}";
 		else
 		static if (is(typeof((new T).toHash())))
 			//static assert(0, "aoeu: " ~ T.stringof);
@@ -159,7 +159,7 @@ struct CmpDataHandler(O)
 			return "{ int _AutoDataCmp = std.string.cmp(this." ~ name ~ ", _AutoDataOther." ~ name ~ "); if (_AutoDataCmp != 0) return _AutoDataCmp; }";
 		else
 		static if (is(T == int))
-			return "{ int _AutoDataCmp = this." ~ name ~ " - _AutoDataOther." ~ name ~ "; if (_AutoDataCmp != 0) return _AutoDataCmp; }";
+			return "{ int _AutoDataCmp = this." ~ name ~ " - _AutoDataOther." ~ name ~ "; if (_AutoDataCmp != 0) return _AutoDataCmp; }"; // TODO: use long?
 		else
 		static if (is(T.opCmp))
 			return "{ int _AutoDataCmp = this." ~ name ~ ".opCmp(_AutoDataOther." ~ name ~ "); if (_AutoDataCmp != 0) return _AutoDataCmp; }";

@@ -18,7 +18,7 @@
 
 module abcfile;
 
-import std.string; // exception formatting
+import std.string : format; // exception formatting
 
 /** 
  * Implements a shallow representation of an .abc file. 
