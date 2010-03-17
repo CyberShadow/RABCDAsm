@@ -613,16 +613,26 @@ final:
 		static Constant!(T)[T] pool;
 		static T[] values;
 
-		static bool add(T value) // return true if added
+		static bool isNull(T value)
 		{
 			/*static if (is (typeof(value is null)))
-				if (value is null)
-					return false;*/
+				return value is null;*/
 			static if (is (T == class) || is(T == string))
-				{ if (value is null) return false; }
+				return value is null;
 			else
-				{ if (value == T.init) return false; }
+			static if (is (T == long))
+				return value == ABCFile.NULL_INT;
+			else
+			static if (is (T == ulong))
+				return value == ABCFile.NULL_UINT;
+			else
+				return value == T.init;
+		}
 
+		static bool add(T value) // return true if added
+		{
+			if (isNull(value))
+				return false;
 			auto cp = value in pool;
 			if (cp is null)
 			{
@@ -650,10 +660,8 @@ final:
 
 		static uint get(T value)
 		{
-			static if (is (T == class) || is(T == string))
-				{ if (value is null) return 0; }
-			else
-				{ if (value == T.init) return 0; }
+			if (isNull(value))
+				return 0;
 			return pool[value].index;
 		}
 

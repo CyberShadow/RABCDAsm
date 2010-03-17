@@ -50,10 +50,20 @@ class ABCFile
 	Script[] scripts;
 	MethodBody[] bodies;
 
+	static const long NULL_INT = long.max;
+	static const ulong NULL_UINT = ulong.max;
+
 	this()
 	{
+		majorVersion = 46;
+		minorVersion = 16;
+
 		ints.length = 1;
+		ints[0] = NULL_INT;
+
 		uints.length = 1;
+		uints[0] = NULL_UINT;
+
 		doubles.length = 1;
 		strings.length = 1;
 		namespaces.length = 1;
@@ -1151,6 +1161,8 @@ final:
 				r.Slot.vindex = readU30();
 				if (r.Slot.vindex)
 					r.Slot.vkind = cast(ASType)readU8();
+				else
+					r.Slot.vkind = ASType.Void;
 				break;
 			case TraitKind.Class:
 				r.Class.slotId = readU30();
