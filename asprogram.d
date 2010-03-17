@@ -762,6 +762,16 @@ final:
 			}
 		}
 
+		static bool notAdded(T obj)
+		{
+			if (obj is null)
+				return false;
+			if ((cast(void*)obj) in references)
+				return false;
+			else
+				return true;
+		}
+
 		static void flip()
 		{
 			objects.reverse;
@@ -851,8 +861,8 @@ final:
 
 	void visitScript(ASProgram.Script script)
 	{
-		visitMethod(script.sinit);
 		visitTraits(script.traits);
+		visitMethod(script.sinit);
 	}
 
 	void visitTraits(ASProgram.Trait[] traits)
@@ -921,12 +931,15 @@ final:
 
 	void visitClass(ASProgram.Class vclass)
 	{
-		if (ClassR.add(vclass))
+		if (ClassR.notAdded(vclass))
 		{
 			visitMethod(vclass.cinit);
 			visitTraits(vclass.traits);
 
 			visitInstance(vclass.instance);
+
+			bool r = ClassR.add(vclass);
+			assert(r);
 		}
 	}
 
@@ -1065,8 +1078,9 @@ final:
 		NamespaceSetC.sort();
 		//MultinameC.sort();
 		MultinameC.flip();
-		ClassR.flip();
-		MethodR.flip();
+		//ClassR.flip();
+		ClassR.reindex();
+		MethodR.reindex();
 
 		abc.ints = IntC.values;
 		abc.uints = UIntC.values;
