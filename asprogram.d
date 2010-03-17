@@ -1061,7 +1061,7 @@ final:
 			case ASType.False:
 			case ASType.Null:
 			case ASType.Undefined:
-				return 0;
+				return value.vkind; // must be non-zero for True/False/Null
 			default:
 				throw new Exception("Unknown type");
 		}
