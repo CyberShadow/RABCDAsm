@@ -1167,6 +1167,7 @@ final:
 				n.paramTypes[j] = MultinameC.get(p);
 			n.returnType = MultinameC.get(o.returnType);
 			n.name = StringC.get(o.name);
+			n.flags = o.flags;
 			n.options.length = o.options.length;
 			foreach (j, ref value; o.options)
 			{
