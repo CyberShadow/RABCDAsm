@@ -21,10 +21,10 @@ module autodata;
 import murmurhash2a;
 import std2.traits;
 
-string addAutoField(string name)
+string addAutoField(string name, bool reverseSort = false)
 {
 	//return `mixin(handler.process!(typeof(` ~ name ~ `), "` ~ name ~ `")());`; // doesn't work due to DMD bug 3959
-	return `{ static const _AutoDataStr = handler.process!(typeof(this.` ~ name ~ `), "` ~ name ~ `")(); mixin(_AutoDataStr); }`;
+	return `{ static const _AutoDataStr = handler.process!(typeof(this.` ~ name ~ `), "` ~ name ~ `", ` ~ (reverseSort ? "true" : "false") ~`)(); mixin(_AutoDataStr); }`;
 }
 
 template AutoCompare()
@@ -103,7 +103,7 @@ template ProcessAllData()
 /// For data handlers that only need to look at the raw data (currently only HashDataHandler)
 template RawDataHandlerWrapper()
 {
-	static string process(T, string name)()
+	static string process(T, string name, bool reverseSort)()
 	{
 		return processRecursive!(T, "this." ~ name, "");
 	}
@@ -143,7 +143,7 @@ struct EqualsDataHandler(O)
 {
 	O other;
 
-	static string process(T, string name)()
+	static string process(T, string name, bool reverseSort)()
 	{
 		return "if (this." ~ name ~ " != _AutoDataOther." ~ name ~ ") return false;";
 	}
@@ -153,25 +153,26 @@ struct CmpDataHandler(O)
 {
 	O other;
 
-	static string process(T, string name)()
+	static string process(T, string name, bool reverseSort)()
 	{
+		string reverseStr = reverseSort ? "-" : "";
 		static if (is(T == string) && is(std.string.cmp))
-			return "{ int _AutoDataCmp = std.string.cmp(this." ~ name ~ ", _AutoDataOther." ~ name ~ "); if (_AutoDataCmp != 0) return _AutoDataCmp; }";
+			return "{ int _AutoDataCmp = std.string.cmp(this." ~ name ~ ", _AutoDataOther." ~ name ~ "); if (_AutoDataCmp != 0) return " ~ reverseStr ~ "_AutoDataCmp; }";
 		else
 		static if (is(T == int))
-			return "{ int _AutoDataCmp = this." ~ name ~ " - _AutoDataOther." ~ name ~ "; if (_AutoDataCmp != 0) return _AutoDataCmp; }"; // TODO: use long?
+			return "{ int _AutoDataCmp = this." ~ name ~ " - _AutoDataOther." ~ name ~ "; if (_AutoDataCmp != 0) return " ~ reverseStr ~ "_AutoDataCmp; }"; // TODO: use long?
 		else
 		static if (is(T.opCmp))
-			return "{ int _AutoDataCmp = this." ~ name ~ ".opCmp(_AutoDataOther." ~ name ~ "); if (_AutoDataCmp != 0) return _AutoDataCmp; }";
+			return "{ int _AutoDataCmp = this." ~ name ~ ".opCmp(_AutoDataOther." ~ name ~ "); if (_AutoDataCmp != 0) return " ~ reverseStr ~ "_AutoDataCmp; }";
 		else
-			return "if (this." ~ name ~ " < _AutoDataOther." ~ name ~ ") return -1;" ~ 
-			       "if (this." ~ name ~ " > _AutoDataOther." ~ name ~ ") return  1;";
+			return "if (this." ~ name ~ " < _AutoDataOther." ~ name ~ ") return " ~ reverseStr ~ "(-1);" ~ 
+			       "if (this." ~ name ~ " > _AutoDataOther." ~ name ~ ") return " ~ reverseStr ~ "( 1);";
 	}
 }
 
 struct ToStringDataHandler
 {
-	static string process(T, string name)()
+	static string process(T, string name, bool reverseSort)()
 	{
 		return "_AutoDataResult ~= format(`%s = %s `, `" ~ name ~ "`, this." ~ name ~ ");";
 	}

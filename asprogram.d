@@ -665,9 +665,14 @@ final:
 			return pool[value].index;
 		}
 
-		int opCmp(typeof(this) other)
+		mixin AutoCompare;
+
+		R processData(R, string prolog, string epilog, H)(ref H handler)
 		{
-			return cast(int)other.hits - cast(int)hits;
+			mixin(prolog);
+			mixin(addAutoField("hits", true));
+			mixin(addAutoField("value"));
+			mixin(epilog);
 		}
 
 		uint hits;
