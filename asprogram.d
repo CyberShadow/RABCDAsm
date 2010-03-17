@@ -389,13 +389,13 @@ final:
 						n.vMultinameL.nsSet = namespaceSets[multiname.MultinameL.nsSet];
 						break;
 					case ASType.TypeName:
-						if (multiname.TypeName.name > i)
+						if (multiname.TypeName.name >= i)
 							throw new Exception("Forward Multiname/TypeName reference");
 						n.vTypeName.name = multinames[multiname.TypeName.name];
 						n.vTypeName.params.length = multiname.TypeName.params.length;
 						foreach (j, param; multiname.TypeName.params)
 						{
-							if (param > i)
+							if (param >= i)
 								throw new Exception("Forward Multiname/TypeName parameter reference");
 							n.vTypeName.params[j] = multinames[param];
 						}
@@ -607,27 +607,25 @@ final:
 	ABCFile abc;
 	ASProgram as;
 
+	static bool isNull(T)(T value)
+	{
+		static if (is (T == class) || is(T == string))
+			return value is null;
+		else
+		static if (is (T == long))
+			return value == ABCFile.NULL_INT;
+		else
+		static if (is (T == ulong))
+			return value == ABCFile.NULL_UINT;
+		else
+			return value == T.init;
+	}
+
 	/// Maintain an unordered set of values; sort/index by usage count
 	struct Constant(T)
 	{
 		static Constant!(T)[T] pool;
 		static T[] values;
-
-		static bool isNull(T value)
-		{
-			/*static if (is (typeof(value is null)))
-				return value is null;*/
-			static if (is (T == class) || is(T == string))
-				return value is null;
-			else
-			static if (is (T == long))
-				return value == ABCFile.NULL_INT;
-			else
-			static if (is (T == ulong))
-				return value == ABCFile.NULL_UINT;
-			else
-				return value == T.init;
-		}
 
 		static bool add(T value) // return true if added
 		{
@@ -644,6 +642,11 @@ final:
 				cp.hits++;
 				return false;
 			}
+		}
+
+		static bool notAdded(T value)
+		{
+			return !(isNull(value) || value in pool);
 		}
 
 		static void sort()
@@ -680,76 +683,6 @@ final:
 		uint index;
 	}
 
-	/// Maintain an ordered set of values
-	struct OrderedConstant(T)
-	{
-		static OrderedConstant!(T)[T] pool;
-		static T[] values;
-
-		static bool add(T value) // return true if added
-		{
-			/*static if (is (typeof(value is null)))
-				if (value is null)
-					return false;*/
-			static if (is (T == class))
-				{ if (value is null) return false; }
-			else
-				{ if (value == T.init) return false; }
-
-			auto cp = value in pool;
-			if (cp is null)
-			{
-				pool[value] = OrderedConstant!(T)(1);
-				values ~= value;
-				return true;
-			}
-			else
-			{
-				cp.hits++;
-				return false;
-			}
-		}
-
-		static bool notAdded(T value)
-		{
-			static if (is (T == class))
-				{ if (value is null) return false; }
-			else
-				{ if (value == T.init) return false; }
-
-			auto cp = value in pool;
-			
-			if (cp is null)
-				return true;
-			else
-				return false;
-		}
-
-		static void flip()
-		{
-			//values.reverse;
-			reindex();
-		}
-
-		static void reindex()
-		{
-			foreach (i, ref v; values)
-				pool[v].index = i;
-		}
-
-		static uint get(T value)
-		{
-			static if (is (T == class))
-				{ if (value is null) return 0; }
-			else
-				{ if (value == T.init) return 0; }
-			return pool[value].index + 1;
-		}
-
-		uint hits;
-		uint index;
-	}
-
 	/// Pair an index with class instances
 	struct Reference(T)
 	{
@@ -769,29 +702,12 @@ final:
 				return true;
 			}
 			else
-			{
-				rp.hits++;
 				return false;
-			}
 		}
 
 		static bool notAdded(T obj)
 		{
-			if (obj is null)
-				return false;
-			if ((cast(void*)obj) in references)
-				return false;
-			else
-				return true;
-		}
-
-		static void flip()
-		{
-			objects.reverse;
-			//uint max = objects.length-1;
-			//foreach (ref r; references)
-			//	r.index = max - r.index;
-			reindex();
+			return !(obj is null || (cast(void*)obj) in references);
 		}
 
 		static void reindex()
@@ -805,7 +721,7 @@ final:
 			return references[cast(void*)obj].index;
 		}
 
-		uint hits, index;
+		uint index;
 	}
 
 	typedef Constant!(long) IntC;
@@ -814,7 +730,7 @@ final:
 	typedef Constant!(string) StringC;
 	typedef Constant!(ASProgram.Namespace) NamespaceC;
 	typedef Constant!(ASProgram.Namespace[]) NamespaceSetC;
-	typedef OrderedConstant!(ASProgram.Multiname) MultinameC;
+	typedef Constant!(ASProgram.Multiname) MultinameC;
 	typedef Reference!(ASProgram.Class) ClassR;
 	typedef Reference!(ASProgram.Method) MethodR;
     
@@ -1089,8 +1005,9 @@ final:
 		StringC.sort();
 		NamespaceC.sort();
 		NamespaceSetC.sort();
-		//MultinameC.sort();
-		MultinameC.flip();
+		MultinameC.sort();
+		//MultinameC.flip();
+		//MultinameC.reindex();
 		//ClassR.flip();
 		ClassR.reindex();
 		MethodR.reindex();
@@ -1117,8 +1034,8 @@ final:
 			abc.namespaceSets[i+1] = n;
 		}
 
-		abc.multinames.length = MultinameC.values.length+1;
-		foreach (i, v; MultinameC.values)
+		abc.multinames.length = MultinameC.values.length;
+		foreach (i, v; MultinameC.values[1..$])
 		{
 			auto n = &abc.multinames[i+1];
 			n.kind = v.kind;
