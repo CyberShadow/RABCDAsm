@@ -412,31 +412,62 @@ final class Disassembler
 			sb ~= TraitKindNames[trait.kind];
 			sb ~= ' ';
 			dumpMultiname(sb, trait.name);
-			sb ~= ' ';
 			switch (trait.kind)
 			{
 				case TraitKind.Slot:
 				case TraitKind.Const:
-					dumpUInt(sb, trait.vSlot.slotId);
-					sb ~= ' ';
-					dumpMultiname(sb, trait.vSlot.typeName);
-					sb ~= ' ';
-					dumpValue(sb, trait.vSlot.value);
+					if (trait.vSlot.slotId)
+					{
+						sb ~= " slotid ";
+						dumpUInt(sb, trait.vSlot.slotId);
+					}
+					if (trait.vSlot.typeName)
+					{
+						sb ~= " type ";
+						dumpMultiname(sb, trait.vSlot.typeName);
+					}
+					if (trait.vSlot.value.vkind)
+					{
+						sb ~= " value ";
+						dumpValue(sb, trait.vSlot.value);
+					}
+					sb ~= " end";
 					sb.newLine();
 					break;
 				case TraitKind.Class:
-					dumpUInt(sb, trait.vSlot.slotId);
+					if (trait.vClass.slotId)
+					{
+						sb ~= " slotid ";
+						dumpUInt(sb, trait.vClass.slotId);
+					}
+					sb.indent++; sb.newLine();
+					sb ~= "class";
 					dumpClass(sb, trait.vClass.vclass);
+					sb.indent--; sb ~= "end ; trait"; sb.newLine();
 					break;
 				case TraitKind.Function:
-					dumpUInt(sb, trait.vSlot.slotId);
+					if (trait.vFunction.slotId)
+					{
+						sb ~= " slotid ";
+						dumpUInt(sb, trait.vFunction.slotId);
+					}
+					sb.indent++; sb.newLine();
+					sb ~= "method";
 					dumpMethod(sb, trait.vFunction.vfunction);
+					sb.indent--; sb ~= "end ; trait"; sb.newLine();
 					break;
 				case TraitKind.Method:
 				case TraitKind.Getter:
 				case TraitKind.Setter:
-					dumpUInt(sb, trait.vMethod.dispId);
+					if (trait.vMethod.dispId)
+					{
+						sb ~= " dispid ";
+						dumpUInt(sb, trait.vMethod.dispId);
+					}
+					sb.indent++; sb.newLine();
+					sb ~= "method";
 					dumpMethod(sb, trait.vMethod.vmethod);
+					sb.indent--; sb ~= "end ; trait"; sb.newLine();
 					break;
 				default:
 					throw new Exception("Unknown trait kind");
