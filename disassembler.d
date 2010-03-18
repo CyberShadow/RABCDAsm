@@ -92,9 +92,9 @@ final:
 			mkdir(name);
 		
 		StringBuilder sb;
-		foreach (script; as.scripts)
+		foreach (i, script; as.scripts)
 		{
-			dumpScript(sb, script);
+			dumpScript(sb, script, i);
 			sb.newLine();
 		}
 		write(name ~ "/" ~ name ~ ".asasm", sb.toString);
@@ -170,7 +170,7 @@ final:
 			dumpString(sb, name);
 			if (kind == ASType.PrivateNamespace)
 			{
-				sb ~= '/';
+				sb ~= ", ";
 				dumpUInt(sb, privateIndex);
 			}
 			sb ~= ')';
@@ -187,7 +187,7 @@ final:
 		{
 			dumpNamespace(sb, ns);
 			if (i < set.length-1)
-				sb ~= ',';
+				sb ~= ", ";
 		}
 		sb ~= ']';
 	}
@@ -206,7 +206,7 @@ final:
 				case ASType.QName:
 				case ASType.QNameA:
 					dumpNamespace(sb, vQName.ns);
-					sb ~= ',';
+					sb ~= ", ";
 					dumpString(sb, vQName.name);
 					break;
 				case ASType.RTQName:
@@ -219,7 +219,7 @@ final:
 				case ASType.Multiname:
 				case ASType.MultinameA:
 					dumpString(sb, vMultiname.name);
-					sb ~= ',';
+					sb ~= ", ";
 					dumpNamespaceSet(sb, vMultiname.nsSet);
 					break;
 				case ASType.MultinameL:
@@ -233,7 +233,7 @@ final:
 					{
 						dumpMultiname(sb, param);
 						if (i < vTypeName.params.length-1)
-							sb ~= ',';
+							sb ~= ", ";
 					}
 					sb ~= '>';
 					break;
@@ -416,9 +416,10 @@ final:
 		sb.indent--; sb ~= "end ; instance"; sb.newLine();
 	}
 
-	void dumpScript(ref StringBuilder sb, ASProgram.Script script)
+	void dumpScript(ref StringBuilder sb, ASProgram.Script script, uint index)
 	{
-		sb ~= "script";
+		sb ~= "script ; ";
+		sb ~= .toString(index);
 		sb.indent++; sb.newLine();
 		sb ~= "sinit "; dumpMethod(sb, script.sinit);
 		dumpTraits(sb, script.traits);
@@ -464,7 +465,7 @@ final:
 			dumpMultiname(sb, e.excType);
 			sb ~= " name ";
 			dumpMultiname(sb, e.varName);
-			sb ~= "end";
+			sb ~= " end";
 			sb.newLine();
 		}
 		sb.indent--; sb ~= "end ; body"; sb.newLine();
@@ -562,7 +563,7 @@ final:
 								sb ~= 'L';
 								sb ~= .toString(t);
 								if (ti < targets.length-1)
-									sb ~= ',';
+									sb ~= ", ";
 							}
 							sb ~= ']';
 							break;
