@@ -106,9 +106,13 @@ class RefBuilder : ASTraitsVisitor
 				addMethod(trait.vFunction.vfunction);
 				break;
 			case TraitKind.Method:
-			case TraitKind.Getter:
-			case TraitKind.Setter:
 				addMethod(trait.vMethod.vmethod);
+				break;
+			case TraitKind.Getter:
+				addMethod(trait.vMethod.vmethod, "getter");
+				break;
+			case TraitKind.Setter:
+				addMethod(trait.vMethod.vmethod, "setter");
 				break;
 			default:
 				break;
