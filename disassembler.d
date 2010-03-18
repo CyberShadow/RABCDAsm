@@ -254,7 +254,7 @@ final:
 			}
 		}
 
-		sb.save(name ~ "/" ~ name ~ ".asasm");
+		sb.save(name ~ "/" ~ name ~ ".main.asasm");
 	}
 
 	void dumpInt(StringBuilder sb, long v)
