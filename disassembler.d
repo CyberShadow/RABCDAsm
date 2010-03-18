@@ -599,9 +599,8 @@ final class Disassembler
 		sb.save();
 
 		mainsb.indent++; mainsb.newLine();
-		mainsb ~= "#include \"";
-		mainsb ~= filename;
-		mainsb ~= "\"";
+		mainsb ~= "#include ";
+		dumpString(mainsb, filename);
 		mainsb.newLine();
 		mainsb.indent--; mainsb ~= "end ; class"; mainsb.newLine();
 	}
