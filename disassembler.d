@@ -23,23 +23,30 @@ import std.string;
 import abcfile;
 import asprogram;
 
-struct StringBuilder
+class StringBuilder
 {
 	string buf;
 	size_t pos;
+
+	this()
+	{
+		buf.length = 1024;
+	}
+
+final:
 	void opCatAssign(string s)
 	{
 		checkIndent();
 		auto end = pos + s.length;
 		while (buf.length < end)
-			buf.length = buf.length==0 ? 1024 : buf.length*2;
+			buf.length = buf.length*2;
 		buf[pos..end] = s;
 		pos = end;
 	}
 
 	void opCatAssign(char c)
 	{
-		if (buf.length < pos+1) // speed hack: no loop, no 0-length check, no indent check
+		if (buf.length < pos+1) // speed hack: no loop, no indent check
 			buf.length = buf.length*2;
 		buf[pos++] = c;
 	}
@@ -54,7 +61,7 @@ struct StringBuilder
 
 	void newLine()
 	{
-		*this ~= '\n';
+		this ~= '\n';
 		indented = false;
 	}
 
@@ -68,7 +75,7 @@ struct StringBuilder
 		if (!indented)
 		{
 			for (int i=0; i<indent; i++)
-				*this ~= ' ';
+				this ~= ' ';
 			indented = true;
 		}
 	}
@@ -206,7 +213,7 @@ final:
 		if (!exists(name))
 			mkdir(name);
 		
-		StringBuilder sb;
+		StringBuilder sb = new StringBuilder;
 		foreach (i, script; as.scripts)
 		{
 			dumpScript(sb, script, i);
@@ -246,7 +253,7 @@ final:
 		write(name ~ "/" ~ name ~ ".asasm", sb.toString);
 	}
 
-	void dumpInt(ref StringBuilder sb, long v)
+	void dumpInt(StringBuilder sb, long v)
 	{
 		if (v == ABCFile.NULL_INT)
 			sb ~= "null";
@@ -254,7 +261,7 @@ final:
 			sb ~= .toString(v);
 	}
 
-	void dumpUInt(ref StringBuilder sb, ulong v)
+	void dumpUInt(StringBuilder sb, ulong v)
 	{
 		if (v == ABCFile.NULL_UINT)
 			sb ~= "null";
@@ -262,12 +269,12 @@ final:
 			sb ~= .toString(v);
 	}
 
-	void dumpDouble(ref StringBuilder sb, double v)
+	void dumpDouble(StringBuilder sb, double v)
 	{
 		sb ~= .toString(v);
 	}
 
-	void dumpString(ref StringBuilder sb, string str)
+	void dumpString(StringBuilder sb, string str)
 	{
 		if (str is null)
 			sb ~= "null";
@@ -304,7 +311,7 @@ final:
 		}
 	}
 
-	void dumpNamespace(ref StringBuilder sb, ASProgram.Namespace namespace)
+	void dumpNamespace(StringBuilder sb, ASProgram.Namespace namespace)
 	{
 		if (namespace is null)
 			sb ~= "null";
@@ -323,7 +330,7 @@ final:
 		}
 	}
 
-	void dumpNamespaceSet(ref StringBuilder sb, ASProgram.Namespace[] set)
+	void dumpNamespaceSet(StringBuilder sb, ASProgram.Namespace[] set)
 	{
 		if (set is null)
 			sb ~= "null";
@@ -338,7 +345,7 @@ final:
 		sb ~= ']';
 	}
 
-	void dumpMultiname(ref StringBuilder sb, ASProgram.Multiname multiname)
+	void dumpMultiname(StringBuilder sb, ASProgram.Multiname multiname)
 	{
 		if (multiname is null)
 			sb ~= "null";
@@ -390,7 +397,7 @@ final:
 		}
 	}
 
-	void dumpTraits(ref StringBuilder sb, ASProgram.Trait[] traits)
+	void dumpTraits(StringBuilder sb, ASProgram.Trait[] traits)
 	{
 		foreach (ref trait; traits)
 		{
@@ -431,7 +438,7 @@ final:
 		}
 	}
 
-	void dumpFlags(ref StringBuilder sb, ubyte flags, string[] names)
+	void dumpFlags(StringBuilder sb, ubyte flags, string[] names)
 	{
 		assert(names.length == 8);
 		for (int i=0; flags; i++, flags>>=1)
@@ -443,7 +450,7 @@ final:
 			}
 	}
 
-	void dumpValue(ref StringBuilder sb, ref ASProgram.Value value)
+	void dumpValue(StringBuilder sb, ref ASProgram.Value value)
 	{
 		with (value)
 		{
@@ -485,7 +492,7 @@ final:
 		}
 	}
 
-	void dumpMethod(ref StringBuilder sb, ASProgram.Method method)
+	void dumpMethod(StringBuilder sb, ASProgram.Method method)
 	{
 		sb.indent++; sb.newLine();
 		if (method.name !is null)
@@ -532,7 +539,7 @@ final:
 		sb.indent--; sb ~= "end ; method"; sb.newLine();
 	}
 
-	void dumpClass(ref StringBuilder sb, ASProgram.Class vclass)
+	void dumpClass(StringBuilder sb, ASProgram.Class vclass)
 	{
 		sb.indent++; sb.newLine();
 		sb ~= "instance ";
@@ -542,7 +549,7 @@ final:
 		sb.indent--; sb ~= "end ; class"; sb.newLine();
 	}
 
-	void dumpInstance(ref StringBuilder sb, ASProgram.Instance instance)
+	void dumpInstance(StringBuilder sb, ASProgram.Instance instance)
 	{
 		dumpMultiname(sb, instance.name);
 		sb.indent++; sb.newLine();
@@ -570,7 +577,7 @@ final:
 		sb.indent--; sb ~= "end ; instance"; sb.newLine();
 	}
 
-	void dumpScript(ref StringBuilder sb, ASProgram.Script script, uint index)
+	void dumpScript(StringBuilder sb, ASProgram.Script script, uint index)
 	{
 		sb ~= "script ; ";
 		sb ~= .toString(index);
@@ -580,7 +587,7 @@ final:
 		sb.indent--; sb ~= "end ; script"; sb.newLine();
 	}
 
-	void dumpUIntField(ref StringBuilder sb, string name, uint value)
+	void dumpUIntField(StringBuilder sb, string name, uint value)
 	{
 		sb ~= name;
 		sb ~= ' ';
@@ -588,7 +595,7 @@ final:
 		sb.newLine();
 	}
 
-	void dumpMethodBody(ref StringBuilder sb, ASProgram.MethodBody mbody)
+	void dumpMethodBody(StringBuilder sb, ASProgram.MethodBody mbody)
 	{
 		sb ~= "body";
 		sb.indent++; sb.newLine();
@@ -625,7 +632,7 @@ final:
 		sb.indent--; sb ~= "end ; body"; sb.newLine();
 	}
 
-	void dumpInstructions(ref StringBuilder sb, ASProgram.Instruction[] instructions, bool[] labels)
+	void dumpInstructions(StringBuilder sb, ASProgram.Instruction[] instructions, bool[] labels)
 	{
 		sb.indent++;
 		foreach (ref instruction; instructions)
