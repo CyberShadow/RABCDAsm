@@ -39,7 +39,7 @@ struct StringBuilder
 
 	void opCatAssign(char c)
 	{
-		if (buf.length < pos+1) // hack: no loop, no 0-length check
+		if (buf.length < pos+1) // speed hack: no loop, no 0-length check, no indent check
 			buf.length = buf.length*2;
 		buf[pos++] = c;
 	}
@@ -74,10 +74,118 @@ struct StringBuilder
 	}
 }
 
+class RefBuilder : ASTraitsVisitor
+{
+	string[void*] objName;
+	ASProgram.Class[string] classByName;
+	ASProgram.Method[string] methodByName;
+
+	ASProgram.Multiname[] context;
+	
+	this(ASProgram as)
+	{
+		super(as);
+	}
+
+	override void run()
+	{
+		foreach (i, ref v; as.scripts)
+			addMethod(v.sinit, "script" ~ .toString(i) ~ "_sinit");
+		super.run();
+	}
+
+	override void visitTrait(ref ASProgram.Trait trait)
+	{
+		context ~= trait.name;
+		switch (trait.kind)
+		{
+			case TraitKind.Class:
+				addClass(trait.vClass.vclass);
+				break;
+			case TraitKind.Function:
+				addMethod(trait.vFunction.vfunction);
+				break;
+			case TraitKind.Method:
+			case TraitKind.Getter:
+			case TraitKind.Setter:
+				addMethod(trait.vMethod.vmethod);
+				break;
+			default:
+				break;
+		}
+		super.visitTrait(trait);
+		context = context[0..$-1];
+	}
+
+final:
+	string contextToString(string field)
+	{
+		string[] strings = new string[context.length + (field ? 1 : 0)];
+		foreach (i, m; context)
+		{
+			// should this check ever fail, it's easy to fix it - just build any unique-ish string from the context
+			if (m.kind != ASType.QName)
+				throw new Exception("Trait name is not a QName");
+			strings[i] = (m.vQName.ns.name.length ? m.vQName.ns.name ~ "." : "") ~ m.vQName.name;
+		}
+		if (field)
+			strings[$-1] = field;
+		string s = join(strings, "/");
+		foreach (ref c; s)
+			if (c < 0x20 || c == '\'')
+				c = '_';
+		return s;
+	}
+
+	string addObject(T)(T obj, ref T[string] objByName, string field)
+	{
+		auto name = contextToString(field);
+		auto uniqueName = name;
+		int i = 1;
+		while (uniqueName in objByName)
+			uniqueName = name ~ "_" ~ .toString(++i);
+		objByName[uniqueName] = obj;
+		objName[cast(void*)obj] = uniqueName;
+		return uniqueName;
+	}
+
+	void addClass(ASProgram.Class vclass)
+	{
+		addObject(vclass, classByName, string.init);
+		addMethod(vclass.cinit, "cinit");
+		addMethod(vclass.instance.iinit, "iinit");
+	}
+
+	void addMethod(ASProgram.Method method, string field = null)
+	{
+		addObject(method, methodByName, field);
+	}
+
+	string getObjectName(T)(T obj, ref T[string] objByName)
+	{
+		auto pname = cast(void*)obj in objName;
+		if (pname)
+			return *pname;
+		else
+			return addObject(obj, objByName, "orphan");
+	}
+
+	string getClassName(ASProgram.Class vclass)
+	{
+		return getObjectName(vclass, classByName);
+	}
+
+	string getMethodName(ASProgram.Method method)
+	{
+		return getObjectName(method, methodByName);
+	}
+}
+
 class Disassembler
 {
 	ASProgram as;
 	string name;
+	RefBuilder refs;
 	
 	this(ASProgram as, string name)
 	{
@@ -88,6 +196,9 @@ class Disassembler
 final:
 	void disassemble()
 	{
+		refs = new RefBuilder(as);
+		refs.run();
+		
 		if (!exists(name))
 			mkdir(name);
 		
@@ -97,6 +208,37 @@ final:
 			dumpScript(sb, script, i);
 			sb.newLine();
 		}
+		
+		if (as.orphanClasses.length)
+		{
+			sb.newLine();
+			sb ~= "; ===========================================================================";
+			sb.newLine();
+			sb.newLine();
+
+			foreach (i, vclass; as.orphanClasses)
+			{
+				sb ~= "class";
+				dumpClass(sb, vclass);
+				sb.newLine();
+			}
+		}
+
+		if (as.orphanMethods.length)
+		{
+			sb.newLine();
+			sb ~= "; ===========================================================================";
+			sb.newLine();
+			sb.newLine();
+
+			foreach (i, method; as.orphanMethods)
+			{
+				sb ~= "method";
+				dumpMethod(sb, method);
+				sb.newLine();
+			}
+		}
+
 		write(name ~ "/" ~ name ~ ".asasm", sb.toString);
 	}
 
@@ -348,6 +490,14 @@ final:
 			dumpString(sb, method.name);
 			sb.newLine();
 		}
+		auto refName = cast(void*)method in refs.objName;
+		if (refName)
+		{
+			sb ~= "refid '";
+			sb ~= *refName;
+			sb ~= '\'';
+			sb.newLine();
+		}
 		foreach (m; method.paramTypes)
 		{
 			sb ~= "param ";
@@ -540,12 +690,14 @@ final:
 							dumpMultiname(sb, instruction.arguments[i].multinamev);
 							break;
 						case OpcodeArgumentType.Class:
-							//r.arguments[i].index = ClassR.get(instruction.arguments[i].classv);
-							sb ~= "<class>";
+							sb ~= '\'';
+							sb ~= refs.getClassName(instruction.arguments[i].classv);
+							sb ~= '\'';
 							break;
 						case OpcodeArgumentType.Method:
-							//r.arguments[i].index = MethodR.get(instruction.arguments[i].methodv);
-							sb ~= "<method>";
+							sb ~= '\'';
+							sb ~= refs.getMethodName(instruction.arguments[i].methodv);
+							sb ~= '\'';
 							break;
 
 						case OpcodeArgumentType.JumpTarget:
