@@ -51,9 +51,16 @@ final:
 		buf[pos++] = c;
 	}
 
-	string toString()
+	void save(string filename)
 	{
-		return buf[0..pos];
+		string[] dirSegments = split(filename, "/");
+		for (int l=0; l<dirSegments.length-1; l++)
+		{
+			auto subdir = join(dirSegments[0..l+1], "/");
+			if (!exists(subdir))
+				mkdir(subdir);
+		}
+		write(filename, buf[0..pos]);
 	}
 
 	int indent;
@@ -210,9 +217,6 @@ final:
 		refs = new RefBuilder(as);
 		refs.run();
 		
-		if (!exists(name))
-			mkdir(name);
-		
 		StringBuilder sb = new StringBuilder;
 		foreach (i, script; as.scripts)
 		{
@@ -250,7 +254,7 @@ final:
 			}
 		}
 
-		write(name ~ "/" ~ name ~ ".asasm", sb.toString);
+		sb.save(name ~ "/" ~ name ~ ".asasm");
 	}
 
 	void dumpInt(StringBuilder sb, long v)
