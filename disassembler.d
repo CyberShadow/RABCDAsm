@@ -543,9 +543,21 @@ final:
 		sb.indent--; sb ~= "end ; method"; sb.newLine();
 	}
 
-	void dumpClass(StringBuilder sb, ASProgram.Class vclass)
+	static string toFileName(string refid)
 	{
-		sb.indent++; sb.newLine();
+		string filename = refid.dup;
+		foreach (ref c; filename)
+			if (c == '.')
+				c = '/';
+			else
+			if (c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|')
+				c = '_';
+		return filename ~ ".asasm";
+	}
+
+	void dumpClass(StringBuilder mainsb, ASProgram.Class vclass)
+	{
+		StringBuilder sb = new StringBuilder;
 		auto refName = cast(void*)vclass in refs.objName;
 		if (refName)
 		{
@@ -558,7 +570,16 @@ final:
 		dumpInstance(sb, vclass.instance);
 		sb ~= "cinit "; dumpMethod(sb, vclass.cinit);
 		dumpTraits(sb, vclass.traits);
-		sb.indent--; sb ~= "end ; class"; sb.newLine();
+		
+		auto filename = toFileName(refs.getClassName(vclass));
+		sb.save(name ~ "/" ~ filename);
+
+		mainsb.indent++; mainsb.newLine();
+		mainsb ~= "#include \"";
+		mainsb ~= filename;
+		mainsb ~= "\"";
+		mainsb.newLine();
+		mainsb.indent--; mainsb ~= "end ; class"; mainsb.newLine();
 	}
 
 	void dumpInstance(StringBuilder sb, ASProgram.Instance instance)
