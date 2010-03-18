@@ -30,6 +30,8 @@ class ASProgram
 {
 	ushort minorVersion, majorVersion;
 	Script[] scripts;
+	Class[] orphanClasses;
+	Method[] orphanMethods;
 
 	static class Namespace
 	{
@@ -290,8 +292,22 @@ final:
 	ASProgram.Metadata[] metadata;
 	ASProgram.Instance[] instances;
 	ASProgram.Class[] classes;
-	ASProgram.MethodBody[] bodies;
-	
+
+	bool[] methodAdded;
+	bool[] classAdded;
+
+	ASProgram.Method getMethod(uint index)
+	{
+		methodAdded[index] = true;
+		return methods[index];
+	}
+
+	ASProgram.Class getClass(uint index)
+	{
+		classAdded[index] = true;
+		return classes[index];
+	}
+
 	ASProgram.Value convertValue(ASType kind, uint val)
 	{
 		ASProgram.Value o;
@@ -329,216 +345,194 @@ final:
 		}
 		return o;
 	}
-		
-	this(ABCFile abc)
+
+	ASProgram.Namespace convertNamespace(ref ABCFile.Namespace namespace, int privateIndex)
 	{
-		this.as = new ASProgram();
-		this.abc = abc;
+		auto n = new ASProgram.Namespace();
+		n.kind = namespace.kind;
+		n.name = abc.strings[namespace.name];
+		n.privateIndex = privateIndex;
+		return n;
+	}
+
+	ASProgram.Namespace[] convertNamespaceSet(uint[] namespaceSet)
+	{
+		auto n = new ASProgram.Namespace[namespaceSet.length];
+		foreach (j, namespace; namespaceSet)
+			n[j] = namespaces[namespace];
+		return n;
+	}
+
+	ASProgram.Multiname convertMultiname(ref ABCFile.Multiname multiname, uint i)
+	{
+		auto n = new ASProgram.Multiname();
+		n.kind = multiname.kind;
+		switch (multiname.kind)
+		{
+			case ASType.QName:
+			case ASType.QNameA:
+				n.vQName.ns = namespaces[multiname.QName.ns];
+				n.vQName.name = abc.strings[multiname.QName.name];
+				break;
+			case ASType.RTQName:
+			case ASType.RTQNameA:
+				n.vRTQName.name = abc.strings[multiname.RTQName.name];
+				break;
+			case ASType.RTQNameL:
+			case ASType.RTQNameLA:
+				break;
+			case ASType.Multiname:
+			case ASType.MultinameA:
+				n.vMultiname.name = abc.strings[multiname.Multiname.name];
+				n.vMultiname.nsSet = namespaceSets[multiname.Multiname.nsSet];
+				break;
+			case ASType.MultinameL:
+			case ASType.MultinameLA:
+				n.vMultinameL.nsSet = namespaceSets[multiname.MultinameL.nsSet];
+				break;
+			case ASType.TypeName:
+				if (multiname.TypeName.name >= i)
+					throw new Exception("Forward Multiname/TypeName reference");
+				n.vTypeName.name = multinames[multiname.TypeName.name];
+				n.vTypeName.params.length = multiname.TypeName.params.length;
+				foreach (j, param; multiname.TypeName.params)
+				{
+					if (param >= i)
+						throw new Exception("Forward Multiname/TypeName parameter reference");
+					n.vTypeName.params[j] = multinames[param];
+				}
+				break;
+			default:
+				throw new Exception("Unknown Multiname kind");
+		}
+		return n;
+	}
+
+	ASProgram.Method convertMethod(ref ABCFile.MethodInfo method)
+	{
+		auto n = new ASProgram.Method();
+		n.paramTypes.length = method.paramTypes.length;
+		foreach (j, param; method.paramTypes)
+			n.paramTypes[j] = multinames[param];
+		n.returnType = multinames[method.returnType];
+		n.name = abc.strings[method.name];
+		n.flags = method.flags;
+		n.options.length = method.options.length;
+		foreach (j, ref option; method.options)
+			n.options[j] = convertValue(option.kind, option.val);
+		n.paramNames.length = method.paramNames.length;
+		foreach (j, name; method.paramNames)
+			n.paramNames[j] = abc.strings[name];
+		return n;
+	}
+
+	ASProgram.Metadata convertMetadata(ref ABCFile.Metadata md)
+	{
+		auto n = new ASProgram.Metadata();
+		n.name = abc.strings[md.name];
+		n.items.length = md.items.length;
+		foreach (j, ref item; md.items)
+		{
+			n.items[j].key = abc.strings[item.key];
+			n.items[j].value = abc.strings[item.value];
+		}
+		return n;
+	}
 		
-		as.minorVersion = abc.minorVersion;
-		as.majorVersion = abc.majorVersion;
-
-		namespaces.length = abc.namespaces.length;
-		foreach (i, ref namespace; abc.namespaces)
-			if (i)
+	ASProgram.Trait[] convertTraits(ABCFile.TraitsInfo[] traits)
+	{
+		auto r = new ASProgram.Trait[traits.length];
+		foreach (i, ref trait; traits)
+		{
+			r[i].name = multinames[trait.name];
+			r[i].kind = trait.kind;
+			r[i].attr = trait.attr;
+			switch (trait.kind)
 			{
-				auto n = new ASProgram.Namespace();
-				n.kind = namespace.kind;
-				n.name = abc.strings[namespace.name];
-				n.privateIndex = i;
-				namespaces[i] = n;
+				case TraitKind.Slot:
+				case TraitKind.Const:
+					r[i].vSlot.slotId = trait.Slot.slotId;
+					r[i].vSlot.typeName = multinames[trait.Slot.typeName];
+					r[i].vSlot.value = convertValue(trait.Slot.vkind, trait.Slot.vindex);
+					break;
+				case TraitKind.Class:
+					r[i].vClass.slotId = trait.Class.slotId;
+					if (classes.length==0 || classes[trait.Class.classi] is null)
+						throw new Exception("Forward class reference");
+					r[i].vClass.vclass = getClass(trait.Class.classi);
+					break;
+				case TraitKind.Function:
+					r[i].vFunction.slotId = trait.Function.slotId;
+					r[i].vFunction.vfunction = getMethod(trait.Function.functioni);
+					break;
+				case TraitKind.Method:
+				case TraitKind.Getter:
+				case TraitKind.Setter:
+					r[i].vMethod.dispId = trait.Method.dispId;
+					r[i].vMethod.vmethod = getMethod(trait.Method.method);
+					break;
+				default:
+					throw new Exception("Unknown trait kind");
 			}
-
-		namespaceSets.length = abc.namespaceSets.length;
-		foreach (i, namespaceSet; abc.namespaceSets)
-			if (i)
-			{
-				auto n = new ASProgram.Namespace[namespaceSet.length];
-				foreach (j, namespace; namespaceSet)
-					n[j] = namespaces[namespace];
-				namespaceSets[i] = n;
-			}
-
-		multinames.length = abc.multinames.length;
-		foreach (i, ref multiname; abc.multinames)
-			if (i)
-			{
-				auto n = new ASProgram.Multiname();
-				n.kind = multiname.kind;
-				switch (multiname.kind)
-				{
-					case ASType.QName:
-					case ASType.QNameA:
-						n.vQName.ns = namespaces[multiname.QName.ns];
-						n.vQName.name = abc.strings[multiname.QName.name];
-						break;
-					case ASType.RTQName:
-					case ASType.RTQNameA:
-						n.vRTQName.name = abc.strings[multiname.RTQName.name];
-						break;
-					case ASType.RTQNameL:
-					case ASType.RTQNameLA:
-						break;
-					case ASType.Multiname:
-					case ASType.MultinameA:
-						n.vMultiname.name = abc.strings[multiname.Multiname.name];
-						n.vMultiname.nsSet = namespaceSets[multiname.Multiname.nsSet];
-						break;
-					case ASType.MultinameL:
-					case ASType.MultinameLA:
-						n.vMultinameL.nsSet = namespaceSets[multiname.MultinameL.nsSet];
-						break;
-					case ASType.TypeName:
-						if (multiname.TypeName.name >= i)
-							throw new Exception("Forward Multiname/TypeName reference");
-						n.vTypeName.name = multinames[multiname.TypeName.name];
-						n.vTypeName.params.length = multiname.TypeName.params.length;
-						foreach (j, param; multiname.TypeName.params)
-						{
-							if (param >= i)
-								throw new Exception("Forward Multiname/TypeName parameter reference");
-							n.vTypeName.params[j] = multinames[param];
-						}
-						break;
-					default:
-						throw new Exception("Unknown Multiname kind");
-				}
-				
-				multinames[i] = n;
-			}
-
-		methods.length = abc.methods.length;
-		foreach (i, ref method; abc.methods)
-		{
-			auto n = new ASProgram.Method();
-			n.paramTypes.length = method.paramTypes.length;
-			foreach (j, param; method.paramTypes)
-				n.paramTypes[j] = multinames[param];
-			n.returnType = multinames[method.returnType];
-			n.name = abc.strings[method.name];
-			n.flags = method.flags;
-			n.options.length = method.options.length;
-			foreach (j, ref option; method.options)
-				n.options[j] = convertValue(option.kind, option.val);
-			n.paramNames.length = method.paramNames.length;
-			foreach (j, name; method.paramNames)
-				n.paramNames[j] = abc.strings[name];
-			methods[i] = n;
 		}
+		return r;
+	}
 
-		metadata.length = abc.metadata.length;
-		foreach (i, ref md; abc.metadata)
+	ASProgram.Instance convertInstance(ref ABCFile.Instance instance)
+	{
+		auto n = new ASProgram.Instance();
+		n.name = multinames[instance.name];
+		n.superName = multinames[instance.superName];
+		n.flags = instance.flags;
+		n.protectedNs = namespaces[instance.protectedNs];
+		n.interfaces.length = instance.interfaces.length;
+		foreach (j, intf; instance.interfaces)
+			n.interfaces[j] = multinames[intf];
+		n.iinit = getMethod(instance.iinit);
+		n.traits = convertTraits(instance.traits);
+		return n;
+	}
+
+	ASProgram.Class convertClass(ref ABCFile.Class vclass, uint i)
+	{
+		auto n = new ASProgram.Class();
+		n.cinit = getMethod(vclass.cinit);
+		n.traits = convertTraits(vclass.traits);
+		n.instance = instances[i];
+		return n;
+	}
+
+	ASProgram.Script convertScript(ref ABCFile.Script script)
+	{
+		auto n = new ASProgram.Script;
+		n.sinit = getMethod(script.sinit);
+		n.traits = convertTraits(script.traits);
+		return n;
+	}
+
+	ASProgram.MethodBody convertBody(ref ABCFile.MethodBody vbody)
+	{
+		auto n = new ASProgram.MethodBody;
+		n.method = methods[vbody.method];
+		n.maxStack = vbody.maxStack;
+		n.localCount = vbody.localCount;
+		n.initScopeDepth = vbody.initScopeDepth;
+		n.maxScopeDepth = vbody.maxScopeDepth;
+		n.instructions.length = vbody.instructions.length;
+		foreach (ii, ref instruction; vbody.instructions)
+			n.instructions[ii] = convertInstruction(instruction);
+		n.exceptions.length = vbody.exceptions.length;
+		foreach (j, ref exc; vbody.exceptions)
 		{
-			auto n = new ASProgram.Metadata();
-			n.name = abc.strings[md.name];
-			n.items.length = md.items.length;
-			foreach (j, ref item; md.items)
-			{
-				n.items[j].key = abc.strings[item.key];
-				n.items[j].value = abc.strings[item.value];
-			}
-			metadata[i] = n;
+			auto e = &n.exceptions[j];
+			e.from = exc.from;
+			e.to = exc.to;
+			e.target = exc.target;
+			e.excType = multinames[exc.excType];
+			e.varName = multinames[exc.varName];
 		}
-
-		ASProgram.Trait[] convertTraits(ABCFile.TraitsInfo[] traits)
-		{
-			auto r = new ASProgram.Trait[traits.length];
-			foreach (i, ref trait; traits)
-			{
-				r[i].name = multinames[trait.name];
-				r[i].kind = trait.kind;
-				r[i].attr = trait.attr;
-				switch (trait.kind)
-				{
-					case TraitKind.Slot:
-					case TraitKind.Const:
-						r[i].vSlot.slotId = trait.Slot.slotId;
-						r[i].vSlot.typeName = multinames[trait.Slot.typeName];
-						r[i].vSlot.value = convertValue(trait.Slot.vkind, trait.Slot.vindex);
-						break;
-					case TraitKind.Class:
-						r[i].vClass.slotId = trait.Class.slotId;
-						if (classes.length==0 || classes[trait.Class.classi] is null)
-							throw new Exception("Forward class reference");
-						r[i].vClass.vclass = classes[trait.Class.classi];
-						break;
-					case TraitKind.Function:
-						r[i].vFunction.slotId = trait.Function.slotId;
-						r[i].vFunction.vfunction = methods[trait.Function.functioni];
-						break;
-					case TraitKind.Method:
-					case TraitKind.Getter:
-					case TraitKind.Setter:
-						r[i].vMethod.dispId = trait.Method.dispId;
-						r[i].vMethod.vmethod = methods[trait.Method.method];
-						break;
-					default:
-						throw new Exception("Unknown trait kind");
-				}
-			}
-			return r;
-		}
-
-		instances.length = abc.instances.length;
-		foreach (i, ref instance; abc.instances)
-		{
-			auto n = new ASProgram.Instance();
-			n.name = multinames[instance.name];
-			n.superName = multinames[instance.superName];
-			n.flags = instance.flags;
-			n.protectedNs = namespaces[instance.protectedNs];
-			n.interfaces.length = instance.interfaces.length;
-			foreach (j, intf; instance.interfaces)
-				n.interfaces[j] = multinames[intf];
-			n.iinit = methods[instance.iinit];
-			n.traits = convertTraits(instance.traits);
-			instances[i] = n;
-		}
-
-		classes.length = abc.classes.length;
-		foreach (i, ref vclass; abc.classes)
-		{
-			auto n = new ASProgram.Class();
-			n.cinit = methods[vclass.cinit];
-			n.traits = convertTraits(vclass.traits);
-			n.instance = instances[i];
-			classes[i] = n;
-		}
-
-		as.scripts.length = abc.scripts.length;
-		foreach (i, ref script; abc.scripts)
-		{
-			auto n = new ASProgram.Script;
-			n.sinit = methods[script.sinit];
-			n.traits = convertTraits(script.traits);
-			as.scripts[i] = n;
-		}
-
-		foreach (i, ref vbody; abc.bodies)
-		{
-			auto n = new ASProgram.MethodBody;
-			n.method = methods[vbody.method];
-			n.maxStack = vbody.maxStack;
-			n.localCount = vbody.localCount;
-			n.initScopeDepth = vbody.initScopeDepth;
-			n.maxScopeDepth = vbody.maxScopeDepth;
-			n.instructions.length = vbody.instructions.length;
-			foreach (ii, ref instruction; vbody.instructions)
-				n.instructions[ii] = convertInstruction(instruction);
-			n.exceptions.length = vbody.exceptions.length;
-			foreach (j, ref exc; vbody.exceptions)
-			{
-				auto e = &n.exceptions[j];
-				e.from = exc.from;
-				e.to = exc.to;
-				e.target = exc.target;
-				e.excType = multinames[exc.excType];
-				e.varName = multinames[exc.varName];
-			}
-			n.traits = convertTraits(vbody.traits);
-
-			n.method.vbody = n;
-		}
+		n.traits = convertTraits(vbody.traits);
+		return n;
 	}
 
 	ASProgram.Instruction convertInstruction(ref ABCFile.Instruction instruction)
@@ -598,6 +592,61 @@ final:
 					assert(0);
 			}
 		return r;
+	}
+
+	this(ABCFile abc)
+	{
+		this.as = new ASProgram();
+		this.abc = abc;
+		
+		as.minorVersion = abc.minorVersion;
+		as.majorVersion = abc.majorVersion;
+
+		namespaces.length = abc.namespaces.length;
+		foreach (i, ref namespace; abc.namespaces)
+			if (i)
+				namespaces[i] = convertNamespace(namespace, i);
+
+		namespaceSets.length = abc.namespaceSets.length;
+		foreach (i, namespaceSet; abc.namespaceSets)
+			if (i)
+				namespaceSets[i] = convertNamespaceSet(namespaceSet);
+
+		multinames.length = abc.multinames.length;
+		foreach (i, ref multiname; abc.multinames)
+			if (i)
+				multinames[i] = convertMultiname(multiname, i);
+
+		methods.length = methodAdded.length = abc.methods.length;
+		foreach (i, ref method; abc.methods)
+			methods[i] = convertMethod(method);
+
+		metadata.length = abc.metadata.length;
+		foreach (i, ref md; abc.metadata)
+			metadata[i] = convertMetadata(md);
+
+		instances.length = classAdded.length = abc.instances.length;
+		foreach (i, ref instance; abc.instances)
+			instances[i] = convertInstance(instance);
+
+		classes.length = abc.classes.length;
+		foreach (i, ref vclass; abc.classes)
+			classes[i] = convertClass(vclass, i);
+
+		as.scripts.length = abc.scripts.length;
+		foreach (i, ref script; abc.scripts)
+			as.scripts[i] = convertScript(script);
+
+		foreach (i, ref vbody; abc.bodies)
+			methods[vbody.method].vbody = convertBody(vbody);
+
+		foreach (i, b; classAdded)
+			if (!b)
+				as.orphanClasses ~= classes[i];
+
+		foreach (i, b; methodAdded)
+			if (!b)
+				as.orphanMethods ~= methods[i];
 	}
 }
 
@@ -998,6 +1047,10 @@ final:
 
 		foreach (script; as.scripts)
 			visitScript(script);
+		foreach (vclass; as.orphanClasses)
+			visitClass(vclass);
+		foreach (method; as.orphanMethods)
+			visitMethod(method);
 
 		IntC.sort();
 		UIntC.sort();
