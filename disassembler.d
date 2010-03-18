@@ -542,6 +542,14 @@ final:
 	void dumpClass(StringBuilder sb, ASProgram.Class vclass)
 	{
 		sb.indent++; sb.newLine();
+		auto refName = cast(void*)vclass in refs.objName;
+		if (refName)
+		{
+			sb ~= "refid '";
+			sb ~= *refName;
+			sb ~= '\'';
+			sb.newLine();
+		}
 		sb ~= "instance ";
 		dumpInstance(sb, vclass.instance);
 		sb ~= "cinit "; dumpMethod(sb, vclass.cinit);
