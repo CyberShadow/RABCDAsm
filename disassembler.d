@@ -204,6 +204,9 @@ class Disassembler
 	ASProgram as;
 	string name;
 	RefBuilder refs;
+
+	version (Windows)
+		string[string] filenameMappings;
 	
 	this(ASProgram as, string name)
 	{
@@ -543,7 +546,7 @@ final:
 		sb.indent--; sb ~= "end ; method"; sb.newLine();
 	}
 
-	static string toFileName(string refid)
+	string toFileName(string refid)
 	{
 		string filename = refid.dup;
 		foreach (ref c; filename)
@@ -552,6 +555,26 @@ final:
 			else
 			if (c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|')
 				c = '_';
+		
+		version (Windows)
+		{
+			string[] dirSegments = split(filename, "/");
+			for (int l=0; l<dirSegments.length-1; l++)
+			{
+			again:	
+				string subdir = join(dirSegments[0..l+1], "/");
+				string subdirl = tolower(subdir);
+				string* canonicalp = subdirl in filenameMappings;
+				if (canonicalp && *canonicalp != subdir)
+				{
+					dirSegments[l] = dirSegments[l] ~ "_"; // not ~=
+					goto again;
+				}
+				filenameMappings[subdirl] = subdir;
+			}
+			filename = join(dirSegments, "/");
+		}
+		
 		return filename ~ ".asasm";
 	}
 
