@@ -23,7 +23,7 @@ import std.string;
 import abcfile;
 import asprogram;
 
-class StringBuilder
+final class StringBuilder
 {
 	string buf;
 	size_t pos;
@@ -35,7 +35,6 @@ class StringBuilder
 		buf.length = 1024;
 	}
 
-final:
 	void opCatAssign(string s)
 	{
 		checkIndent();
@@ -90,7 +89,7 @@ final:
 	}
 }
 
-class RefBuilder : ASTraitsVisitor
+final class RefBuilder : ASTraitsVisitor
 {
 	string[void*] objName;
 	ASProgram.Class[string] classByName;
@@ -137,7 +136,6 @@ class RefBuilder : ASTraitsVisitor
 		context = context[0..$-1];
 	}
 
-final:
 	string contextToString(string field)
 	{
 		string[] strings = new string[context.length + (field ? 1 : 0)];
@@ -201,7 +199,7 @@ final:
 	}
 }
 
-class Disassembler
+final class Disassembler
 {
 	ASProgram as;
 	string name;
@@ -216,7 +214,6 @@ class Disassembler
 		this.name = name;
 	}
 
-final:
 	void disassemble()
 	{
 		refs = new RefBuilder(as);

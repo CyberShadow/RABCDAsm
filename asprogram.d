@@ -26,7 +26,7 @@ import autodata;
  * with all constants expanded and bytecode disassembled to separate instructions.
  */
 
-class ASProgram
+final class ASProgram
 {
 	ushort minorVersion, majorVersion;
 	Script[] scripts;
@@ -273,15 +273,14 @@ class ASProgram
 		return (new ABCtoAS(abc)).as;
 	}
 
-	final ABCFile toABC()
+	ABCFile toABC()
 	{
 		return (new AStoABC(this)).abc;
 	}
 }
 
-private class ABCtoAS
+private final class ABCtoAS
 {
-final:
 	ASProgram as;
 	ABCFile abc;
 
@@ -650,9 +649,8 @@ final:
 	}
 }
 
-private class AStoABC
+private final class AStoABC
 {
-final:
 	ABCFile abc;
 	ASProgram as;
 

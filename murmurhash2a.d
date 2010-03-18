@@ -18,7 +18,6 @@ module murmurhash2a;
 
 struct MurmurHash2A
 {
-final:
 	private static string mmix(string h, string k) { return "{ "~k~" *= m; "~k~" ^= "~k~" >> r; "~k~" *= m; "~h~" *= m; "~h~" ^= "~k~"; }"; }
 
 

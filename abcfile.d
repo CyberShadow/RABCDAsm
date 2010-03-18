@@ -877,7 +877,7 @@ const OpcodeInfo[256] opcodeInfo = [
 	/* 0xFF */		{"0xFF",				[OpcodeArgumentType.Unknown]},
 ];
 
-private class ABCReader
+private final class ABCReader
 {
 	ubyte[] buf;
 	size_t pos;
@@ -951,7 +951,6 @@ private class ABCReader
 			throw new Exception(format("Error at %d (0x%X): %s", pos, pos, o));
 	}
 
-final:
 	ubyte readU8()
 	{
 		assert(pos < buf.length);
@@ -1349,7 +1348,7 @@ final:
 	}
 }
 
-private class ABCWriter
+private final class ABCWriter
 {
 	ABCFile abc;
 	ubyte[] buf;
@@ -1418,7 +1417,6 @@ private class ABCWriter
 		buf.length = pos;
 	}
 
-final:
 	void writeU8(ubyte v)
 	{
 		if (pos == buf.length)
