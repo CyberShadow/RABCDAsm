@@ -1255,3 +1255,51 @@ final:
 		return r;
 	}
 }
+
+class ASTraitsVisitor
+{
+	ASProgram as;
+
+	this(ASProgram as)
+	{
+		this.as = as;
+	}
+
+	void run()
+	{
+		foreach (ref v; as.scripts)
+			visitTraits(v.traits);
+	}
+
+	final void visitTraits(ASProgram.Trait[] traits)
+	{
+		foreach (ref trait; traits)
+			visitTrait(trait);
+	}
+
+	void visitTrait(ref ASProgram.Trait trait)
+	{
+		switch (trait.kind)
+		{
+			case TraitKind.Slot:
+			case TraitKind.Const:
+				break;
+			case TraitKind.Class:
+				visitTraits(trait.vClass.vclass.traits);
+				visitTraits(trait.vClass.vclass.instance.traits);
+				break;
+			case TraitKind.Function:
+				if (trait.vFunction.vfunction.vbody)
+					visitTraits(trait.vFunction.vfunction.vbody.traits);
+				break;
+			case TraitKind.Method:
+			case TraitKind.Getter:
+			case TraitKind.Setter:
+				if (trait.vMethod.vmethod.vbody)
+					visitTraits(trait.vMethod.vmethod.vbody.traits);
+				break;
+			default:
+				throw new Exception("Unknown trait kind");
+		}
+	}
+}

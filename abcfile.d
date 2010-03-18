@@ -1788,3 +1788,33 @@ final:
 		writeU30(v.varName);
 	}
 }
+
+class ABCTraitsVisitor
+{
+	ABCFile abc;
+
+	this(ABCFile abc)
+	{
+		this.abc = abc;
+	}
+
+	final void run()
+	{
+		foreach (ref v; abc.instances)
+			visitTraits(v.traits);
+		foreach (ref v; abc.classes)
+			visitTraits(v.traits);
+		foreach (ref v; abc.scripts)
+			visitTraits(v.traits);
+		foreach (ref v; abc.bodies)
+			visitTraits(v.traits);
+	}
+
+	final void visitTraits(ABCFile.TraitsInfo[] traits)
+	{
+		foreach (ref trait; traits)
+			visitTrait(trait);
+	}
+
+	abstract void visitTrait(ref ABCFile.TraitsInfo trait);
+}
