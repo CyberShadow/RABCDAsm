@@ -368,6 +368,8 @@ enum MethodFlags : ubyte
 	HAS_PARAM_NAMES = 0x80, // Must be set when the param_names field is present in this method_info structure.	
 }
 
+const string[8] MethodFlagNames = ["NEED_ARGUMENTS", "NEED_ACTIVATION", "NEED_REST", "HAS_OPTIONAL", "0x10", "0x20", "SET_DXNS", "HAS_PARAM_NAMES"];
+
 enum InstanceFlags : ubyte
 {
 	Sealed = 0x01, // The class is sealed: properties can not be dynamically added to instances of the class.
@@ -375,6 +377,8 @@ enum InstanceFlags : ubyte
 	Interface = 0x04, // The class is an interface.
 	ProtectedNs = 0x08, // The class uses its protected namespace and the protectedNs field is present in the interface_info structure.
 }
+
+const string[8] InstanceFlagNames = ["SEALED", "FINAL", "INTERFACE", "PROTECTEDNS", "0x10", "0x20", "0x40", "0x80"];
 
 enum TraitKind : ubyte
 {
@@ -1307,8 +1311,6 @@ final:
 					switch (type)
 					{
 						case OpcodeArgumentType.JumpTarget:
-							offsetToIndex(instruction.arguments[i].jumpTarget);
-							break;
 						case OpcodeArgumentType.SwitchDefaultTarget:
 							offsetToIndex(instruction.arguments[i].jumpTarget);
 							break;
