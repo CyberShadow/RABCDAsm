@@ -27,9 +27,11 @@ class StringBuilder
 {
 	string buf;
 	size_t pos;
+	string filename;
 
-	this()
+	this(string filename)
 	{
+		this.filename = filename;
 		buf.length = 1024;
 	}
 
@@ -51,7 +53,7 @@ final:
 		buf[pos++] = c;
 	}
 
-	void save(string filename)
+	void save()
 	{
 		string[] dirSegments = split(filename, "/");
 		for (int l=0; l<dirSegments.length-1; l++)
@@ -220,7 +222,7 @@ final:
 		refs = new RefBuilder(as);
 		refs.run();
 		
-		StringBuilder sb = new StringBuilder;
+		StringBuilder sb = new StringBuilder(name ~ "/" ~ name ~ ".main.asasm");
 		foreach (i, script; as.scripts)
 		{
 			dumpScript(sb, script, i);
@@ -257,7 +259,7 @@ final:
 			}
 		}
 
-		sb.save(name ~ "/" ~ name ~ ".main.asasm");
+		sb.save();
 	}
 
 	void dumpInt(StringBuilder sb, long v)
@@ -580,8 +582,11 @@ final:
 
 	void dumpClass(StringBuilder mainsb, ASProgram.Class vclass)
 	{
-		StringBuilder sb = new StringBuilder;
+		if (mainsb.filename.split("/").length != 2)
+			throw new Exception("TODO: nested classes");
 		auto refName = cast(void*)vclass in refs.objName;
+		auto filename = toFileName(refs.getClassName(vclass));
+		StringBuilder sb = new StringBuilder(name ~ "/" ~ filename);
 		if (refName)
 		{
 			sb ~= "refid '";
@@ -594,8 +599,7 @@ final:
 		sb ~= "cinit "; dumpMethod(sb, vclass.cinit);
 		dumpTraits(sb, vclass.traits);
 		
-		auto filename = toFileName(refs.getClassName(vclass));
-		sb.save(name ~ "/" ~ filename);
+		sb.save();
 
 		mainsb.indent++; mainsb.newLine();
 		mainsb ~= "#include \"";
