@@ -607,18 +607,18 @@ final class Disassembler
 		version (Windows)
 		{
 			string[] dirSegments = split(filename, "/");
-			for (int l=0; l<dirSegments.length-1; l++)
+			for (int l=0; l<dirSegments.length; l++)
 			{
 			again:	
-				string subdir = join(dirSegments[0..l+1], "/");
-				string subdirl = tolower(subdir);
-				string* canonicalp = subdirl in filenameMappings;
-				if (canonicalp && *canonicalp != subdir)
+				string subpath = join(dirSegments[0..l+1], "/");
+				string subpathl = tolower(subpath);
+				string* canonicalp = subpathl in filenameMappings;
+				if (canonicalp && *canonicalp != subpath)
 				{
 					dirSegments[l] = dirSegments[l] ~ "_"; // not ~=
 					goto again;
 				}
-				filenameMappings[subdirl] = subdir;
+				filenameMappings[subpathl] = subpath;
 			}
 			filename = join(dirSegments, "/");
 		}
