@@ -427,6 +427,8 @@ final class Disassembler
 			sb ~= TraitKindNames[trait.kind];
 			sb ~= ' ';
 			dumpMultiname(sb, trait.name);
+			if (trait.attr)
+				dumpFlags!(true)(sb, trait.attr, TraitAttributeNames);
 			switch (trait.kind)
 			{
 				case TraitKind.Slot:
@@ -490,15 +492,18 @@ final class Disassembler
 		}
 	}
 
-	void dumpFlags(StringBuilder sb, ubyte flags, string[] names)
+	void dumpFlags(bool oneLine = false)(StringBuilder sb, ubyte flags, string[] names)
 	{
-		assert(names.length == 8);
 		for (int i=0; flags; i++, flags>>=1)
 			if (flags & 1)
 			{
-				sb ~= "flag ";
+				static if (oneLine)
+					sb ~= " flag ";
+				else
+					sb ~= "flag ";
 				sb ~= names[i];
-				sb.newLine();
+				static if (!oneLine)
+					sb.newLine();
 			}
 	}
 

@@ -410,6 +410,8 @@ enum TraitAttributes : ubyte
 	Metadata = 4
 }
 
+const string[4] TraitAttributeNames = ["FINAL", "OVERRIDE", "METADATA", "0x08"];
+
 enum Opcode : ubyte
 {
 	OP_bkpt = 0x01,
