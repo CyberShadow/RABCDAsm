@@ -772,6 +772,7 @@ private final class AStoABC
 
 		static uint get(T obj)
 		{
+			assert(obj !is null, "Trying to get index of null object");
 			return references[cast(void*)obj].index;
 		}
 
