@@ -889,6 +889,15 @@ const OpcodeInfo[256] opcodeInfo = [
 	/* 0xFF */		{"0xFF",				[OpcodeArgumentType.Unknown]},
 ];
 
+Opcode[string] OpcodeByName;
+
+static this()
+{
+	foreach (o, ref i; opcodeInfo)
+		OpcodeByName[i.name] = cast(Opcode)o;
+	OpcodeByName = OpcodeByName.rehash;
+}
+
 private final class ABCReader
 {
 	ubyte[] buf;
