@@ -238,10 +238,11 @@ final class ASProgram
 		union Argument
 		{
 			ubyte ubytev;
+			
+			long intv;
 			ulong uintv;
 
-			long intv;
-			// uint constants are in uintv
+			// int/uint constants are in intv/uintv
 			double doublev;
 			string stringv;
 			Namespace namespacev;
@@ -548,6 +549,9 @@ private final class ABCtoAS
 
 				case OpcodeArgumentType.UByteLiteral:
 					r.arguments[i].ubytev = instruction.arguments[i].ubytev;
+					break;
+				case OpcodeArgumentType.IntLiteral:
+					r.arguments[i].intv = instruction.arguments[i].intv;
 					break;
 				case OpcodeArgumentType.UIntLiteral:
 					r.arguments[i].uintv = instruction.arguments[i].uintv;
@@ -951,6 +955,7 @@ private final class AStoABC
 						throw new Exception("Don't know how to visit OP_" ~ opcodeInfo[instruction.opcode].name);
 
 					case OpcodeArgumentType.UByteLiteral:
+					case OpcodeArgumentType.IntLiteral:
 					case OpcodeArgumentType.UIntLiteral:
 						break;
 
@@ -1264,6 +1269,9 @@ private final class AStoABC
 
 				case OpcodeArgumentType.UByteLiteral:
 					r.arguments[i].ubytev = instruction.arguments[i].ubytev;
+					break;
+				case OpcodeArgumentType.IntLiteral:
+					r.arguments[i].intv = instruction.arguments[i].intv;
 					break;
 				case OpcodeArgumentType.UIntLiteral:
 					r.arguments[i].uintv = instruction.arguments[i].uintv;

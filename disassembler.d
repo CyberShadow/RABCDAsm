@@ -782,6 +782,9 @@ final class Disassembler
 						case OpcodeArgumentType.UByteLiteral:
 							sb ~= .toString(instruction.arguments[i].ubytev);
 							break;
+						case OpcodeArgumentType.IntLiteral:
+							sb ~= .toString(instruction.arguments[i].intv);
+							break;
 						case OpcodeArgumentType.UIntLiteral:
 							sb ~= .toString(instruction.arguments[i].uintv);
 							break;

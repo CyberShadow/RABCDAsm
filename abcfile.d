@@ -219,6 +219,7 @@ class ABCFile
 		union Argument
 		{
 			ubyte ubytev;
+			long intv;
 			ulong uintv;
 			uint index;
 			
@@ -621,6 +622,7 @@ enum OpcodeArgumentType
 	Unknown,
 
 	UByteLiteral,
+	IntLiteral,
 	UIntLiteral,
 
 	Int,
@@ -681,7 +683,7 @@ const OpcodeInfo[256] opcodeInfo = [
 	/* 0x22 */		{"pushuninitialized",	[OpcodeArgumentType.Unknown]},
 	/* 0x23 */		{"nextvalue",			[]},
 	/* 0x24 */		{"pushbyte",			[OpcodeArgumentType.UByteLiteral]},
-	/* 0x25 */		{"pushshort",			[OpcodeArgumentType.UIntLiteral]},
+	/* 0x25 */		{"pushshort",			[OpcodeArgumentType.IntLiteral]},
 	/* 0x26 */		{"pushtrue",			[]},
 	/* 0x27 */		{"pushfalse",			[]},
 	/* 0x28 */		{"pushnan",				[]},
@@ -1299,6 +1301,9 @@ private final class ABCReader
 						case OpcodeArgumentType.UByteLiteral:
 							instruction.arguments[i].ubytev = readU8();
 							break;
+						case OpcodeArgumentType.IntLiteral:
+							instruction.arguments[i].intv = readS32();
+							break;
 						case OpcodeArgumentType.UIntLiteral:
 							instruction.arguments[i].uintv = readU32();
 							break;
@@ -1740,6 +1745,9 @@ private final class ABCWriter
 
 						case OpcodeArgumentType.UByteLiteral:
 							writeU8(instruction.arguments[i].ubytev);
+							break;
+						case OpcodeArgumentType.IntLiteral:
+							writeS32(instruction.arguments[i].intv);
 							break;
 						case OpcodeArgumentType.UIntLiteral:
 							writeU32(instruction.arguments[i].uintv);
