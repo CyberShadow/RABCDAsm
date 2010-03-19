@@ -665,6 +665,9 @@ private final class AStoABC
 		static if (is (T == ulong))
 			return value == ABCFile.NULL_UINT;
 		else
+		static if (is (T == double))
+			return value == ABCFile.NULL_DOUBLE;
+		else
 			return value == T.init;
 	}
 

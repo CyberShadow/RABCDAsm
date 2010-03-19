@@ -52,6 +52,7 @@ class ABCFile
 
 	static const long NULL_INT = long.max;
 	static const ulong NULL_UINT = ulong.max;
+	static const double NULL_DOUBLE = double.init; // NaN
 
 	this()
 	{
@@ -65,6 +66,8 @@ class ABCFile
 		uints[0] = NULL_UINT;
 
 		doubles.length = 1;
+		doubles[0] = NULL_DOUBLE;
+
 		strings.length = 1;
 		namespaces.length = 1;
 		namespaceSets.length = 1;

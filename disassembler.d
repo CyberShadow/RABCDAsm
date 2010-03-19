@@ -292,7 +292,10 @@ final class Disassembler
 
 	void dumpDouble(StringBuilder sb, double v)
 	{
-		sb ~= .toString(v);
+		if (v == ABCFile.NULL_DOUBLE)
+			sb ~= "null";
+		else
+			sb ~= .toString(v);
 	}
 
 	void dumpString(StringBuilder sb, string str)
