@@ -150,7 +150,7 @@ final class RefBuilder : ASTraitsVisitor
 			strings[$-1] = field;
 		string s = join(strings, "/");
 		foreach (ref c; s)
-			if (c < 0x20 || c == '\'')
+			if (c < 0x20 || c == '"')
 				c = '_';
 		return s;
 	}
@@ -553,9 +553,8 @@ final class Disassembler
 		auto refName = cast(void*)method in refs.objName;
 		if (refName)
 		{
-			sb ~= "refid '";
-			sb ~= *refName;
-			sb ~= '\'';
+			sb ~= "refid ";
+			dumpString(sb, *refName);
 			sb.newLine();
 		}
 		foreach (m; method.paramTypes)
@@ -629,9 +628,8 @@ final class Disassembler
 		StringBuilder sb = new StringBuilder(name ~ "/" ~ filename);
 		if (refName)
 		{
-			sb ~= "refid '";
-			sb ~= *refName;
-			sb ~= '\'';
+			sb ~= "refid ";
+			dumpString(sb, *refName);
 			sb.newLine();
 		}
 		sb ~= "instance ";
@@ -800,14 +798,10 @@ final class Disassembler
 							dumpMultiname(sb, instruction.arguments[i].multinamev);
 							break;
 						case OpcodeArgumentType.Class:
-							sb ~= '\'';
-							sb ~= refs.getClassName(instruction.arguments[i].classv);
-							sb ~= '\'';
+							dumpString(sb, refs.getClassName(instruction.arguments[i].classv));
 							break;
 						case OpcodeArgumentType.Method:
-							sb ~= '\'';
-							sb ~= refs.getMethodName(instruction.arguments[i].methodv);
-							sb ~= '\'';
+							dumpString(sb, refs.getMethodName(instruction.arguments[i].methodv));
 							break;
 
 						case OpcodeArgumentType.JumpTarget:
