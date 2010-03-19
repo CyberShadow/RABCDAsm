@@ -310,6 +310,15 @@ string[ASType.Max] ASTypeNames = [
 	"TypeName",
 ];
 
+ASType[string] ASTypesByName;
+
+static this()
+{
+	foreach (t, n; ASTypeNames)
+		ASTypesByName[n] = cast(ASType)t;
+	ASTypesByName = ASTypesByName.rehash;
+}
+
 /* These enumerations are as they are documented in the AVM bytecode specification.
    They are actually a single enumeration (see above), but in some contexts only certain values are valid.
 
