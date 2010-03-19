@@ -221,6 +221,9 @@ final class Disassembler
 		
 		StringBuilder sb = new StringBuilder(name ~ "/" ~ name ~ ".main.asasm");
 		
+		sb ~= "program";
+		sb.indent++; sb.newLine();
+
 		sb ~= "minorversion ";
 		sb ~= .toString(as.minorVersion);
 		sb.newLine();
@@ -264,6 +267,9 @@ final class Disassembler
 				sb.newLine();
 			}
 		}
+
+		sb.indent--;
+		sb ~= "end ; program"; sb.newLine();
 
 		sb.save();
 	}
