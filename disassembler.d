@@ -733,6 +733,7 @@ final class Disassembler
 			sb ~= " end";
 			sb.newLine();
 		}
+		dumpTraits(sb, mbody.traits);
 		sb.indent--; sb ~= "end ; body"; sb.newLine();
 	}
 
