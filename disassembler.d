@@ -311,9 +311,6 @@ final class Disassembler
 				if (c == '"')
 					sb ~= `\"`;
 				else
-				if (c == '\\')
-					sb ~= `\\`;
-				else
 				if (c < 0x20)
 				{
 					sb ~= `\x`;
