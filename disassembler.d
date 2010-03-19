@@ -220,6 +220,15 @@ final class Disassembler
 		refs.run();
 		
 		StringBuilder sb = new StringBuilder(name ~ "/" ~ name ~ ".main.asasm");
+		
+		sb ~= "minorversion ";
+		sb ~= .toString(as.minorVersion);
+		sb.newLine();
+		sb ~= "majorversion ";
+		sb ~= .toString(as.majorVersion);
+		sb.newLine();
+		sb.newLine();
+		
 		foreach (i, script; as.scripts)
 		{
 			dumpScript(sb, script, i);
