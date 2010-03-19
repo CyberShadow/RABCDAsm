@@ -403,6 +403,17 @@ enum TraitKind : ubyte
 	Const = 6,
 }
 
+const string[] TraitKindNames = ["slot", "method", "getter", "setter", "class", "function", "const"];
+
+TraitKind[string] TraitKindByName;
+
+static this()
+{
+	foreach (t, n; TraitKindNames)
+		TraitKindByName[n] = cast(TraitKind)t;
+	TraitKindByName = TraitKindByName.rehash;
+}
+
 enum TraitAttributes : ubyte
 {
 	Final = 1,

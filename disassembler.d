@@ -423,7 +423,6 @@ final class Disassembler
 		foreach (ref trait; traits)
 		{
 			sb ~= "trait ";
-			static const string[] TraitKindNames = ["slot", "method", "getter", "setter", "class", "function", "const"];
 			sb ~= TraitKindNames[trait.kind];
 			sb ~= ' ';
 			dumpMultiname(sb, trait.name);
