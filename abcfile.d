@@ -313,13 +313,13 @@ string[ASType.Max] ASTypeNames = [
 	"TypeName",
 ];
 
-ASType[string] ASTypesByName;
+ASType[string] ASTypeByName;
 
 static this()
 {
 	foreach (t, n; ASTypeNames)
-		ASTypesByName[n] = cast(ASType)t;
-	ASTypesByName = ASTypesByName.rehash;
+		ASTypeByName[n] = cast(ASType)t;
+	ASTypeByName = ASTypeByName.rehash;
 }
 
 /* These enumerations are as they are documented in the AVM bytecode specification.
