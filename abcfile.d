@@ -1265,7 +1265,12 @@ private final class ABCReader
 		void offsetToIndex(ref uint x, bool relaxed = false)
 		{
 			if (x >= len)
-				throw new Exception("Jump out of bounds");
+			{
+				//throw new Exception(format("Jump out of bounds (by %d bytes)", x - len)); 
+				// Unreachable OOB jumps seem to be "valid"
+				x = 0;
+				return;
+			}
 			if (relaxed)
 				while (instructionAtOffset[x] == uint.max)
 				{
