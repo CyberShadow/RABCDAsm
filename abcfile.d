@@ -1285,6 +1285,7 @@ private final class ABCReader
 			uint offset() { return pos - start; }
 		
 			instructionAtOffset[] = uint.max;
+			uint[] instructionOffsets;
 			while (pos < end)
 			{
 				uint instructionOffset = offset;
@@ -1338,27 +1339,31 @@ private final class ABCReader
 							assert(0);
 					}
 				r.instructions ~= instruction;
+				instructionOffsets ~= instructionOffset;
 			}
 
 			if (pos > end)
 				throw new Exception("Out-of-bounds code read error");
 
 			// convert jump target offsets to instruction indices
-			foreach (ref instruction; r.instructions)
+			foreach (ii, ref instruction; r.instructions)
 				foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
 					switch (type)
 					{
 						case OpcodeArgumentType.JumpTarget:
 						case OpcodeArgumentType.SwitchDefaultTarget:
+							pos = start + instructionOffsets[ii];
 							offsetToIndex(instruction.arguments[i].jumpTarget);
 							break;
 						case OpcodeArgumentType.SwitchTargets:
+							pos = start + instructionOffsets[ii];
 							foreach (ref x; instruction.arguments[i].switchTargets)
 								offsetToIndex(x);
 							break;
 						default:
 							break;
 					}
+			pos = end;
 		}
 		
 		r.exceptions.length = readU30();
