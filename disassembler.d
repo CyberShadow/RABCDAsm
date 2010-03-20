@@ -96,7 +96,7 @@ final class RefBuilder : ASTraitsVisitor
 	ASProgram.Method[string] methodByName;
 
 	ASProgram.Multiname[] context;
-	
+
 	this(ASProgram as)
 	{
 		super(as);
@@ -207,7 +207,7 @@ final class Disassembler
 
 	version (Windows)
 		string[string] filenameMappings;
-	
+
 	this(ASProgram as, string name)
 	{
 		this.as = as;
@@ -218,9 +218,9 @@ final class Disassembler
 	{
 		refs = new RefBuilder(as);
 		refs.run();
-		
+
 		StringBuilder sb = new StringBuilder(name ~ "/" ~ name ~ ".main.asasm");
-		
+
 		sb ~= "program";
 		sb.indent++; sb.newLine();
 
@@ -231,13 +231,13 @@ final class Disassembler
 		sb ~= .toString(as.majorVersion);
 		sb.newLine();
 		sb.newLine();
-		
+
 		foreach (i, script; as.scripts)
 		{
 			dumpScript(sb, script, i);
 			sb.newLine();
 		}
-		
+
 		if (as.orphanClasses.length)
 		{
 			sb.newLine();
@@ -305,7 +305,7 @@ final class Disassembler
 		else
 		{
 			static const char[16] hexDigits = "0123456789ABCDEF";
-		
+
 			sb ~= '"';
 			foreach (c; str)
 				if (c == 0x0A)
@@ -603,7 +603,7 @@ final class Disassembler
 			else
 			if (c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|')
 				c = '_';
-		
+
 		version (Windows)
 		{
 			string[] dirSegments = split(filename, "/");
@@ -622,7 +622,7 @@ final class Disassembler
 			}
 			filename = join(dirSegments, "/");
 		}
-		
+
 		return filename ~ ".asasm";
 	}
 
@@ -643,7 +643,7 @@ final class Disassembler
 		dumpInstance(sb, vclass.instance);
 		sb ~= "cinit "; dumpMethod(sb, vclass.cinit);
 		dumpTraits(sb, vclass.traits);
-		
+
 		sb.save();
 
 		mainsb.indent++; mainsb.newLine();
@@ -834,7 +834,7 @@ final class Disassembler
 							}
 							sb ~= ']';
 							break;
-					
+
 						default:
 							assert(0);
 					}

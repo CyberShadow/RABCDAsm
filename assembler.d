@@ -26,8 +26,8 @@ import asprogram;
 
 final class Assembler
 {
-    struct File
-    {
+	struct File
+	{
 		string buf;
 		char* pos;
 		string filename;
@@ -434,7 +434,7 @@ final class Assembler
 
 	ASProgram.Class[string] classesByID;
 	ASProgram.Method[string] methodsByID;
-	
+
 	struct Fixup(T) { T* ptr; string name; }
 	Fixup!(ASProgram.Class)[] classFixups;
 	Fixup!(ASProgram.Method)[] methodFixups;
@@ -551,7 +551,7 @@ final class Assembler
 				throw new Exception("Unknown trait kind");
 		}
 	}
-	
+
 	ASProgram.Method readMethod()
 	{
 		ASProgram.Method m = new ASProgram.Method;
@@ -838,14 +838,14 @@ final class Assembler
 						}
 						instruction.arguments[i].switchTargets = switchTargets;
 						break;
-					
+
 					default:
 						assert(0);
 				}
 				if (i < argTypes.length-1)
 					expectChar(',');
 			}
-			
+
 			instructions ~= instruction;
 		}
 

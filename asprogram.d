@@ -178,7 +178,7 @@ final class ASProgram
 		Multiname name;
 		TraitKind kind;
 		ubyte attr; // TraitAttributes bitmask
-		
+
 		union
 		{
 			struct _Slot
@@ -238,7 +238,7 @@ final class ASProgram
 		union Argument
 		{
 			ubyte ubytev;
-			
+
 			long intv;
 			ulong uintv;
 
@@ -249,13 +249,13 @@ final class ASProgram
 			Multiname multinamev;
 			Class classv;
 			Method methodv;
-			
+
 			uint jumpTarget;
 			uint[] switchTargets;
 		}
 		Argument[] arguments;
 	}
-	
+
 	struct Exception
 	{
 		uint from, to, target;
@@ -438,7 +438,7 @@ private final class ABCtoAS
 		}
 		return n;
 	}
-		
+
 	ASProgram.Trait[] convertTraits(ABCFile.TraitsInfo[] traits)
 	{
 		auto r = new ASProgram.Trait[traits.length];
@@ -590,7 +590,7 @@ private final class ABCtoAS
 				case OpcodeArgumentType.SwitchTargets:
 					r.arguments[i].switchTargets = instruction.arguments[i].switchTargets;
 					break;
-					
+
 				default:
 					assert(0);
 			}
@@ -601,7 +601,7 @@ private final class ABCtoAS
 	{
 		this.as = new ASProgram();
 		this.abc = abc;
-		
+
 		as.minorVersion = abc.minorVersion;
 		as.majorVersion = abc.majorVersion;
 
@@ -788,7 +788,7 @@ private final class AStoABC
 	typedef Constant!(ASProgram.Multiname) MultinameC;
 	typedef Reference!(ASProgram.Class) ClassR;
 	typedef Reference!(ASProgram.Method) MethodR;
-    
+
 	void visitNamespace(ASProgram.Namespace ns)
 	{
 		if (NamespaceC.add(ns))
@@ -989,17 +989,17 @@ private final class AStoABC
 					case OpcodeArgumentType.SwitchDefaultTarget:
 					case OpcodeArgumentType.SwitchTargets:
 						break;
-					
+
 					default:
 						assert(0);
 				}
-		
+
 		foreach (ref exception; vbody.exceptions)
 		{
 			visitMultiname(exception.excType);
 			visitMultiname(exception.varName);
 		}
-		
+
 		visitTraits(vbody.traits);
 	}
 
@@ -1048,7 +1048,7 @@ private final class AStoABC
 	{
 		this.abc = new ABCFile();
 		this.as = as;
-		
+
 		abc.minorVersion = as.minorVersion;
 		abc.majorVersion = as.majorVersion;
 
@@ -1154,7 +1154,7 @@ private final class AStoABC
 			n.paramNames.length = o.paramNames.length;
 			foreach (j, name; o.paramNames)
 				n.paramNames[j] = StringC.get(name);
-			
+
 			if (o.vbody)
 				bodies ~= o.vbody;
 		}
@@ -1164,7 +1164,7 @@ private final class AStoABC
 		{
 			auto o = c.instance;
 			auto n = &abc.instances[i];
-	
+
 			n.name = MultinameC.get(o.name);
 			n.superName = MultinameC.get(o.superName);
 			n.flags = o.flags;
@@ -1311,7 +1311,7 @@ private final class AStoABC
 				case OpcodeArgumentType.SwitchTargets:
 					r.arguments[i].switchTargets = instruction.arguments[i].switchTargets;
 					break;
-					
+
 				default:
 					assert(0);
 			}

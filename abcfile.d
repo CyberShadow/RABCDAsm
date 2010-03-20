@@ -22,11 +22,11 @@ import std.string : format; // exception formatting
 
 /** 
  * Implements a shallow representation of an .abc file. 
- * Loading and saving an .abc file using this class should produce 
+ * Loading and saving an .abc file using this class should produce
  * output identical to the input - with one exception:
  * 
  * exception_info's "to" field may point inside an instruction.
- * This is apparently valid according to the implementation, however 
+ * This is apparently valid according to the implementation, however
  * the exact offset inside the instruction is not preserved - instead, 
  * the field will point to the beginning of the next instruction.
  */
@@ -34,7 +34,7 @@ import std.string : format; // exception formatting
 class ABCFile
 {
 	ushort minorVersion, majorVersion;
-	
+
 	long[] ints;
 	ulong[] uints;
 	double[] doubles;
@@ -222,7 +222,7 @@ class ABCFile
 			long intv;
 			ulong uintv;
 			uint index;
-			
+
 			uint jumpTarget;
 			uint[] switchTargets;
 		}
@@ -367,7 +367,7 @@ enum ConstantKind : ubyte
 	ProtectedNamespace = 0x18, // Namespace
 	ExplicitNamespace = 0x19, // Namespace
 	StaticProtectedNs = 0x1A, // Namespace
-	PrivateNs = 0x05, // namespace	
+	PrivateNs = 0x05, // namespace
 }
 */
 
@@ -938,19 +938,19 @@ private final class ABCReader
 			abc.uints.length = atLeastOne(readU30());
 			foreach (ref value; abc.uints[1..$])
 				value = readU32();
-		
+
 			abc.doubles.length = atLeastOne(readU30());
 			foreach (ref value; abc.doubles[1..$])
 				value = readD64();
-		
+
 			abc.strings.length = atLeastOne(readU30());
 			foreach (ref value; abc.strings[1..$])
 				value = readString();
-		
+
 			abc.namespaces.length = atLeastOne(readU30());
 			foreach (ref value; abc.namespaces[1..$])
 				value = readNamespace();
-		
+
 			abc.namespaceSets.length = atLeastOne(readU30());
 			foreach (ref value; abc.namespaceSets[1..$])
 				value = readNamespaceSet();
@@ -1258,7 +1258,7 @@ private final class ABCReader
 		r.initScopeDepth = readU30();
 		r.maxScopeDepth = readU30();
 		r.instructions = null;
-		
+
 		size_t len = readU30();
 		uint[] instructionAtOffset = new uint[len];
 
@@ -1282,13 +1282,13 @@ private final class ABCReader
 			if (x == uint.max)
 				throw new Exception("Jump inside instruction");
 		}
-		
+
 		{
 			size_t start = pos;
 			size_t end = pos + len;
-		
+
 			uint offset() { return pos - start; }
-		
+
 			instructionAtOffset[] = uint.max;
 			uint[] instructionOffsets;
 			while (pos < end)
@@ -1339,7 +1339,7 @@ private final class ABCReader
 							foreach (ref off; instruction.arguments[i].switchTargets)
 								off = instructionOffset + readS24();
 							break;
-					
+
 						default:
 							assert(0);
 					}
@@ -1370,7 +1370,7 @@ private final class ABCReader
 					}
 			pos = end;
 		}
-		
+
 		r.exceptions.length = readU30();
 		foreach (ref value; r.exceptions)
 		{
@@ -1402,12 +1402,12 @@ private final class ABCWriter
 	ABCFile abc;
 	ubyte[] buf;
 	size_t pos;
-	
+
 	this(ABCFile abc)
 	{
 		this.abc = abc;
 		this.buf = new ubyte[1024];
-	
+
 		writeU16(abc.minorVersion);
 		writeU16(abc.majorVersion);
 
@@ -1418,19 +1418,19 @@ private final class ABCWriter
 		writeU30(abc.uints.length <= 1 ? 0 : abc.uints.length);
 		foreach (ref value; abc.uints[1..$])
 			writeU32(value);
-		
+
 		writeU30(abc.doubles.length <= 1 ? 0 : abc.doubles.length);
 		foreach (ref value; abc.doubles[1..$])
 			writeD64(value);
-		
+
 		writeU30(abc.strings.length <= 1 ? 0 : abc.strings.length);
 		foreach (ref value; abc.strings[1..$])
 			writeString(value);
-		
+
 		writeU30(abc.namespaces.length <= 1 ? 0 : abc.namespaces.length);
 		foreach (ref value; abc.namespaces[1..$])
 			writeNamespace(value);
-		
+
 		writeU30(abc.namespaceSets.length <= 1 ? 0 : abc.namespaceSets.length);
 		foreach (ref value; abc.namespaceSets[1..$])
 			writeNamespaceSet(value);
@@ -1741,9 +1741,9 @@ private final class ABCWriter
 			{
 				uint instructionOffset = pos;
 				instructionOffsets[ii] = instructionOffset;
-			
+
 				writeU8(instruction.opcode);
-			
+
 				if (instruction.arguments.length != opcodeInfo[instruction.opcode].argumentTypes.length)
 					throw new Exception("Mismatching number of arguments");
 
@@ -1794,7 +1794,7 @@ private final class ABCWriter
 								writeS24(0);
 							}
 							break;
-					
+
 						default:
 							assert(0);
 					}
