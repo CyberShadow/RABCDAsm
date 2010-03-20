@@ -115,6 +115,9 @@ final class Assembler
 		{
 			case "include":
 				string newFilename = readString();
+				foreach (ref c; newFilename)
+					if (c == '\\')
+						c = '/';
 				newFilename = join(split(filename, "/")[0..$-1] ~ split(newFilename, "/"), "/");
 				pushFile();
 				loadFile(newFilename);
@@ -132,7 +135,10 @@ final class Assembler
 
 	void loadFile(string newFilename)
 	{
-		filename = newFilename;
+		filename = newFilename.dup;
+		foreach (ref c; filename)
+			if (c == '\\')
+				c = '/';
 		buf = cast(string)read(filename);
 		pos = buf.ptr;
 		end = buf.ptr + buf.length;
