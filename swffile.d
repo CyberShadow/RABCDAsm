@@ -51,6 +51,7 @@ final class SWFFile
 	{
 		ushort type;
 		ubyte[] data;
+		bool forceLongLength;
 	}
 
 	static SWFFile read(ubyte[] data)
@@ -137,7 +138,11 @@ private final class SWFReader
 		t.type = cast(ushort)(u >> 6);
 		uint length = u & 0x3F;
 		if (length == 0x3F)
+		{
 			length = readU32();
+			if (length < 0x3F)
+				t.forceLongLength = true;
+		}
 		t.data = cast(ubyte[])readRaw(length);
 		return t;
 	}
@@ -227,7 +232,7 @@ private final class SWFWriter
 		foreach (ref tag; swf.tags)
 		{
 			ushort u = cast(ushort)(tag.type << 6);
-			if (tag.data.length < 0x3F)
+			if (tag.data.length < 0x3F && !tag.forceLongLength)
 			{
 				u |= tag.data.length;
 				buf ~= toArray(u);
