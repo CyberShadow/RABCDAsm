@@ -26,36 +26,89 @@ import asprogram;
 
 final class Assembler
 {
-	struct File
+	struct Position
 	{
-		string buf;
-		char* pos;
 		string filename;
+		size_t pos;
+
+		File load()
+		{
+			File f = File.load(filename);
+			f.pos = f.buf.ptr + pos;
+			return f;
+		}
 	}
 
-	File[] fileStack;
+	struct File
+	{
+		string filename;
+		string buf;
+		char* pos;
+		char* end;
 
-	string buf;
-	char* pos;
-	char* end;
-	string filename;
+		static File load(string filename)
+		{
+			auto buf = cast(string)read(filename);
+			return File(filename, buf, buf.ptr, buf.ptr + buf.length);
+		}
+
+		Position position()
+		{
+			Position p;
+			p.filename = filename;
+			p.pos = pos - buf.ptr;
+			return p;
+		}
+
+		string positionStr()
+		{	
+			auto lines = splitlines(buf);
+			foreach (i, line; lines)
+				if (pos <= line.ptr + line.length)
+					return format("%s(%d,%d)", filename, i+1, pos-line.ptr+1);
+			return format("%s(???): %s", filename);
+		}
+	}
+
+	File[64] files;
+	int fileCount; /// recursion depth
+
+	string basePath;
+
+	string convertFilename(string filename)
+	{
+		if (filename.length == 0)
+			throw new Exception("Empty filename");
+		filename = filename.dup;
+		foreach (ref c; filename)
+			if (c == '\\')
+				c = '/';
+		version(Windows)
+		{
+			if (filename.length > 2 && filename[1] == ':')
+				return filename;
+		}
+		if (filename[0] == '/')
+			return filename;
+		return basePath ~ filename;
+	}
 
 	void skipWhitespace()
 	{
 		while (true)
 		{
-			while (pos == end)
-				handleEoF();
-			char c = *pos;
+			while (files[0].pos == files[0].end)
+				popFile();
+			char c = *files[0].pos;
 			if (c == ' ' || c == '\r' || c == '\n' || c == '\t')
-				pos++;
+				files[0].pos++;
 			else
 			if (c == '#')
 				processPreprocessor();
 			else
 			if (c == ';')
 			{
-				do {} while (*++pos != '\n');
+				do {} while (*++files[0].pos != '\n');
 			}
 			else
 				return;	
@@ -70,16 +123,16 @@ final class Assembler
 	string readWord()
 	{
 		skipWhitespace();
-		if (!isWordChar(*pos))
+		if (!isWordChar(*files[0].pos))
 			//throw new Exception("Word character expected");
 			return null;
-		auto start = pos;
+		auto start = files[0].pos;
 		char c;
 		do
 		{
-			c = *++pos;
+			c = *++files[0].pos;
 		} while (isWordChar(c));
-		return start[0..pos-start];
+		return start[0..files[0].pos-start];
 	}
 
 	ubyte fromHex(char x)
@@ -109,56 +162,42 @@ final class Assembler
 
 	void processPreprocessor()
 	{
-		pos++; // #
+		skipChar(); // #
 		auto word = readWord();
 		switch (word)
 		{
 			case "include":
-				string newFilename = readString();
-				foreach (ref c; newFilename)
-					if (c == '\\')
-						c = '/';
-				newFilename = join(split(filename, "/")[0..$-1] ~ split(newFilename, "/"), "/");
-				pushFile();
-				loadFile(newFilename);
+				pushFile(File.load(convertFilename(readString())));
 				break;
 			default:
-				pos -= word.length;
+				files[0].pos -= word.length;
 				throw new Exception("Unknown preprocessor declaration: " ~ word);
 		}
 	}
 
-	void handleEoF()
+	void pushFile(ref File file)
 	{
-		popFile();
+		if (fileCount == files.length)
+			throw new Exception("Recursion limit exceeded");
+		files[1..fileCount+1] = files[0..fileCount].dup;
+		fileCount++;
+		files[0] = file;
 	}
 
-	void loadFile(string newFilename)
+	/// For restoring the position of an error
+	void setFile(ref File file)
 	{
-		filename = newFilename.dup;
-		foreach (ref c; filename)
-			if (c == '\\')
-				c = '/';
-		buf = cast(string)read(filename);
-		pos = buf.ptr;
-		end = buf.ptr + buf.length;
-	}
-
-	void pushFile()
-	{
-		fileStack ~= File(buf, pos, filename);
+		files[0] = file;
+		fileCount = -1;
 	}
 
 	void popFile()
 	{
-		if (fileStack.length == 0)
+		assert(fileCount > 0);
+		if (fileCount==1)
 			throw new Exception("Unexpected end of file");
-		auto lastFile = &fileStack[$-1];
-		filename = lastFile.filename;
-		buf = lastFile.buf;
-		pos = lastFile.pos;
-		end = buf.ptr + buf.length;
-		fileStack = fileStack[0..$-1];
+		fileCount--;
+		files[0..fileCount] = files[1..fileCount+1].dup;
 	}
 
 	void expectWord(string expected)
@@ -166,27 +205,37 @@ final class Assembler
 		string word = readWord();
 		if (word != expected)
 		{
-			pos -= word.length;
+			files[0].pos -= word.length;
 			throw new Exception("Expected " ~ expected);
 		}
 	}
 
-	char peek()
+	char peekChar()
 	{
-		return *pos;
+		return *files[0].pos;
+	}
+
+	void skipChar()
+	{
+		files[0].pos++;
+	}
+
+	void backpedal(size_t amount=1)
+	{
+		files[0].pos -= amount;
 	}
 
 	char readChar()
 	{
 		skipWhitespace();
-		return *pos++;
+		return *files[0].pos++;
 	}
 
 	void expectChar(char c)
 	{
 		if (readChar() != c)
 		{
-			pos--;
+			backpedal();
 			throw new Exception("Expected " ~ c);
 		}
 	}
@@ -263,7 +312,7 @@ final class Assembler
 		for (int i=0; f; i++, f<<=1)
 			if (word == names[i])
 				return f;
-		pos -= word.length;
+		backpedal(word.length);
 		throw new Exception("Unknown flag " ~ word);
 	}
 
@@ -272,12 +321,12 @@ final class Assembler
 		static if (ALLOW_NULL)
 		{
 			skipWhitespace();
-			if (peek() != OPEN)
+			if (peekChar() != OPEN)
 			{
 				auto word = readWord();
 				if (word != "null")
 				{
-					pos -= word.length;
+					backpedal(word.length);
 					throw new Exception("Expected " ~ OPEN ~ " or null");
 				}
 				return null;
@@ -288,9 +337,9 @@ final class Assembler
 		T[] r;
 
 		skipWhitespace();
-		if (peek() == CLOSE)
+		if (peekChar() == CLOSE)
 		{
-			pos++; // skip CLOSE
+			skipChar(); // CLOSE
 			static if (ALLOW_NULL)
 			{
 				// HACK: give r a .ptr so (r is null) is false, to distinguish it from "null"
@@ -310,7 +359,7 @@ final class Assembler
 				break;
 			if (c != ',')
 			{
-				pos--;
+				backpedal();
 				throw new Exception("Expected " ~ CLOSE ~ " or ,");
 			}
 		}
@@ -346,35 +395,35 @@ final class Assembler
 	string readString()
 	{
 		skipWhitespace();
-		if (*pos != '"')
+		if (peekChar() != '"')
 		{
 			string word = readWord();
 			if (word == "null")
 				return null;
 			else
 			{
-				pos -= word.length;
+				backpedal(word.length);
 				throw new Exception("String literal expected");
 			}
 		}
 		string s = "";
 		while (true)
-			switch (*++pos)
+			switch (*++files[0].pos)
 			{
 				case '"':
-					pos++;
+					skipChar();
 					return s;
 				case '\\':
-					switch (*++pos)
+					switch (*++files[0].pos)
 					{
 						case 'n': s ~= '\n'; break;
 						case 'r': s ~= '\r'; break;
-						case 'x': s ~= cast(char)((fromHex(*++pos) << 4) | fromHex(*++pos)); break;
-						default: s ~= *pos;
+						case 'x': s ~= cast(char)((fromHex(*++files[0].pos) << 4) | fromHex(*++files[0].pos)); break;
+						default: s ~= *files[0].pos;
 					}
 					break;
 				default: 
-					s ~= *pos;	
+					s ~= *files[0].pos;	
 			}
 	}
 
@@ -448,7 +497,7 @@ final class Assembler
 	ASProgram.Class[string] classesByID;
 	ASProgram.Method[string] methodsByID;
 
-	struct Fixup(T) { T* ptr; string name; }
+	struct Fixup(T) { Position where; T* ptr; string name; }
 	Fixup!(ASProgram.Class)[] classFixups;
 	Fixup!(ASProgram.Method)[] methodFixups;
 
@@ -459,7 +508,7 @@ final class Assembler
 		auto pkind = kind in TraitKindByName;
 		if (pkind is null)
 		{
-			pos -= kind.length;
+			backpedal(kind.length);
 			throw new Exception("Unknown trait kind");
 		}
 		t.kind = *pkind;
@@ -759,7 +808,7 @@ final class Assembler
 	ASProgram.Instruction[] readInstructions(ref uint[string] _labels)
 	{
 		ASProgram.Instruction[] instructions;
-		struct LocalFixup { char* pos; uint ii, ai; string name; uint si; } // BUG: "pos" won't save correctly in #includes
+		struct LocalFixup { Position where; uint ii, ai; string name; uint si; } // BUG: "pos" won't save correctly in #includes
 		LocalFixup[] jumpFixups, switchFixups, localClassFixups, localMethodFixups;
 		uint[string] labels;
 
@@ -768,17 +817,17 @@ final class Assembler
 			auto word = readWord();
 			if (word == "end")
 				break;
-			if (peek() == ':')
+			if (peekChar() == ':')
 			{
 				addUnique!("label")(labels, word, instructions.length);
-				pos++; // :
+				skipChar(); // :
 				continue;
 			}
 
 			auto popcode = word in OpcodeByName;
 			if (popcode is null)
 			{
-				pos -= word.length;
+				backpedal(word.length);
 				throw new Exception("Unknown opcode " ~ word);
 			}
 
@@ -822,22 +871,22 @@ final class Assembler
 						instruction.arguments[i].multinamev = readMultiname();
 						break;
 					case OpcodeArgumentType.Class:
-						localClassFixups ~= LocalFixup(pos, instructions.length, i, readString());
+						localClassFixups ~= LocalFixup(files[0].position, instructions.length, i, readString());
 						break;
 					case OpcodeArgumentType.Method:
-						localMethodFixups ~= LocalFixup(pos, instructions.length, i, readString());
+						localMethodFixups ~= LocalFixup(files[0].position, instructions.length, i, readString());
 						break;
 
 					case OpcodeArgumentType.JumpTarget:
 					case OpcodeArgumentType.SwitchDefaultTarget:
-						jumpFixups ~= LocalFixup(pos, instructions.length, i, readWord());
+						jumpFixups ~= LocalFixup(files[0].position, instructions.length, i, readWord());
 						break;
 
 					case OpcodeArgumentType.SwitchTargets:
 						string[] switchTargetLabels = readList!('[', ']', readWord, false)();
 						instruction.arguments[i].switchTargets = new uint[switchTargetLabels.length];
 						foreach (li, s; switchTargetLabels)
-							switchFixups ~= LocalFixup(pos, instructions.length, i, s, li);
+							switchFixups ~= LocalFixup(files[0].position, instructions.length, i, s, li);
 						break;
 
 					default:
@@ -855,7 +904,7 @@ final class Assembler
 			auto lp = f.name in labels;
 			if (lp is null)
 			{
-				pos = f.pos;
+				setFile(f.where.load);
 				throw new Exception("Unknown label " ~ f.name);
 			}
 			instructions[f.ii].arguments[f.ai].jumpTarget = *lp;
@@ -866,16 +915,16 @@ final class Assembler
 			auto lp = f.name in labels;
 			if (lp is null)
 			{
-				pos = f.pos;
+				setFile(f.where.load);
 				throw new Exception("Unknown label " ~ f.name);
 			}
 			instructions[f.ii].arguments[f.ai].switchTargets[f.si] = *lp;
 		}
 
 		foreach (ref f; localClassFixups)
-			classFixups ~= Fixup!(ASProgram.Class)(&instructions[f.ii].arguments[f.ai].classv, f.name);
+			classFixups ~= Fixup!(ASProgram.Class)(f.where, &instructions[f.ii].arguments[f.ai].classv, f.name);
 		foreach (ref f; localMethodFixups)
-			methodFixups ~= Fixup!(ASProgram.Method)(&instructions[f.ii].arguments[f.ai].methodv, f.name);
+			methodFixups ~= Fixup!(ASProgram.Method)(f.where, &instructions[f.ii].arguments[f.ai].methodv, f.name);
 
 		_labels = labels;
 		return instructions;
@@ -889,7 +938,7 @@ final class Assembler
 			auto plabel = word in labels;
 			if (plabel is null)
 			{
-				pos -= word.length;
+				backpedal(word.length);
 				throw new Exception("Unknown label " ~ word);
 			}
 			return *plabel;
@@ -964,33 +1013,43 @@ final class Assembler
 
 	void assemble(string mainFilename)
 	{
-		loadFile(mainFilename);
+		pushFile(File.load(mainFilename));
 
 		try
+		{
 			readProgram();
+
+			foreach (ref f; classFixups)
+			{
+				auto cp = f.name in classesByID;
+				if (cp is null)
+				{
+					setFile(f.where.load);
+					throw new Exception("Unknown class refid: " ~ f.name);
+				}
+				*f.ptr = *cp;
+			}
+
+			foreach (ref f; methodFixups)
+			{
+				auto mp = f.name in methodsByID;
+				if (mp is null)
+				{
+					setFile(f.where.load);
+					throw new Exception("Unknown method refid: " ~ f.name);
+				}
+				*f.ptr = *mp;
+			}
+		}
 		catch (Object o)
 		{
-			auto lines = splitlines(buf);
-			foreach (i, line; lines)
-				if (pos <= line.ptr + line.length)
-					throw new Exception(format("%s(%d,%d): %s", filename, i+1, pos-line.ptr+1, o.toString));
-			throw new Exception(format("%s(???): %s", filename, o.toString));
-		}
-
-		foreach (ref f; classFixups)
-		{
-			auto cp = f.name in classesByID;
-			if (cp is null)
-				throw new Exception("Unknown class refid: " ~ f.name);
-			*f.ptr = *cp;
-		}
-
-		foreach (ref f; methodFixups)
-		{
-			auto mp = f.name in methodsByID;
-			if (mp is null)
-				throw new Exception("Unknown method refid: " ~ f.name);
-			*f.ptr = *mp;
+			string s = files[0].positionStr ~ ": " ~ o.toString();
+			if (fileCount == -1)
+				s ~= "\n\t(inclusion context unavailable)";
+			else
+				foreach (ref f; files[1..fileCount])
+					s ~= "\n\t(included from " ~ f.positionStr ~ ")";
+			throw new Exception(s);
 		}
 
 		classFixups = null;
