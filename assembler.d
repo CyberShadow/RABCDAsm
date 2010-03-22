@@ -267,6 +267,56 @@ final class Assembler
 		throw new Exception("Unknown flag " ~ word);
 	}
 
+	T[] readList(char OPEN, char CLOSE, alias READER, bool ALLOW_NULL, T=typeof(READER()))()
+	{
+		static if (ALLOW_NULL)
+		{
+			skipWhitespace();
+			if (peek() != OPEN)
+			{
+				auto word = readWord();
+				if (word != "null")
+				{
+					pos -= word.length;
+					throw new Exception("Expected " ~ OPEN ~ " or null");
+				}
+				return null;
+			}
+		}
+
+		expectChar(OPEN);
+		T[] r;
+
+		skipWhitespace();
+		if (peek() == CLOSE)
+		{
+			pos++; // skip CLOSE
+			static if (ALLOW_NULL)
+			{
+				// HACK: give r a .ptr so (r is null) is false, to distinguish it from "null"
+				r.length = 1;
+				r.length = 0;
+				assert(r !is null);
+				return r;
+			}
+			else
+				return null;
+		}
+		while (true)
+		{
+			r ~= READER();
+			char c = readChar();
+			if (c == CLOSE)
+				break;
+			if (c != ',')
+			{
+				pos--;
+				throw new Exception("Expected " ~ CLOSE ~ " or ,");
+			}
+		}
+		return r;
+	}
+
 	// **************************************************
 
 	long readInt()
@@ -348,32 +398,7 @@ final class Assembler
 
 	ASProgram.Namespace[] readNamespaceSet()
 	{
-		skipWhitespace();
-		if (peek() != '[')
-		{
-			auto word = readWord();
-			if (word != "null")
-			{
-				pos -= word.length;
-				throw new Exception("Expected [ or null");
-			}
-			return null;
-		}
-		expectChar('[');
-		ASProgram.Namespace[] nsSet;
-		while (true)
-		{
-			nsSet ~= readNamespace();
-			char c = readChar();
-			if (c == ']')
-				break;
-			if (c != ',')
-			{
-				pos--;
-				throw new Exception("Expected ] or ,");
-			}
-		}
-		return nsSet;
+		return readList!('[', ']', readNamespace, true)();
 	}
 
 	ASProgram.Multiname readMultiname()
@@ -411,19 +436,7 @@ final class Assembler
 				break;
 			case ASType.TypeName:
 				m.vTypeName.name = readMultiname();
-				expectChar('<');
-				while (true)
-				{
-					m.vTypeName.params ~= readMultiname();
-					char c = readChar();
-					if (c == '>')
-						break;
-					if (c != ',')
-					{
-						pos--;
-						throw new Exception("Expected > or ,");
-					}
-				}
+				m.vTypeName.params = readList!('<', '>', readMultiname, false)();
 				break;
 			default:
 				throw new Exception("Unknown Multiname kind");
@@ -821,22 +834,10 @@ final class Assembler
 						break;
 
 					case OpcodeArgumentType.SwitchTargets:
-						expectChar('[');
-						uint[] switchTargets;
-						while (true)
-						{
-							switchFixups ~= LocalFixup(pos, instructions.length, i, readWord(), switchTargets.length);
-							switchTargets ~= 0;
-							char c = readChar();
-							if (c == ']')
-								break;
-							if (c != ',')
-							{
-								pos--;
-								throw new Exception("Expected ] or ,");
-							}
-						}
-						instruction.arguments[i].switchTargets = switchTargets;
+						string[] switchTargetLabels = readList!('[', ']', readWord, false)();
+						instruction.arguments[i].switchTargets = new uint[switchTargetLabels.length];
+						foreach (li, s; switchTargetLabels)
+							switchFixups ~= LocalFixup(pos, instructions.length, i, s, li);
 						break;
 
 					default:
