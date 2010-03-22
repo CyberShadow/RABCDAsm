@@ -114,10 +114,14 @@ template RawDataHandlerWrapper()
 			return processRaw("&" ~ name, name ~ ".sizeof");
 		else
 		static if (is(T U : U[]))
+		{
+			string s = "{ bool _AutoDataNullTest = " ~ name ~ " is null; " ~ processRaw("&_AutoDataNullTest", "bool.sizeof") ~ "}";
 			static if (!hasAliasing!(U))
-				return processRaw(name ~ ".ptr", name ~ ".length");
+				s ~= processRaw(name ~ ".ptr", name ~ ".length");
 			else
-				return "foreach (ref _AutoDataArrayItem" ~ loopDepth ~ "; " ~ name ~ ") {" ~ processRecursive!(U, "_AutoDataArrayItem" ~ loopDepth, loopDepth~"Item")() ~ "}";
+				s ~= "foreach (ref _AutoDataArrayItem" ~ loopDepth ~ "; " ~ name ~ ") {" ~ processRecursive!(U, "_AutoDataArrayItem" ~ loopDepth, loopDepth~"Item")() ~ "}";
+			return s;
+		}
 		else
 		static if (is(typeof((new T).toHash())))
 			//static assert(0, "aoeu: " ~ T.stringof);
@@ -145,7 +149,11 @@ struct EqualsDataHandler(O)
 
 	static string process(T, string name, bool reverseSort)()
 	{
-		return "if (this." ~ name ~ " != _AutoDataOther." ~ name ~ ") return false;";
+		string s;
+		static if (is(T U : U[]))
+			s ~= " if ((this." ~ name ~ " is null) != (_AutoDataOther." ~ name ~ " is null)) return false;";
+		s ~= "if (this." ~ name ~ " != _AutoDataOther." ~ name ~ ") return false;";
+		return s;
 	}
 }
 
@@ -156,17 +164,22 @@ struct CmpDataHandler(O)
 	static string process(T, string name, bool reverseSort)()
 	{
 		string reverseStr = reverseSort ? "-" : "";
+		string s;
+		static if (is(T U : U[]))
+			s ~= "{ int _AutoDataCmp = cast(int)(this." ~ name ~ " !is null) - cast(int)(_AutoDataOther." ~ name ~ " !is null); if (_AutoDataCmp != 0) return " ~ reverseStr ~ "_AutoDataCmp; }";
+
 		static if (is(T == string) && is(std.string.cmp))
-			return "{ int _AutoDataCmp = std.string.cmp(this." ~ name ~ ", _AutoDataOther." ~ name ~ "); if (_AutoDataCmp != 0) return " ~ reverseStr ~ "_AutoDataCmp; }";
+			s ~= "{ int _AutoDataCmp = std.string.cmp(this." ~ name ~ ", _AutoDataOther." ~ name ~ "); if (_AutoDataCmp != 0) return " ~ reverseStr ~ "_AutoDataCmp; }";
 		else
 		static if (is(T == int))
-			return "{ int _AutoDataCmp = this." ~ name ~ " - _AutoDataOther." ~ name ~ "; if (_AutoDataCmp != 0) return " ~ reverseStr ~ "_AutoDataCmp; }"; // TODO: use long?
+			s ~= "{ int _AutoDataCmp = this." ~ name ~ " - _AutoDataOther." ~ name ~ "; if (_AutoDataCmp != 0) return " ~ reverseStr ~ "_AutoDataCmp; }"; // TODO: use long?
 		else
 		static if (is(T.opCmp))
-			return "{ int _AutoDataCmp = this." ~ name ~ ".opCmp(_AutoDataOther." ~ name ~ "); if (_AutoDataCmp != 0) return " ~ reverseStr ~ "_AutoDataCmp; }";
+			s ~= "{ int _AutoDataCmp = this." ~ name ~ ".opCmp(_AutoDataOther." ~ name ~ "); if (_AutoDataCmp != 0) return " ~ reverseStr ~ "_AutoDataCmp; }";
 		else
-			return "if (this." ~ name ~ " < _AutoDataOther." ~ name ~ ") return " ~ reverseStr ~ "(-1);" ~ 
-			       "if (this." ~ name ~ " > _AutoDataOther." ~ name ~ ") return " ~ reverseStr ~ "( 1);";
+			s ~= "if (this." ~ name ~ " < _AutoDataOther." ~ name ~ ") return " ~ reverseStr ~ "(-1);" ~ 
+			     "if (this." ~ name ~ " > _AutoDataOther." ~ name ~ ") return " ~ reverseStr ~ "( 1);";
+		return s;
 	}
 }
 

@@ -668,7 +668,9 @@ private final class AStoABC
 
 	static bool isNull(T)(T value)
 	{
-		static if (is (T == class) || is(T == string))
+		//static if (is (T == class) || is(T == string))
+		//static if (is (T == class) || is(T U : U[]))
+		static if (is(typeof(value is null)))
 			return value is null;
 		else
 		static if (is (T == long))
