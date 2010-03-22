@@ -356,14 +356,16 @@ final class Disassembler
 		if (set is null)
 			sb ~= "null";
 		else
-		sb ~= '[';
-		foreach (i, ns; set)
 		{
-			dumpNamespace(sb, ns);
-			if (i < set.length-1)
-				sb ~= ", ";
+			sb ~= '[';
+			foreach (i, ns; set)
+			{
+				dumpNamespace(sb, ns);
+				if (i < set.length-1)
+					sb ~= ", ";
+			}
+			sb ~= ']';
 		}
-		sb ~= ']';
 	}
 
 	void dumpMultiname(StringBuilder sb, ASProgram.Multiname multiname)
