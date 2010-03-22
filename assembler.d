@@ -52,6 +52,11 @@ final class Assembler
 			return File(filename, buf, buf.ptr, buf.ptr + buf.length);
 		}
 
+		static File fromData(string name, string data)
+		{
+			return File(name, data, data.ptr, data.ptr + data.length);
+		}
+
 		Position position()
 		{
 			Position p;
@@ -93,6 +98,8 @@ final class Assembler
 		return basePath ~ filename;
 	}
 
+	string[string] vars;
+
 	void skipWhitespace()
 	{
 		while (true)
@@ -105,6 +112,16 @@ final class Assembler
 			else
 			if (c == '#')
 				processPreprocessor();
+			else
+			if (c == '$')
+			{
+				skipChar();
+				string name = readWord();
+				auto pvalue = name in vars;
+				if (pvalue is null)
+					throw new Exception("variable " ~ name ~ " is not defined");
+				pushFile(File.fromData("$" ~ name, *pvalue));
+			}
 			else
 			if (c == ';')
 			{
@@ -168,6 +185,12 @@ final class Assembler
 		{
 			case "include":
 				pushFile(File.load(convertFilename(readString())));
+				break;
+			case "set":
+				vars[readWord()] = readString();
+				break;
+			case "unset":
+				vars.remove(readWord());
 				break;
 			default:
 				files[0].pos -= word.length;
