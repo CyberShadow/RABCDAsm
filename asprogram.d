@@ -357,9 +357,17 @@ private final class ABCtoAS
 
 	ASProgram.Namespace[] convertNamespaceSet(uint[] namespaceSet)
 	{
+		if (namespaceSet is null)
+			return null;
 		auto n = new ASProgram.Namespace[namespaceSet.length];
 		foreach (j, namespace; namespaceSet)
 			n[j] = namespaces[namespace];
+		if (namespaceSet.length == 0)
+		{
+			n.length = 1;
+			n.length = 0;
+			assert (n !is null); // empty, but not null
+		}
 		return n;
 	}
 

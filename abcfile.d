@@ -1080,6 +1080,12 @@ private final class ABCReader
 		r.length = readU30();
 		foreach (ref value; r)
 			value = readU30();
+		if (r.length == 0)
+		{
+			r.length = 1;
+			r.length = 0;
+			assert (r !is null); // empty, but not null
+		}
 		return r;
 	}
 
