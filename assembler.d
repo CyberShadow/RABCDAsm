@@ -45,11 +45,12 @@ final class Assembler
 		string buf;
 		char* pos;
 		char* end;
+		string[] arguments;
 
-		static File load(string filename)
+		static File load(string filename, string[] arguments = null)
 		{
 			auto buf = cast(string)read(filename);
-			return File(filename, buf, buf.ptr, buf.ptr + buf.length);
+			return File(filename, buf, buf.ptr, buf.ptr + buf.length, arguments);
 		}
 
 		static File fromData(string name, string data)
@@ -111,17 +112,10 @@ final class Assembler
 				files[0].pos++;
 			else
 			if (c == '#')
-				processPreprocessor();
+				handlePreprocessor();
 			else
 			if (c == '$')
-			{
-				skipChar();
-				string name = readWord();
-				auto pvalue = name in vars;
-				if (pvalue is null)
-					throw new Exception("variable " ~ name ~ " is not defined");
-				pushFile(File.fromData("$" ~ name, *pvalue));
-			}
+				handleVar();
 			else
 			if (c == ';')
 			{
@@ -129,6 +123,58 @@ final class Assembler
 			}
 			else
 				return;	
+		}
+	}
+
+	void handlePreprocessor()
+	{
+		skipChar(); // #
+		auto word = readWord();
+		switch (word)
+		{
+			case "include":
+				pushFile(File.load(convertFilename(readString())));
+				break;
+			case "call":
+				pushFile(File.load(convertFilename(readString()), readList!('(', ')', readString, false)()));
+				break;
+			case "set":
+				vars[readWord()] = readString();
+				break;
+			case "unset":
+				vars.remove(readWord());
+				break;
+			default:
+				files[0].pos -= word.length;
+				throw new Exception("Unknown preprocessor declaration: " ~ word);
+		}
+	}
+
+	void handleVar()
+	{
+		skipChar();
+		string name = readWord();
+		if (name.length == 0)
+			throw new Exception("Empty var name");
+		if (name[0] >= '1' && name[0] <= '9')
+		{
+			foreach (ref file; files[0..fileCount])
+				if (file.arguments.length)
+				{
+					uint index = .toUint(name)-1;
+					if (index >= file.arguments.length)
+						throw new Exception("Argument index out-of-bounds");
+					pushFile(File.fromData('$' ~ name, file.arguments[index]));
+					return;
+				}
+			throw new Exception("No arguments in context");
+		}
+		else
+		{
+			auto pvalue = name in vars;
+			if (pvalue is null)
+				throw new Exception("variable " ~ name ~ " is not defined");
+			pushFile(File.fromData('$' ~ name, *pvalue));
 		}
 	}
 
@@ -174,27 +220,6 @@ final class Assembler
 			case 'f': case 'F': return 15;
 			default: 
 				throw new Exception("Malformed hex digit " ~ x);
-		}
-	}
-
-	void processPreprocessor()
-	{
-		skipChar(); // #
-		auto word = readWord();
-		switch (word)
-		{
-			case "include":
-				pushFile(File.load(convertFilename(readString())));
-				break;
-			case "set":
-				vars[readWord()] = readString();
-				break;
-			case "unset":
-				vars.remove(readWord());
-				break;
-			default:
-				files[0].pos -= word.length;
-				throw new Exception("Unknown preprocessor declaration: " ~ word);
 		}
 	}
 
