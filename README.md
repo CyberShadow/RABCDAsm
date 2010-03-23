@@ -342,8 +342,8 @@ perform the necessary manipulations using those classes.
 Limitations
 ===========
 
-Metadata is currently ignored. I haven't noticed any metadata blocks in any
-Flash applications I've disassembled.
+Metadata is currently ignored. I haven't noticed any metadata blocks in any SWF
+files I've disassembled.
 
 License
 =======
