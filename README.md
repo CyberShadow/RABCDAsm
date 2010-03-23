@@ -284,7 +284,9 @@ logs a string literal and the contents of a register:
          getlocal            $2
          callpropvoid        QName(PackageNamespace(\"\"), \"log\"), 2
      "
-
+     
+     ; ...
+     
      pushbyte 2
      pushbyte 2
      add_i
