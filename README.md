@@ -9,7 +9,7 @@ These are:
  * `rabcasm` - ABC assembler
  * `abcexport` - extracts ABC from SWF files
  * `abcreplace` - replaces ABC from SWF files
- * `swfdecompress` - deflates zlib-compressed SWF files
+ * `swfdecompress` - decompresses zlib-compressed SWF files
 
 `abcexport` and `abcreplace` are reimplementations of similar utilities from
 my [`swfutilsex`][swfutilsex] Java package, however these work faster as they 
@@ -266,7 +266,7 @@ be instantiated in two ways:
 
         #set str "Hello, world!"
         ...
-        pushstring str
+        pushstring $str
 
      will expand to `pushstring Hello, world!`, which will result in an error.
      To correct the problem, add escaped quotes around the variable contents
