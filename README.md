@@ -12,12 +12,14 @@ These are:
  * `swfdecompress` - deflates zlib-compressed SWF files
 
 `abcexport` and `abcreplace` are reimplementations of similar utilities from
-my [`swfutilsex`][swfutilsex] Java package,
-however these work faster as they do not parse the SWF files as deeply.
+my [`swfutilsex`][swfutilsex] Java package, however these work faster as they 
+do not parse the SWF files as deeply.  
 `swfdecompress` is ancilliary and is only useful for debugging and studying of
-the SWF file format, and not required for ABC manipulation.
+the SWF file format, and not required for ABC manipulation. It is functionally
+equivalent to [flasm][]'s `-x` option.
 
   [swfutilsex]: http://github.com/CyberShadow/swfutilsex
+  [flasm]: http://flasm.sourceforge.net/
 
 Motivation and goals
 --------------------
@@ -111,7 +113,7 @@ identifier.
 Whitespace (outside string literals, of course) is completely ignored, except 
 where required to separate words. Comments are Intel-assembler-style: a single 
 `;` demarks a comment until the next end-of-line. Control directives (such as
-\#include) are allowed anywhere where whitespace is allowed.
+`#include`) are allowed anywhere where whitespace is allowed.
 
 The syntax is comprised of hierarchical blocks. Each block contains a number
 of fields - starting with a keyword specifying the field type. A block is 
@@ -142,7 +144,7 @@ are the trait fields, varying by trait kind:
  * `method` / `getter` / `setter` : `dispid` (unsigned integer), `method`
 
 Additionally, all traits may have `flag` fields, describing the trait's 
-flags (`FINAL` / `OVERRIDE` / `METADATA`).
+attributes (`FINAL` / `OVERRIDE` / `METADATA`).
 
 `class` blocks have mandatory `instance` and `cinit` fields, defining the class
 instance and the class initializer method respectively. They may also have 
