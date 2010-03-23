@@ -49,13 +49,13 @@ final class Assembler
 
 		static File load(string filename, string[] arguments = null)
 		{
-			auto buf = cast(string)read(filename);
-			return File(filename, buf, buf.ptr, buf.ptr + buf.length, arguments);
+			return fromData(filename, cast(string)read(filename), arguments);
 		}
 
-		static File fromData(string name, string data)
+		static File fromData(string name, string data, string[] arguments = null)
 		{
-			return File(name, data, data.ptr, data.ptr + data.length);
+			data ~= \0; data = data[0..$-1]; // hack to prevent readWord etc. from checking for end-of-file on every character
+			return File(name, data, data.ptr, data.ptr + data.length, arguments);
 		}
 
 		Position position()
@@ -72,7 +72,7 @@ final class Assembler
 			foreach (i, line; lines)
 				if (pos <= line.ptr + line.length)
 					return format("%s(%d,%d)", filename, i+1, pos-line.ptr+1);
-			return format("%s(???): %s", filename);
+			return format("%s(???)", filename);
 		}
 	}
 
@@ -132,11 +132,18 @@ final class Assembler
 		auto word = readWord();
 		switch (word)
 		{
+			case "mixin":
+				pushFile(File.fromData("#mixin", readString()));
+				break;
+			case "call": // #mixin with arguments
+				pushFile(File.fromData("#call", readString(), readList!('(', ')', readString, false)()));
+				break;
 			case "include":
 				pushFile(File.load(convertFilename(readString())));
 				break;
-			case "call":
-				pushFile(File.load(convertFilename(readString()), readList!('(', ')', readString, false)()));
+			case "get":
+				auto filename = convertFilename(readString());
+				pushFile(File.fromData(filename, toStringLiteral(cast(string)read(filename))));
 				break;
 			case "set":
 				vars[readWord()] = readString();
@@ -153,7 +160,18 @@ final class Assembler
 	void handleVar()
 	{
 		skipChar();
-		string name = readWord();
+		skipWhitespace();
+
+		string name;
+		bool asStringLiteral;
+		if (peekChar() == '"')
+		{
+			name = readString();
+			asStringLiteral = true;
+		}
+		else
+			name = readWord();
+
 		if (name.length == 0)
 			throw new Exception("Empty var name");
 		if (name[0] >= '1' && name[0] <= '9')
@@ -164,7 +182,8 @@ final class Assembler
 					uint index = .toUint(name)-1;
 					if (index >= file.arguments.length)
 						throw new Exception("Argument index out-of-bounds");
-					pushFile(File.fromData('$' ~ name, file.arguments[index]));
+					string value = file.arguments[index];
+					pushFile(File.fromData('$' ~ name, asStringLiteral ? toStringLiteral(value) : value));
 					return;
 				}
 			throw new Exception("No arguments in context");
@@ -174,11 +193,12 @@ final class Assembler
 			auto pvalue = name in vars;
 			if (pvalue is null)
 				throw new Exception("variable " ~ name ~ " is not defined");
-			pushFile(File.fromData('$' ~ name, *pvalue));
+			string value = *pvalue;
+			pushFile(File.fromData('$' ~ name, asStringLiteral ? toStringLiteral(value) : value));
 		}
 	}
 
-	bool isWordChar(char c)
+	static bool isWordChar(char c)
 	{
 		return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.'; // TODO: use lookup table?
 	}
@@ -309,6 +329,38 @@ final class Assembler
 		if (k in aa)
 			throw new Exception("Duplicate " ~ name);
 		aa[k] = v;
+	}
+
+	static string toStringLiteral(string str)
+	{
+		if (str is null)
+			return "null";
+		else
+		{
+			static const char[16] hexDigits = "0123456789ABCDEF";
+
+			// TODO: optimize
+			string s = \";
+			foreach (c; str)
+				if (c == 0x0A)
+					s ~= `\n`;
+				else
+				if (c == 0x0D)
+					s ~= `\r`;
+				else
+				if (c == '\\')
+					s ~= `\\`;
+				else
+				if (c == '"')
+					s ~= `\"`;
+				else
+				if (c < 0x20)
+					s ~= ['\\', 'x', hexDigits[c / 0x10], hexDigits[c % 0x10]];
+				else
+					s ~= c;
+			s ~= '"';
+			return s;
+		}
 	}
 
 	// **************************************************
