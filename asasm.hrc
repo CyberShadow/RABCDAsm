@@ -26,16 +26,22 @@
       <!-- Comments -->
       <regexp match="/;.*$/" region0="def:Comment"/>
 
+      <!-- String literals -->
       <block start="/(?{def:StringEdge}&#34;)/"  end="/(?{def:StringEdge}&#34;)/" scheme="StringContent"    region="def:String" inner-region="yes" region00="def:PairStart" region10="def:PairEnd"/>
 
+      <!-- Decimal numbers -->
       <regexp match="/\b[0-9]+\b/" region0="def:NumberDec"/>
       
+      <!-- Paired brackets -->
       <block start="/(\()/" end="/(\))/" scheme="asasm" region00="def:Symbol" region01="def:PairStart" region10="def:Symbol" region11="def:PairEnd"/>
       <block start="/(\[)/" end="/(\])/" scheme="asasm" region00="def:Symbol" region01="def:PairStart" region10="def:Symbol" region11="def:PairEnd"/>
       <block start="/(\<)/" end="/(\>)/" scheme="asasm" region00="def:Symbol" region01="def:PairStart" region10="def:Symbol" region11="def:PairEnd"/>
 
+      <!-- Outliner for refids -->
       <regexp match="/(\brefid\b)\s*((?{def:StringEdge}&#34;))((?{def:String}[^&#34;]*))((?{def:StringEdge}&#34;))/" region1="def:Keyword" region2="def:PairStart" region3="def:Outlined" region4="def:PairEnd"/> <!-- BUG: does not support escape sequences -->
       <!--block start="/(\brefid\b)\s*(?{def:StringEdge}&#34;)/" end="/(?{def:StringEdge}&#34;)/" scheme="StringContent" region="def:Outlined" inner-region="yes" region00="def:PairStart" region10="def:PairEnd"/-->
+
+      <!-- Symbol/keyword highlighting below -->
 
       <keywords region="def:Symbol">
          <symb name=","/>
