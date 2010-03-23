@@ -93,7 +93,7 @@ If you haven't yet, I strongly recommend that you look through Adobe's
 [ActionScript Virtual Machine 2 (AVM2) Overview][avm2]. You will most likely
 need to consult it for the instruction reference anyway (although you can also 
 use [this handy list][avm2i] as well). You will find it difficult to understand
-the disassembly without good understanding of concepts such as namespaces or
+the disassembly without good understanding of concepts such as namespaces and
 multinames.
 
   [avm2]: http://www.adobe.com/devnet/actionscript/articles/avm2overview.pdf
@@ -110,7 +110,7 @@ identifier.
 
 Whitespace (outside string literals, of course) is completely ignored, except 
 where required to separate words. Comments are Intel-assembler-style: a single 
-; demarks a comment until the next end-of-line. Control directives (such as
+`;` demarks a comment until the next end-of-line. Control directives (such as
 \#include) are allowed anywhere where whitespace is allowed.
 
 The syntax is comprised of hierarchical blocks. Each block contains a number
@@ -123,11 +123,11 @@ Hierarchy
 
 The topmost block in the hierarchy is the `program` block. This must be the 
 first block in the file (thus, `program` must be the first word in the file as
-well). The `program` block contains `script` blocks and `class` / `method` 
-blocks for "orphan" classes and methods (not owned by other objects in the 
+well). The `program` block contains `script` fields, and `class` / `method` 
+fields for "orphan" classes and methods (not owned by other objects in the 
 hierarchy). Orphan methods are usually anonymous functions. The file version is
 also specified in the `program` block, using the `minorversion` and 
-`majorversion` fields.
+`majorversion` fields (both unsigned integers).
 
 `script` blocks have one mandatory `sinit` field (the script initialization 
 method) and `trait` fields.
@@ -139,7 +139,7 @@ are the trait fields, varying by trait kind:
  * `slot` / `const` : `slotid` (unsigned integer), `type` (multiname), `value`
  * `class` : `slotid`, `class` (the actual class block)
  * `function` : `slotid`, `method` (the actual method block)
- * `method` / `getter` / `setter` : `slotid`, `method`
+ * `method` / `getter` / `setter` : `dispid` (unsigned integer), `method`
 
 Additionally, all traits may have `flag` fields, describing the trait's 
 flags (`FINAL` / `OVERRIDE` / `METADATA`).
@@ -150,17 +150,17 @@ instance and the class initializer method respectively. They may also have
 format - it's an unique string to allow referencing the class, see above).
 
 `instance` blocks - always declared inline of their `class` block - must 
-contain one mandatory `iinit` field (the instance initializer method), and
-may contain one `extends` field (multiname), `implements` fields (multinames), 
-`flag` fields (`SEALED` / `FINAL` / `INTERFACE` / `PROTECTEDNS`), one 
-`protectedns` field (namespace), and `trait` fields.
+contain one `iinit` field (the instance initializer method), and may contain 
+one `extends` field (multiname), `implements` fields (multinames), `flag` 
+fields (`SEALED` / `FINAL` / `INTERFACE` / `PROTECTEDNS`), one `protectedns` 
+field (namespace), and `trait` fields.
 
 `method` blocks may contain one `name` field (multiname), a `refid` field,
 `param` fields (multinames - this represents the parameter types), one
-`return` field (multiname), `flag` fields (`NEED_ARGUMENTS` / `NEED_ACTIVATION`
-/ `NEED_REST` / `HAS_OPTIONAL` / `SET_DXNS` / `HAS_PARAM_NAMES`), `optional`
-fields (values), `paramname` fields (strings), and a `body` field (method
-body).
+`returns` field (multiname), `flag` fields (`NEED_ARGUMENTS` / 
+`NEED_ACTIVATION` / `NEED_REST` / `HAS_OPTIONAL` / `SET_DXNS` / 
+`HAS_PARAM_NAMES`), `optional` fields (values), `paramname` fields (strings), 
+and a `body` field (method body).
 
 `body` blocks - always declared inline of their `method` block - must contain
 the `maxstack`, `localcount`, `initscopedepth` and `maxscopedepth` fields 
@@ -169,7 +169,7 @@ fields.
 
 `code` blocks - always declared inline of their `body` block - are somewhat 
 different in syntax from other blocks - mostly in that they may contain labels.
-Labels follow the most common syntax - a word followed by a : character. 
+Labels follow the most common syntax - a word followed by a `:` character. 
 Multiple instruction arguments are comma-separated. Instruction arguments'
 types depend on the instruction - see the `OpcodeInfo` array in `abcfile.d`
 for a reference.
@@ -177,8 +177,8 @@ for a reference.
 `try` blocks - always declared inline of their `body` block - represent an
 "exception" (try/catch) block. They contain five mandatory fields: `from`,
 `to` and `target` (names of labels representing start and end of the "try"
-block, and start of the "catch" block), and `type` and `name` (multinames),
-representing the type and name of the exception variable.
+block, and start of the "catch" block respectively), and `type` and `name` 
+(multinames), representing the type and name of the exception variable.
 
 Values have the syntax *type* `(` *value* `)` . *type* can be one of `Integer`,
 `UInteger`, `Double`, `Utf8`, `Namespace`, `PackageNamespace`, 
@@ -204,7 +204,7 @@ Multinames have the syntax *type* `(` *parameters* `)` . *type* can be one of
 
 Namespace sets have the syntax `[` *namespace [* `,` *namespace ... ]* `]`
 (that is, a comma-separated list of namespaces in square brackets). Empty
-namespaces are allowed using `[]`.
+namespace sets can be specified using `[]`.
 
 Namespaces have the syntax *type* `(` *parameters* `)` . For types other than
 `PrivateNamespace` there is only one parameter - a string. `PrivateNamespace`
@@ -215,10 +215,11 @@ Strings have a syntax similar to C string literals. Strings start and end with
 a `"`. Supported escape sequences (a backslash followed by a letter) are `\n`
 (generates ASCII 0x0A), `\r` (ASCII 0x0D), and `\x` followed by two hexadecimal
 digits, which inserts the ASCII character with that code. Any other characters
-following a backslash generate that character - thus you can escape backslashes
-using `\\` and double quotes using `\"`. When decompiling, high-ASCII 
-characters (usually UTF-8) are not escaped - if you see gibberish instead of 
-international text, configure your editor to open the files in UTF-8 encoding.
+following a backslash generate that character - thus, you can escape 
+backslashes using `\\` and double quotes using `\"`. When decompiling, 
+high-ASCII characters (usually UTF-8) are not escaped - if you see gibberish 
+instead of international text, configure your editor to open the files in UTF-8
+encoding.
 
 Additionally, constant pool types (signed/unsigned integers, doubles, strings,
 namespaces, namespace sets and multinames) may also have the value `null`
@@ -230,7 +231,7 @@ Macros
 
 RABCDAsm has some basic macro-like capabilities, controlled by directives and 
 variables. These bear some similarity to the C preprocessor, however these 
-are processed in-loop and thus do not involve any pre-processing.
+are processed in-loop rather than as a separate pre-processing step.
 
 ### Directives
 
@@ -265,7 +266,7 @@ be instantiated in two ways:
         ...
         pushstring str
 
-     will exand to `pushstring Hello, world!`, which will result in an error.
+     will expand to `pushstring Hello, world!`, which will result in an error.
      To correct the problem, add escaped quotes around the variable contents
      ( `#set str "\"Hello, world!\""` ), or use the second syntax:
   
