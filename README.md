@@ -8,7 +8,7 @@ These are:
  * `rabcdasm` - ABC disassembler
  * `rabcasm` - ABC assembler
  * `abcexport` - extracts ABC from SWF files
- * `abcreplace` - replaces ABC from SWF files
+ * `abcreplace` - replaces ABC in SWF files
  * `swfdecompress` - decompresses zlib-compressed SWF files
 
 `abcexport` and `abcreplace` are reimplementations of similar utilities from
@@ -204,7 +204,7 @@ Multinames have the syntax *type* `(` *parameters* `)` . *type* can be one of
  * `MultinameL` / `MultinameLA` `(` *namespace-set* `)`
  * `TypeName` `(` *multiname* `<` *multiname [* `,` *multiname ... ]* `>` `)`
 
-Namespace sets have the syntax `[` *namespace [* `,` *namespace ... ]* `]`
+Namespace sets have the syntax `[` *[ namespace [* `,` *namespace ... ] ]* `]`
 (that is, a comma-separated list of namespaces in square brackets). Empty
 namespace sets can be specified using `[]`.
 
@@ -244,10 +244,10 @@ Directives start with a `#`, followed by a word identifying the directive:
     faster.
   * `#mixin` *string* - inserts the contents of the specified string inline.
     Not very useful on its own.
-  * `#call` *string* `(` *string [* `,` *string ...]* `)` - same as `#mixin`, 
-    however it additionally sets the special variables `$1`, `$2` etc. to the
-    contents of the specified arguments. When the end of the inserted string
-    is reached, the old values of `$1`, `$2` etc. are restored.
+  * `#call` *string* `(` *[ string [* `,` *string ... ] ]* `)` - same as 
+    `#mixin`, however it additionally sets the special variables `$1`, `$2` 
+    etc. to the contents of the specified arguments. When the end of the 
+    inserted string is reached, the old values of `$1`, `$2` etc. are restored.
   * `#get` *string* - inserts **a string containing** the contents of the 
     file by the specified filename inline. Similar to #include, but it inserts
     a string (surrounded by `"` etc.) instead.
