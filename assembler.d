@@ -316,6 +316,12 @@ final class Assembler
 			throw new Exception("Repeating field declaration");
 	}
 
+	static void mustBeSet(string name, T)(T obj)
+	{
+		if (obj is null)
+			throw new Exception(name ~ " not set");
+	}
+
 	static ASType toASType(string name)
 	{
 		auto t = name in ASTypeByName;
@@ -788,6 +794,7 @@ final class Assembler
 					i.traits ~= readTrait();
 					break;
 				case "end":
+					mustBeSet!("iinit")(i.iinit);
 					return i;
 				default:
 					throw new Exception("Unknown instance field " ~ word);
@@ -818,6 +825,8 @@ final class Assembler
 					c.traits ~= readTrait();
 					break;
 				case "end":
+					mustBeSet!("cinit")(c.cinit);
+					mustBeSet!("instance")(c.instance);
 					return c;
 				default:
 					throw new Exception("Unknown class field " ~ word);
@@ -860,6 +869,7 @@ final class Assembler
 					s.traits ~= readTrait();
 					break;
 				case "end":
+					mustBeSet!("sinit")(s.sinit);
 					return s;
 				default:
 					throw new Exception("Unknown script field " ~ word);
