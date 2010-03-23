@@ -305,6 +305,40 @@ straigth-forward to adapt it to other syntax highlighting systems.
 
   [Colorer take5]: http://colorer.sourceforge.net/
 
+Hacking
+=======
+
+ABC is internally represented in two forms. The `ABCFile` class stores the raw 
+data structures, as they appear in the binary file. `ASProgram` uses pointers
+instead of indexes, allowing easy manipulation without having to worry about
+record order or constant pools. Conversion between various states is done as
+follows:
+
+                           file.abc
+                             |  ^
+                   ABCReader |  | ABCWriter
+                             v  |   
+                           ABCFile
+                             |  ^
+                     ABCtoAS |  | AStoABC
+                             v  |
+                          ASProgram
+                             |  ^
+                Disassembler |  | Assembler
+                             v  |
+                          file.asasm
+
+`AStoABC` will rebuild the constant pools, in a manner similar to Adobe's
+compilers (reverse-sorted by reference count). The exact order will almost
+surely be different, however. Also, some records (classes and methods) are
+currently not sorted by reference count, which may cause `rabcasm` to generate 
+slightly larger files than the originals (due to variable-length encoding of 
+integers).
+
+Should you need to write an utility to manipulate ABC, you can use the existing
+code to load the file to either an `ABCFile` or `ASProgram` instance, and 
+perform the necessary manipulations using those classes.
+
 Limitations
 ===========
 
