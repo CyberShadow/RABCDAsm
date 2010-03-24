@@ -82,7 +82,8 @@ private final class SWFReader
 		if (swf.header.signature[0] == 'C')
 		{
 			buf = buf[0..8] ~ cast(ubyte[])uncompress(buf[8..$], swf.header.fileLength-8);
-			assert(buf.length == swf.header.fileLength);
+			if (swf.header.fileLength != buf.length)
+				throw new Exception("Incorrect file length in file header");
 		}
 		swf.frameSize = readRect();
 		swf.frameRate = readU16();
