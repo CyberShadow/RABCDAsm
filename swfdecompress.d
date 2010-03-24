@@ -19,7 +19,7 @@
 module swfdecompress;
 
 import std.file;
-import std.conv;
+import std.zlib;
 import swffile;
 
 void main(string[] args)
@@ -28,8 +28,13 @@ void main(string[] args)
 		throw new Exception("No file specified");
 	foreach (arg; args[1..$])
 	{
-		scope swf = SWFFile.read(cast(ubyte[])read(arg));
-		swf.header.signature[0] = 'F'; // uncompressed
-		write(arg, swf.write());
+		auto swf = cast(ubyte[])read(arg);
+		auto header = cast(SWFFile.Header*)swf.ptr;
+		if (header.signature[0] == cast(ubyte)'F')
+			throw new Exception("Already uncompressed");
+		if (header.signature[0] != cast(ubyte)'C')
+			throw new Exception("Unknown format");
+		header.signature[0] = cast(ubyte)'F'; // uncompressed
+		write(arg, swf[0..8] ~ cast(ubyte[])uncompress(swf[8..$], header.fileLength-8));
 	}
 }
