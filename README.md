@@ -2,7 +2,7 @@ Robust ABC (ActionScript Bytecode) [Dis-]Assembler
 ==================================================
 
 RABCDAsm is a collection of utilities including an ActionScript 
-assembler/disassembler, and a few utilities to manipulate SWF files. 
+assembler/disassembler, and a few tools to manipulate SWF files. 
 These are:
 
  * `rabcdasm` - ABC disassembler
@@ -12,8 +12,8 @@ These are:
  * `swfdecompress` - decompresses zlib-compressed SWF files
 
 `abcexport` and `abcreplace` are reimplementations of similar utilities from
-my [`swfutilsex`][swfutilsex] Java package, however these work faster as they 
-do not parse the SWF files as deeply.  
+my [swfutilsex][] Java package, however these work faster as they do not parse 
+the SWF files as deeply.  
 `swfdecompress` is ancilliary and is only useful for debugging and studying of
 the SWF file format, and not required for ABC manipulation. It is functionally
 equivalent to [flasm][]'s `-x` option.
