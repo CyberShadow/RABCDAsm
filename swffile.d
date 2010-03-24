@@ -19,6 +19,7 @@
 module swffile;
 
 import std.zlib;
+import zlibx;
 
 /** 
  * Implements a shallow representation of a .swf file. 
@@ -81,7 +82,7 @@ private final class SWFReader
 			throw new Exception("Invalid file signature");
 		if (swf.header.signature[0] == 'C')
 		{
-			buf = buf[0..8] ~ cast(ubyte[])uncompress(buf[8..$], swf.header.fileLength-8);
+			buf = buf[0..8] ~ exactUncompress(buf[8..$], swf.header.fileLength-8);
 			if (swf.header.fileLength != buf.length)
 				throw new Exception("Incorrect file length in file header");
 		}

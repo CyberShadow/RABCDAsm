@@ -349,6 +349,6 @@ License
 =======
 
 RABCDAsm is distributed under the terms of the GPL v3 or later, with the
-exception of `murmurhash2a.d`, which is in the public domain, and `asasm.hrc`,
-which is tri-licensed under the MPL 1.1/GPL 2.0/LGPL 2.1. The full text of the
-GNU General Public License can be found in the file `COPYING`.
+exception of `murmurhash2a.d` and `zlibx.d`, which are in the public domain, 
+and `asasm.hrc`, which is tri-licensed under the MPL 1.1/GPL 2.0/LGPL 2.1. The 
+full text of the GNU General Public License can be found in the file `COPYING`.

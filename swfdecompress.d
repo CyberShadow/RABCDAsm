@@ -20,6 +20,7 @@ module swfdecompress;
 
 import std.file;
 import std.zlib;
+import zlibx;
 import swffile;
 
 void main(string[] args)
@@ -35,6 +36,6 @@ void main(string[] args)
 		if (header.signature[0] != cast(ubyte)'C')
 			throw new Exception("Unknown format");
 		header.signature[0] = cast(ubyte)'F'; // uncompressed
-		write(arg, swf[0..8] ~ cast(ubyte[])uncompress(swf[8..$], header.fileLength-8));
+		write(arg, swf[0..8] ~ exactUncompress(swf[8..$], header.fileLength-8));
 	}
 }
