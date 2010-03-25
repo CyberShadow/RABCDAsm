@@ -10,16 +10,21 @@ These are:
  * `abcexport` - extracts ABC from SWF files
  * `abcreplace` - replaces ABC in SWF files
  * `swfdecompress` - decompresses zlib-compressed SWF files
+ * `swf7zcompress` - (re-)compress the contents of a SWF using 7-Zip
 
 `abcexport` and `abcreplace` are reimplementations of similar utilities from
 my [swfutilsex][] Java package, however these work faster as they do not parse 
 the SWF files as deeply.  
 `swfdecompress` is ancilliary and is only useful for debugging and studying of
 the SWF file format, and not required for ABC manipulation. It is functionally
-equivalent to [flasm][]'s `-x` option.
+equivalent to [flasm][]'s `-x` option.  
+`swf7zcompress` is an utility to further reduce the size of SWF files. It uses
+[7-Zip][] to compress the data better than the standard zlib library would. It
+requires that the `7z` command-line program be installed and in `PATH`.
 
   [swfutilsex]: http://github.com/CyberShadow/swfutilsex
   [flasm]: http://flasm.sourceforge.net/
+  [7-Zip]: http://www.7-zip.org/
 
 Motivation and goals
 --------------------
@@ -49,9 +54,10 @@ Compiling should be straight-forward:
 
     dmd rabcdasm abcfile asprogram disassembler murmurhash2a
     dmd rabcasm  abcfile asprogram    assembler murmurhash2a
-    dmd abcexport     swffile
-    dmd abcreplace    swffile
-    dmd swfdecompress swffile
+    dmd abcexport     swffile zlibx
+    dmd abcreplace    swffile zlibx
+    dmd swfdecompress swffile zlibx
+    dmd swf7zcompress swffile zlibx
 
   [d1]: http://www.digitalmars.com/d/1.0/
   [std2]: http://dsource.org/projects/std2
