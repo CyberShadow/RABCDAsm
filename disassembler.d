@@ -643,7 +643,7 @@ final class Disassembler
 		}
 		sb ~= "instance ";
 		dumpInstance(sb, vclass.instance);
-		sb ~= "cinit "; dumpMethod(sb, vclass.cinit);
+		sb ~= "cinit"; dumpMethod(sb, vclass.cinit);
 		dumpTraits(sb, vclass.traits);
 
 		sb.save();
@@ -678,7 +678,7 @@ final class Disassembler
 			dumpNamespace(sb, instance.protectedNs);
 			sb.newLine();
 		}
-		sb ~= "iinit "; dumpMethod(sb, instance.iinit);
+		sb ~= "iinit"; dumpMethod(sb, instance.iinit);
 		dumpTraits(sb, instance.traits);
 		sb.indent--; sb ~= "end ; instance"; sb.newLine();
 	}
@@ -688,7 +688,7 @@ final class Disassembler
 		sb ~= "script ; ";
 		sb ~= .toString(index);
 		sb.indent++; sb.newLine();
-		sb ~= "sinit "; dumpMethod(sb, script.sinit);
+		sb ~= "sinit"; dumpMethod(sb, script.sinit);
 		dumpTraits(sb, script.traits);
 		sb.indent--; sb ~= "end ; script"; sb.newLine();
 	}
