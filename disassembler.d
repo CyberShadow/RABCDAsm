@@ -757,8 +757,13 @@ final class Disassembler
 					default:
 						break;
 				}
+		bool extraNewLine = false;
 		foreach (ii, ref instruction; instructions)
 		{
+			if (extraNewLine)
+				sb.newLine();
+			extraNewLine = newLineAfter[instruction.opcode];
+
 			if (labels[ii])
 			{
 				sb.noIndent();
@@ -769,7 +774,6 @@ final class Disassembler
 			}
 
 			sb ~= opcodeInfo[instruction.opcode].name;
-			bool extraNewLine = false;
 			auto argTypes = opcodeInfo[instruction.opcode].argumentTypes;
 			if (argTypes.length)
 			{
@@ -821,7 +825,6 @@ final class Disassembler
 						case OpcodeArgumentType.SwitchDefaultTarget:
 							sb ~= 'L';
 							sb ~= .toString(instruction.arguments[i].jumpTarget);
-							extraNewLine = true;
 							break;
 
 						case OpcodeArgumentType.SwitchTargets:
@@ -845,9 +848,48 @@ final class Disassembler
 				}
 			}
 			sb.newLine();
-			if (extraNewLine)
-				sb.newLine();
 		}
 		sb.indent--;
 	}
+}
+
+bool[256] newLineAfter;
+
+static this()
+{
+	foreach (o; [
+		Opcode.OP_callpropvoid,
+		Opcode.OP_constructsuper,
+		Opcode.OP_initproperty,
+		Opcode.OP_ifeq,
+		Opcode.OP_iffalse,
+		Opcode.OP_ifge,
+		Opcode.OP_ifgt,
+		Opcode.OP_ifle,
+		Opcode.OP_iflt,
+		Opcode.OP_ifne,
+		Opcode.OP_ifnge,
+		Opcode.OP_ifngt,
+		Opcode.OP_ifnle,
+		Opcode.OP_ifnlt,
+		Opcode.OP_ifstricteq,
+		Opcode.OP_ifstrictne,
+		Opcode.OP_iftrue,
+		Opcode.OP_jump,
+		Opcode.OP_lookupswitch,
+		Opcode.OP_pushscope,
+		Opcode.OP_returnvalue,
+		Opcode.OP_returnvoid,
+		Opcode.OP_setglobalslot,
+		Opcode.OP_setlocal,
+		Opcode.OP_setlocal0,
+		Opcode.OP_setlocal1,
+		Opcode.OP_setlocal2,
+		Opcode.OP_setlocal3,
+		Opcode.OP_setproperty,
+		Opcode.OP_setpropertylate,
+		Opcode.OP_setslot,
+		Opcode.OP_setsuper
+	])
+		newLineAfter[o] = true;
 }
