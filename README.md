@@ -307,7 +307,7 @@ Highlighting
 
 Included with the project is the file `asasm.hrc`, a simple syntax definition 
 for the [Colorer take5][] syntax highlighting library. It should be 
-straigth-forward to adapt it to other syntax highlighting systems.
+straight-forward to adapt it to other syntax highlighting systems.
 
   [Colorer take5]: http://colorer.sourceforge.net/
 
