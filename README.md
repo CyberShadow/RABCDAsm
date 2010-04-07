@@ -345,6 +345,45 @@ Should you need to write an utility to manipulate ABC, you can use the existing
 code to load the file to either an `ABCFile` or `ASProgram` instance, and 
 perform the necessary manipulations using those classes.
 
+Tips
+====
+
+The following tips come from the author's experience and may be useful for 
+RABCDAsm users.
+
+1. Once you have disassembled a SWF file you intend to modify, you should 
+   immediately add the directory to a distributed source control system, such as 
+   [Git][] or [Mercurial][]. This will allow you to easily track and undo your 
+   changes, and easily merge your changes with new versions of SWF files.
+
+  [Git]: http://git-scm.com/
+  [Mercurial]: http://mercurial.selenic.com/
+
+2. The [Fiddler][] Web Debugging Proxy can be very useful for analysing 
+   websites with SWF content. The following script fragment (which is to be
+   placed in the `OnBeforeResponse` function) will automatically save all SWF 
+   files while preserving the directory structure.
+
+        if (oSession.oResponse.headers.ExistsAndContains("Content-Type", 
+                "application/x-shockwave-flash")) {
+            // Set desired path here
+            var path:String = "C:\\Temp\\FiddlerCapture\\" + 
+                oSession.host + oSession.PathAndQuery;
+            if (path.Contains('?'))
+                path = path.Substring(0, path.IndexOf('?'));
+            var dir:String = Path.GetDirectoryName(path);
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+            oSession.utilDecodeResponse();
+            oSession.SaveResponseBody(path);
+        }
+
+   Once you have edited a SWF file, you can use Fiddler's [AutoResponder][] to
+   replace the original file with your modified version.
+
+  [Fiddler]: http://www.fiddler2.com/fiddler2/
+  [AutoResponder]: http://www.fiddler2.com/fiddler2/help/AutoResponder.asp
+
 Limitations
 ===========
 
