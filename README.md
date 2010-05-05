@@ -390,7 +390,12 @@ Limitations
 1. Metadata is currently ignored. I haven't noticed any metadata blocks in any
    SWF files I've disassembled.
 
-2. `rabcasm` may create a broken file due to not ordering classes by ancestry.
+2. Private namespaces are currently represented by an automatically-assigned 
+   integer. This causes problems when comparing disassemblies from two 
+   versions of a file, since those numbers are prone to change when classes
+   are added or removed.
+
+3. `rabcasm` may create a broken file due to not ordering classes by ancestry.
 
    The problem originates from the fact that a class's ancestors (extended 
    class and implemented interfaces) are stored as multinames, and not as 
@@ -404,11 +409,6 @@ Limitations
 
    The simple work-around is to re-order the classes as they are declared in 
    the `.main.asasm` file, and place ancestors before descendants.
-
-3. Private namespaces are currently represented by an automatically-assigned 
-   integer. This causes problems when comparing disassemblies from two 
-   versions of a file, since those numbers are prone to change when classes
-   are added or removed.
 
 License
 =======
