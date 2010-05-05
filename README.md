@@ -1,7 +1,7 @@
 Robust ABC (ActionScript Bytecode) [Dis-]Assembler
 ==================================================
 
-RABCDAsm is a collection of utilities including an ActionScript 
+[RABCDAsm][] is a collection of utilities including an ActionScript 
 assembler/disassembler, and a few tools to manipulate SWF files. 
 These are:
 
@@ -22,6 +22,7 @@ equivalent to [flasm][]'s `-x` option.
 [7-Zip][] to compress the data better than the standard zlib library would. It
 requires that the `7z` command-line program be installed and in `PATH`.
 
+  [RABCDAsm]: http://github.com/CyberShadow/RABCDAsm
   [swfutilsex]: http://github.com/CyberShadow/swfutilsex
   [flasm]: http://flasm.sourceforge.net/
   [7-Zip]: http://www.7-zip.org/
@@ -44,16 +45,20 @@ bytecode with the following properties:
     a textual representation closer to the ABC file format, rather than to what
     an ActionScript compiler would generate.
 
-Compiling
----------
+Compiling from source
+---------------------
 
-RABCDAsm is written in the [D programming language, version 1][d1]. It uses one 
+RABCDAsm is written in the [D programming language, version 1][d1]. It uses one
 third-party library, [std2][] (for some fancy template stuff).
 
-Compiling should be straight-forward: 
+Assuming you have [dmd][], [git][] and [svn][] installed, compiling should be
+as straight-forward as:
 
-    dmd rabcdasm abcfile asprogram disassembler murmurhash2a
-    dmd rabcasm  abcfile asprogram    assembler murmurhash2a
+    git clone git://github.com/CyberShadow/RABCDAsm.git
+    cd RABCDAsm
+    svn co http://svn.dsource.org/projects/std2/trunk/std2/std2
+    dmd rabcdasm abcfile asprogram disassembler autodata murmurhash2a
+    dmd rabcasm  abcfile asprogram    assembler autodata murmurhash2a
     dmd abcexport     swffile zlibx
     dmd abcreplace    swffile zlibx
     dmd swfdecompress swffile zlibx
@@ -61,6 +66,18 @@ Compiling should be straight-forward:
 
   [d1]: http://www.digitalmars.com/d/1.0/
   [std2]: http://dsource.org/projects/std2
+  [dmd]: http://www.digitalmars.com/d/download.html
+  [git]: http://git-scm.com/
+  [svn]: http://subversion.apache.org/
+
+Pre-compiled binaries
+---------------------
+
+You can find pre-compiled Windows binaries in the [Downloads section on 
+GitHub][downloads]. However, please don't expect them to be up-to-date
+with the latest source versions.
+
+  [downloads]: http://github.com/CyberShadow/RABCDAsm/downloads
 
 Usage
 -----
