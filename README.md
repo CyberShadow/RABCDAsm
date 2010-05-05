@@ -405,6 +405,11 @@ Limitations
    The simple work-around is to re-order the classes as they are declared in 
    the `.main.asasm` file, and place ancestors before descendants.
 
+3. Private namespaces are currently represented by an automatically-assigned 
+   integer. This causes problems when comparing disassemblies from two 
+   versions of a file, since those numbers are prone to change when classes
+   are added or removed.
+
 License
 =======
 
