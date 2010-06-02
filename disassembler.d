@@ -228,7 +228,7 @@ final class RefBuilder : ASTraitsVisitor
 	static string qNameToString(ASProgram.Multiname m)
 	{
 		assert(m.kind == ASType.QName);
-		return (m.vQName.ns.name.length ? m.vQName.ns.name ~ "." : "") ~ m.vQName.name;
+		return (m.vQName.ns.name.length ? m.vQName.ns.name ~ ":" : "") ~ m.vQName.name;
 	}
 
 	string contextToString(string field)
@@ -717,10 +717,10 @@ final class Disassembler
 	{
 		string filename = refid.dup;
 		foreach (ref c; filename)
-			if (c == '.')
+			if (c == '.' || c == ':')
 				c = '/';
 			else
-			if (c == '\\' || c == ':' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|')
+			if (c == '\\' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|')
 				c = '_';
 
 		version (Windows)
