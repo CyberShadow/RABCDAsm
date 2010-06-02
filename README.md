@@ -425,7 +425,7 @@ Limitations
   of order. This results in a file that, when opened, will fail to load with 
   an error message similar to:
 
-       VerifyError: Error #1014: Class AncestorClassName could not be found.
+  `VerifyError: Error #1014: Class AncestorClassName could not be found.`
 
   The simple work-around is to re-order the classes as they are declared in 
   the `.main.asasm` file, and place ancestors before descendants.
