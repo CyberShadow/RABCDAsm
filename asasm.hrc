@@ -52,6 +52,7 @@
         <word name="#get"/>
         <word name="#include"/>
         <word name="#mixin"/>
+        <word name="#privatens"/>
         <word name="#set"/>
         <word name="#unset"/>
       </keywords>

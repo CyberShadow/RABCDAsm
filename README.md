@@ -94,7 +94,8 @@ To disassemble one of the `.abc` files:
     rabcdasm file0.abc
 
 This will create a `file0` directory, which will contain `file0.main.asasm`
-(the main program file) and a file per ActionScript class.
+(the main program file), `file0.privatens.asasm` (private namespace alias
+definitions) and a file per ActionScript class.
 
 To assemble the `.asasm` files back, and update the SWF file:
 
@@ -233,8 +234,12 @@ namespace sets can be specified using `[]`.
 
 Namespaces have the syntax *type* `(` *parameters* `)` . For types other than
 `PrivateNamespace` there is only one parameter - a string. `PrivateNamespace`
-namespaces have a second parameter - an integer to distinguish this private
-namespace from others.
+namespaces have a second parameter, a named alias for a particular private
+namespace. Internally (the ABC file format), private namespaces are 
+distinguished by a numerical index - `rabcdasm` will attempt to give them
+descriptive names based on their context. Aliases can be defined using the 
+`#privatens` directive. `rabcdasm` will create a separate file containing the
+aliases (`file0.privatens.asasm`).
 
 Strings have a syntax similar to C string literals. Strings start and end with
 a `"`. Supported escape sequences (a backslash followed by a letter) are `\n`
@@ -277,6 +282,7 @@ Directives start with a `#`, followed by a word identifying the directive:
   * `#set` *word* *string* - assigns the contents of the string to the 
     variable *word*.
   * `#unset` *word* - deletes the variable *word*.
+  * `#privatens` defines a private namespace alias, as described above.
 
 ### Variables
 
@@ -406,11 +412,6 @@ Limitations
 
 * Metadata is currently ignored. I haven't noticed any metadata blocks in any
   SWF files I've disassembled.
-
-* Private namespaces are currently represented by an automatically-assigned 
-  integer. This causes problems when comparing disassemblies from two 
-  versions of a file, since those numbers are prone to change when classes
-  are added or removed.
 
 * Floating point numbers may not be disassembled with adequate precision.
 

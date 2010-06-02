@@ -95,6 +95,9 @@ final class RefBuilder : ASTraitsVisitor
 	ASProgram.Class[string] classByName;
 	ASProgram.Method[string] methodByName;
 
+	string[uint] privateNamespaceNames;
+	uint[string] privateNamespaceByName;
+
 	ASProgram.Multiname[] context;
 
 	this(ASProgram as)
@@ -111,7 +114,14 @@ final class RefBuilder : ASTraitsVisitor
 
 	override void visitTrait(ref ASProgram.Trait trait)
 	{
-		context ~= trait.name;
+		auto m = trait.name;
+
+		if (m.kind != ASType.QName)
+			throw new Exception("Trait name is not a QName");
+		
+		visitMultiname(m);
+		
+		context ~= m;
 		switch (trait.kind)
 		{
 			case TraitKind.Class:
@@ -136,16 +146,96 @@ final class RefBuilder : ASTraitsVisitor
 		context = context[0..$-1];
 	}
 
+	string addPrivateNamespace(uint index, string bname)
+	{
+		string name = bname;
+		{
+			int n = 0;
+			uint* pindex;
+			while ((pindex = name in privateNamespaceByName) !is null && *pindex != index)
+				name = bname ~ .toString(++n);
+		}
+		auto pname = index in privateNamespaceNames;
+		if (pname)
+		{
+			if (*pname != name)
+				throw new Exception("Ambiguous private namespace: " ~ *pname ~ " and " ~ name);
+		}
+		else
+		{
+			privateNamespaceNames[index] = name;
+			privateNamespaceByName[name] = index;
+		}
+		return name;
+	}
+
+	void visitNamespace(ASProgram.Namespace ns)
+	{
+		if (ns.kind == ASType.PrivateNamespace && context.length>0 && context[0].vQName.ns.kind != ASType.PrivateNamespace)
+			addPrivateNamespace(ns.privateIndex, qNameToString(context[0]));
+	}
+
+	void visitNamespaceSet(ASProgram.Namespace[] nsSet)
+	{
+		foreach (ns; nsSet)
+			visitNamespace(ns);
+	}
+
+	void visitMultiname(ASProgram.Multiname m)
+	{
+		with (m)
+			switch (kind)
+			{
+				case ASType.QName:
+				case ASType.QNameA:
+					visitNamespace(vQName.ns);
+					break;
+				case ASType.Multiname:
+				case ASType.MultinameA:
+					visitNamespaceSet(vMultiname.nsSet);
+					break;
+				case ASType.MultinameL:
+				case ASType.MultinameLA:
+					visitNamespaceSet(vMultinameL.nsSet);
+					break;
+				case ASType.TypeName:
+					visitMultiname(vTypeName.name);
+					foreach (param; vTypeName.params)
+						visitMultiname(param);
+					break;
+				default:
+					break;
+			}
+	}
+
+	void visitMethodBody(ASProgram.MethodBody b)
+	{
+		foreach (ref instruction; b.instructions)
+			foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
+				switch (type)
+				{
+					case OpcodeArgumentType.Namespace:
+						visitNamespace(instruction.arguments[i].namespacev);
+						break;
+					case OpcodeArgumentType.Multiname:
+						visitMultiname(instruction.arguments[i].multinamev);
+						break;
+					default:
+						break;
+				}
+	}
+
+	static string qNameToString(ASProgram.Multiname m)
+	{
+		assert(m.kind == ASType.QName);
+		return (m.vQName.ns.name.length ? m.vQName.ns.name ~ "." : "") ~ m.vQName.name;
+	}
+
 	string contextToString(string field)
 	{
 		string[] strings = new string[context.length + (field ? 1 : 0)];
 		foreach (i, m; context)
-		{
-			// should this check ever fail, it's easy to fix it - just build any unique-ish string from the context
-			if (m.kind != ASType.QName)
-				throw new Exception("Trait name is not a QName");
-			strings[i] = (m.vQName.ns.name.length ? m.vQName.ns.name ~ "." : "") ~ m.vQName.name;
-		}
+			strings[i] = qNameToString(m);
 		if (field)
 			strings[$-1] = field;
 		string s = join(strings, "/");
@@ -177,6 +267,8 @@ final class RefBuilder : ASTraitsVisitor
 	void addMethod(ASProgram.Method method, string field = null)
 	{
 		addObject(method, methodByName, field);
+		if (method.vbody)
+			visitMethodBody(method.vbody);
 	}
 
 	string getObjectName(T)(T obj, ref T[string] objByName)
@@ -196,6 +288,16 @@ final class RefBuilder : ASTraitsVisitor
 	string getMethodName(ASProgram.Method method)
 	{
 		return getObjectName(method, methodByName);
+	}
+
+	string getPrivateNamespaceName(uint index)
+	{
+		auto pname = index in privateNamespaceNames;
+		if (pname)
+			return *pname;
+		else
+			//throw new Exception("Nameless private namespace: " ~ .toString(index));
+			return addPrivateNamespace(index, "OrphanPrivateNamespace");
 	}
 }
 
@@ -220,6 +322,10 @@ final class Disassembler
 		refs.run();
 
 		StringBuilder sb = new StringBuilder(name ~ "/" ~ name ~ ".main.asasm");
+
+		sb ~= "#include ";
+		dumpString(sb, name ~ ".privatens.asasm");
+		sb.newLine();
 
 		sb ~= "program";
 		sb.indent++; sb.newLine();
@@ -271,6 +377,17 @@ final class Disassembler
 		sb.indent--;
 		sb ~= "end ; program"; sb.newLine();
 
+		sb.save();
+
+		// now dump the private namespace indices
+		sb = new StringBuilder(name ~ "/" ~ name ~ ".privatens.asasm");
+		uint[] indices = refs.privateNamespaceNames.keys.sort;
+		foreach (index; indices)
+		{
+			sb ~= "#privatens " ~ .toString(index) ~ " ";
+			dumpString(sb, refs.privateNamespaceNames[index]);
+			sb.newLine();
+		}
 		sb.save();
 	}
 
@@ -345,7 +462,7 @@ final class Disassembler
 			if (kind == ASType.PrivateNamespace)
 			{
 				sb ~= ", ";
-				dumpUInt(sb, privateIndex);
+				dumpString(sb, refs.getPrivateNamespaceName(privateIndex));
 			}
 			sb ~= ')';
 		}

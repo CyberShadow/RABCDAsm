@@ -99,8 +99,6 @@ final class Assembler
 		return basePath ~ filename;
 	}
 
-	string[string] vars;
-
 	void skipWhitespace()
 	{
 		while (true)
@@ -126,6 +124,9 @@ final class Assembler
 		}
 	}
 
+	string[string] vars;
+	uint[string] privateNamespaces;
+
 	void handlePreprocessor()
 	{
 		skipChar(); // #
@@ -150,6 +151,10 @@ final class Assembler
 				break;
 			case "unset":
 				vars.remove(readWord());
+				break;
+			case "privatens":
+				uint index = readUInt();
+				privateNamespaces[readString()] = index;
 				break;
 			default:
 				files[0].pos -= word.length;
@@ -545,7 +550,11 @@ final class Assembler
 		if (n.kind == ASType.PrivateNamespace)
 		{
 			expectChar(',');
-			n.privateIndex = cast(uint)readUInt();
+			string name = readString();
+			auto pindex = name in privateNamespaces;
+			if (pindex is null)
+				throw new Exception("Unknown private namespace name");
+			n.privateIndex = *pindex;
 		}
 		expectChar(')');
 		return n;
