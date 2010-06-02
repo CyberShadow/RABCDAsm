@@ -412,7 +412,9 @@ Limitations
    versions of a file, since those numbers are prone to change when classes
    are added or removed.
 
-3. `rabcasm` may create a broken file due to not ordering classes by ancestry.
+3. Floating point numbers may not be disassembled with adequate precision.
+
+4. `rabcasm` may create a broken file due to not ordering classes by ancestry.
 
    The problem originates from the fact that a class's ancestors (extended 
    class and implemented interfaces) are stored as multinames, and not as 
