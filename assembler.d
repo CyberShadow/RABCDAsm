@@ -21,6 +21,7 @@ module assembler;
 import std.file;
 import std.string;
 import std.conv;
+import std.path;
 import abcfile;
 import asprogram;
 
@@ -46,16 +47,22 @@ final class Assembler
 		char* pos;
 		char* end;
 		string[] arguments;
+		string basePath;
 
 		static File load(string filename, string[] arguments = null)
 		{
-			return fromData(filename, cast(string)read(filename), arguments);
+			return fromFile(filename, cast(string)read(filename), arguments);
+		}
+		
+		static File fromFile(string filename, string data, string[] arguments = null)
+		{
+			return fromData(filename, data, arguments, getDirName(filename));
 		}
 
-		static File fromData(string name, string data, string[] arguments = null)
+		static File fromData(string name, string data, string[] arguments = null, string basePath = null)
 		{
 			data ~= \0; data = data[0..$-1]; // hack to prevent readWord etc. from checking for end-of-file on every character
-			return File(name, data, data.ptr, data.ptr + data.length, arguments);
+			return File(name, data, data.ptr, data.ptr + data.length, arguments, basePath);
 		}
 
 		Position position()
@@ -79,8 +86,14 @@ final class Assembler
 	File[64] files;
 	int fileCount; /// recursion depth
 
-	string basePath;
-
+	string getBasePath()
+	{
+		foreach (ref file; files[0..fileCount])
+			if (file.basePath !is null)
+				return file.basePath;
+		return null;
+	}
+	
 	string convertFilename(string filename)
 	{
 		if (filename.length == 0)
@@ -89,14 +102,7 @@ final class Assembler
 		foreach (ref c; filename)
 			if (c == '\\')
 				c = '/';
-		version(Windows)
-		{
-			if (filename.length > 2 && filename[1] == ':')
-				return filename;
-		}
-		if (filename[0] == '/')
-			return filename;
-		return basePath ~ filename;
+		return std.path.join(getBasePath, filename);
 	}
 
 	void skipWhitespace()
@@ -144,7 +150,7 @@ final class Assembler
 				break;
 			case "get":
 				auto filename = convertFilename(readString());
-				pushFile(File.fromData(filename, toStringLiteral(cast(string)read(filename))));
+				pushFile(File.fromFile(filename, toStringLiteral(cast(string)read(filename))));
 				break;
 			case "set":
 				vars[readWord()] = readString();
