@@ -383,7 +383,13 @@ RABCDAsm users.
   [Git]: http://git-scm.com/
   [Mercurial]: http://mercurial.selenic.com/
 
-2. The [Fiddler][] Web Debugging Proxy can be very useful for analysing 
+2. If you plan on making non-trivial changes to SWF files, you should install 
+   the [debug Flash Player][]. This will allow you to see validation and 
+   run-time error messages, instead of simply getting a blank rectangle.
+
+  [debug Flash Player]: http://www.adobe.com/support/flashplayer/downloads.html
+
+3. The [Fiddler][] Web Debugging Proxy can be very useful for analysing 
    websites with SWF content. The following script fragment (which is to be
    placed in the `OnBeforeResponse` function) will automatically save all SWF 
    files while preserving the directory structure.
