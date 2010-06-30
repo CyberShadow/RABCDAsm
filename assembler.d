@@ -159,7 +159,7 @@ final class Assembler
 				vars.remove(readWord());
 				break;
 			case "privatens":
-				uint index = readUInt();
+				uint index = cast(uint)readUInt();
 				privateNamespaces[readString()] = index;
 				break;
 			default:
