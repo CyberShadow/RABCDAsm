@@ -250,15 +250,15 @@ final class ASProgram
 			Class classv;
 			Method methodv;
 
-			uint jumpTarget;
-			uint[] switchTargets;
+			ABCFile.Label jumpTarget;
+			ABCFile.Label[] switchTargets;
 		}
 		Argument[] arguments;
 	}
 
 	struct Exception
 	{
-		uint from, to, target;
+		ABCFile.Label from, to, target;
 		Multiname excType;
 		Multiname varName;
 	}

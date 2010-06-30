@@ -195,10 +195,11 @@ fields.
 
 `code` blocks - always declared inline of their `body` block - are somewhat 
 different in syntax from other blocks - mostly in that they may contain labels.
-Labels follow the most common syntax - a word followed by a `:` character. 
-Multiple instruction arguments are comma-separated. Instruction arguments'
-types depend on the instruction - see the `OpcodeInfo` array in `abcfile.d`
-for a reference.
+Labels follow the most common syntax - a word followed by a `:` character, 
+optionally followed by a relative byte offset (in case of pointers inside 
+instructions). Multiple instruction arguments are comma-separated. Instruction 
+arguments' types depend on the instruction - see the `OpcodeInfo` array in 
+`abcfile.d` for a reference.
 
 `try` blocks - always declared inline of their `body` block - represent an
 "exception" (try/catch) block. They contain five mandatory fields: `from`,

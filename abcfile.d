@@ -23,12 +23,7 @@ import std.string : format; // exception formatting
 /** 
  * Implements a shallow representation of an .abc file. 
  * Loading and saving an .abc file using this class should produce
- * output identical to the input - with one exception:
- * 
- * exception_info's "to" field may point inside an instruction.
- * This is apparently valid according to the implementation, however
- * the exact offset inside the instruction is not preserved - instead, 
- * the field will point to the beginning of the next instruction.
+ * output identical to the input.
  */
 
 class ABCFile
@@ -213,6 +208,20 @@ class ABCFile
 		TraitsInfo[] traits;
 	}
 
+	/// Destination for a jump or exception block boundary
+	struct Label
+	{
+		union
+		{
+			struct
+			{
+				uint index; /// instruction index
+				int offset; /// signed offset relative to said instruction
+			}
+			private int absoluteOffset; /// internal temporary value used during reading and writing
+		}
+	}
+
 	struct Instruction
 	{
 		Opcode opcode;
@@ -223,15 +232,15 @@ class ABCFile
 			ulong uintv;
 			uint index;
 
-			uint jumpTarget;
-			uint[] switchTargets;
+			Label jumpTarget;
+			Label[] switchTargets;
 		}
 		Argument[] arguments;
 	}
 
 	struct ExceptionInfo
 	{
-		uint from, to, target;
+		Label from, to, target;
 		uint excType;
 		uint varName;
 	}
@@ -1268,25 +1277,32 @@ private final class ABCReader
 		size_t len = readU30();
 		uint[] instructionAtOffset = new uint[len];
 
-		void offsetToIndex(ref uint x, bool relaxed = false)
+		void translateLabel(ref ABCFile.Label label)
 		{
-			if (x >= len)
+			int absoluteOffset = label.absoluteOffset;
+			int instructionOffset = absoluteOffset;
+			while (true)
 			{
-				//throw new Exception(format("Jump out of bounds (by %d bytes)", x - len)); 
-				// Unreachable OOB jumps seem to be "valid"
-				x = 0;
-				return;
-			}
-			if (relaxed)
-				while (instructionAtOffset[x] == uint.max)
+				if (instructionOffset >= cast(int)len)
 				{
-					x++;
-					if (x >= len)
-						throw new Exception("Relaxed jump inside last instruction");
+					label.index = r.instructions.length;
+					instructionOffset = len;
+					break;
 				}
-			x = instructionAtOffset[x];
-			if (x == uint.max)
-				throw new Exception("Jump inside instruction");
+				if (instructionOffset <= 0)
+				{
+					label.index = 0;
+					instructionOffset = 0;
+					break;
+				}
+				if (instructionAtOffset[instructionOffset] != uint.max)
+				{
+					label.index = instructionAtOffset[instructionOffset];
+					break;
+				}
+				instructionOffset--;
+			}
+			label.offset = absoluteOffset-instructionOffset;
 		}
 
 		{
@@ -1333,17 +1349,17 @@ private final class ABCReader
 
 						case OpcodeArgumentType.JumpTarget:
 							int delta = readS24();
-							instruction.arguments[i].jumpTarget = offset + delta;
+							instruction.arguments[i].jumpTarget.absoluteOffset = offset + delta;
 							break;
 
 						case OpcodeArgumentType.SwitchDefaultTarget:
-							instruction.arguments[i].jumpTarget = instructionOffset + readS24();
+							instruction.arguments[i].jumpTarget.absoluteOffset = instructionOffset + readS24();
 							break;
 
 						case OpcodeArgumentType.SwitchTargets:
 							instruction.arguments[i].switchTargets.length = readU30()+1;
-							foreach (ref off; instruction.arguments[i].switchTargets)
-								off = instructionOffset + readS24();
+							foreach (ref label; instruction.arguments[i].switchTargets)
+								label.absoluteOffset = instructionOffset + readS24();
 							break;
 
 						default:
@@ -1363,13 +1379,11 @@ private final class ABCReader
 					{
 						case OpcodeArgumentType.JumpTarget:
 						case OpcodeArgumentType.SwitchDefaultTarget:
-							pos = start + instructionOffsets[ii];
-							offsetToIndex(instruction.arguments[i].jumpTarget);
+							translateLabel(instruction.arguments[i].jumpTarget);
 							break;
 						case OpcodeArgumentType.SwitchTargets:
-							pos = start + instructionOffsets[ii];
 							foreach (ref x; instruction.arguments[i].switchTargets)
-								offsetToIndex(x);
+								translateLabel(x);
 							break;
 						default:
 							break;
@@ -1381,9 +1395,9 @@ private final class ABCReader
 		foreach (ref value; r.exceptions)
 		{
 			value = readExceptionInfo();
-			offsetToIndex(value.from);
-			offsetToIndex(value.to, true);
-			offsetToIndex(value.target);
+			translateLabel(value.from);
+			translateLabel(value.to);
+			translateLabel(value.target);
 		}
 		r.traits.length = readU30();
 		foreach (ref value; r.traits)
@@ -1394,9 +1408,9 @@ private final class ABCReader
 	ABCFile.ExceptionInfo readExceptionInfo()
 	{
 		ABCFile.ExceptionInfo r;
-		r.from = readU30();
-		r.to = readU30();
-		r.target = readU30();
+		r.from.absoluteOffset = readU30();
+		r.to.absoluteOffset = readU30();
+		r.target.absoluteOffset = readU30();
 		r.excType = readU30();
 		r.varName = readU30();
 		return r;
@@ -1731,7 +1745,9 @@ private final class ABCWriter
 		writeU30(v.initScopeDepth);
 		writeU30(v.maxScopeDepth);
 
-		uint[] instructionOffsets = new uint[v.instructions.length];
+		uint[] instructionOffsets = new uint[v.instructions.length+1];
+
+		uint resolveLabel(ref ABCFile.Label label) { return instructionOffsets[label.index]+label.offset; }
 
 		{
 			// we don't know the length before writing all the instructions - swap buffer with a temporary one
@@ -1740,7 +1756,7 @@ private final class ABCWriter
 			buf = new ubyte[1024];
 			pos = 0;
 
-			struct Fixup { uint target, pos, base; }
+			struct Fixup { ABCFile.Label target; uint pos, base; }
 			Fixup[] fixups;
 
 			foreach (ii, ref instruction; v.instructions)
@@ -1807,11 +1823,12 @@ private final class ABCWriter
 			}
 
 			buf.length = pos;
+			instructionOffsets[v.instructions.length] = pos;
 
 			foreach (ref fixup; fixups)
 			{
 				pos = fixup.pos;
-				writeS24(instructionOffsets[fixup.target]-fixup.base);
+				writeS24(resolveLabel(fixup.target)-fixup.base);
 			}
 
 			auto code = buf;
@@ -1825,9 +1842,9 @@ private final class ABCWriter
 		writeU30(v.exceptions.length);
 		foreach (ref value; v.exceptions)
 		{
-			value.from = instructionOffsets[value.from];
-			value.to = instructionOffsets[value.to];
-			value.target = instructionOffsets[value.target];
+			value.from.absoluteOffset = resolveLabel(value.from);
+			value.to.absoluteOffset = resolveLabel(value.to);
+			value.target.absoluteOffset = resolveLabel(value.target);
 			writeExceptionInfo(value);
 		}
 		writeU30(v.traits.length);
@@ -1837,9 +1854,9 @@ private final class ABCWriter
 
 	void writeExceptionInfo(ABCFile.ExceptionInfo v)
 	{
-		writeU30(v.from);
-		writeU30(v.to);
-		writeU30(v.target);
+		writeU30(v.from.absoluteOffset);
+		writeU30(v.to.absoluteOffset);
+		writeU30(v.target.absoluteOffset);
 		writeU30(v.excType);
 		writeU30(v.varName);
 	}

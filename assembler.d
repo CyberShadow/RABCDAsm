@@ -930,6 +930,24 @@ final class Assembler
 		}
 	}
 
+	ABCFile.Label parseLabel(string label, uint[string] labels)
+	{
+		string name = label;
+		int offset = 0;
+		foreach (i, c; label)
+			if (c=='-' || c=='+')
+			{
+				name = label[0..i];
+				offset = .toInt(label[i..$]);
+				break;
+			}
+		auto lp = name in labels;
+		if (lp is null)
+			throw new Exception("Unknown label " ~ name);
+			
+		return ABCFile.Label(*lp, offset);
+	}
+		
 	ASProgram.Instruction[] readInstructions(ref uint[string] _labels)
 	{
 		ASProgram.Instruction[] instructions;
@@ -1009,7 +1027,7 @@ final class Assembler
 
 					case OpcodeArgumentType.SwitchTargets:
 						string[] switchTargetLabels = readList!('[', ']', readWord, false)();
-						instruction.arguments[i].switchTargets = new uint[switchTargetLabels.length];
+						instruction.arguments[i].switchTargets.length = switchTargetLabels.length;
 						foreach (li, s; switchTargetLabels)
 							switchFixups ~= LocalFixup(files[0].position, instructions.length, i, s, li);
 						break;
@@ -1026,24 +1044,24 @@ final class Assembler
 
 		foreach (ref f; jumpFixups)
 		{
-			auto lp = f.name in labels;
-			if (lp is null)
+			try
+				instructions[f.ii].arguments[f.ai].jumpTarget = parseLabel(f.name, labels);
+			catch (Object o)
 			{
 				setFile(f.where.load);
-				throw new Exception("Unknown label " ~ f.name);
+				throw o;
 			}
-			instructions[f.ii].arguments[f.ai].jumpTarget = *lp;
 		}
 
 		foreach (ref f; switchFixups)
 		{
-			auto lp = f.name in labels;
-			if (lp is null)
+			try
+				instructions[f.ii].arguments[f.ai].switchTargets[f.si] = parseLabel(f.name, labels);
+			catch (Object o)
 			{
 				setFile(f.where.load);
-				throw new Exception("Unknown label " ~ f.name);
+				throw o;
 			}
-			instructions[f.ii].arguments[f.ai].switchTargets[f.si] = *lp;
 		}
 
 		foreach (ref f; localClassFixups)
@@ -1057,16 +1075,16 @@ final class Assembler
 
 	ASProgram.Exception readException(uint[string] labels)
 	{
-		uint readLabel()
+		ABCFile.Label readLabel()
 		{
 			auto word = readWord();
-			auto plabel = word in labels;
-			if (plabel is null)
+			try
+				return parseLabel(word, labels);
+			catch (Object o)
 			{
 				backpedal(word.length);
-				throw new Exception("Unknown label " ~ word);
+				throw o;
 			}
-			return *plabel;
 		}
 
 		ASProgram.Exception e;

@@ -818,6 +818,18 @@ final class Disassembler
 		sb.newLine();
 	}
 
+	void dumpLabel(StringBuilder sb, ref ABCFile.Label label)
+	{
+		sb ~= 'L';
+		sb ~= .toString(label.index);
+		if (label.offset != 0)
+		{
+			if (label.offset > 0)
+				sb ~= '+';
+			sb ~= .toString(label.offset);
+		}
+	}
+		
 	void dumpMethodBody(StringBuilder sb, ASProgram.MethodBody mbody)
 	{
 		sb ~= "body";
@@ -829,22 +841,22 @@ final class Disassembler
 		sb ~= "code";
 		sb.newLine();
 
-		bool[] labels = new bool[mbody.instructions.length];
+		bool[] labels = new bool[mbody.instructions.length+1];
 		// reserve exception labels
 		foreach (ref e; mbody.exceptions)
-			labels[e.from] = labels[e.to] = labels[e.target] = true;
+			labels[e.from.index] = labels[e.to.index] = labels[e.target.index] = true;
 		dumpInstructions(sb, mbody.instructions, labels);
 
 		sb ~= "end ; code";
 		sb.newLine();
 		foreach (ref e; mbody.exceptions)
 		{
-			sb ~= "try from L";
-			sb ~= .toString(e.from);
-			sb ~= " to L";
-			sb ~= .toString(e.to);
-			sb ~= " target L";
-			sb ~= .toString(e.target);
+			sb ~= "try from ";
+			dumpLabel(sb, e.from);
+			sb ~= " to ";
+			dumpLabel(sb, e.to);
+			sb ~= " target ";
+			dumpLabel(sb, e.target);
 			sb ~= " type ";
 			dumpMultiname(sb, e.excType);
 			sb ~= " name ";
@@ -865,22 +877,18 @@ final class Disassembler
 				{
 					case OpcodeArgumentType.JumpTarget:
 					case OpcodeArgumentType.SwitchDefaultTarget:
-						labels[instruction.arguments[i].jumpTarget] = true;
+						labels[instruction.arguments[i].jumpTarget.index] = true;
 						break;
 					case OpcodeArgumentType.SwitchTargets:
-						foreach (ref x; instruction.arguments[i].switchTargets)
-							labels[x] = true;
+						foreach (ref label; instruction.arguments[i].switchTargets)
+							labels[label.index] = true;
 						break;
 					default:
 						break;
 				}
-		bool extraNewLine = false;
-		foreach (ii, ref instruction; instructions)
+		
+		void checkLabel(uint ii)
 		{
-			if (extraNewLine)
-				sb.newLine();
-			extraNewLine = newLineAfter[instruction.opcode];
-
 			if (labels[ii])
 			{
 				sb.noIndent();
@@ -889,6 +897,15 @@ final class Disassembler
 				sb ~= ':';
 				sb.newLine();
 			}
+		}
+
+		bool extraNewLine = false;
+		foreach (ii, ref instruction; instructions)
+		{
+			if (extraNewLine)
+				sb.newLine();
+			extraNewLine = newLineAfter[instruction.opcode];
+			checkLabel(ii);
 
 			sb ~= opcodeInfo[instruction.opcode].name;
 			auto argTypes = opcodeInfo[instruction.opcode].argumentTypes;
@@ -940,8 +957,7 @@ final class Disassembler
 
 						case OpcodeArgumentType.JumpTarget:
 						case OpcodeArgumentType.SwitchDefaultTarget:
-							sb ~= 'L';
-							sb ~= .toString(instruction.arguments[i].jumpTarget);
+							dumpLabel(sb, instruction.arguments[i].jumpTarget);
 							break;
 
 						case OpcodeArgumentType.SwitchTargets:
@@ -949,8 +965,7 @@ final class Disassembler
 							auto targets = instruction.arguments[i].switchTargets;
 							foreach (ti, t; targets)
 							{
-								sb ~= 'L';
-								sb ~= .toString(t);
+								dumpLabel(sb, t);
 								if (ti < targets.length-1)
 									sb ~= ", ";
 							}
@@ -966,6 +981,7 @@ final class Disassembler
 			}
 			sb.newLine();
 		}
+		checkLabel(instructions.length);
 		sb.indent--;
 	}
 }
