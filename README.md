@@ -1,7 +1,7 @@
 Robust ABC (ActionScript Bytecode) [Dis-]Assembler
 ==================================================
 
-[RABCDAsm][] is a collection of utilities including an ActionScript 
+[RABCDAsm][] is a collection of utilities including an ActionScript 3
 assembler/disassembler, and a few tools to manipulate SWF files. 
 These are:
 
@@ -31,7 +31,7 @@ Motivation and goals
 --------------------
 
 This package was created due to lack of similar software out there. 
-Particularly, I needed an utility which would allow me to edit ActionScript
+Particularly, I needed an utility which would allow me to edit ActionScript 3
 bytecode with the following properties:
 
  1. Speed. Less waiting means more productivity. `rabcasm` can assemble large
@@ -311,20 +311,20 @@ be instantiated in two ways:
 Here's an example of how to use the above features to create a macro which
 logs a string literal and the contents of a register:
 
-     #set log "
-         findpropstrict      QName(PackageNamespace(\"\"), \"log\")
-         pushstring          $\"1\"
-         getlocal            $2
-         callpropvoid        QName(PackageNamespace(\"\"), \"log\"), 2
-     "
-     
-     ; ...
-     
-     pushbyte 2
-     pushbyte 2
-     add_i
-     setlocal1
-     #call $"log"("two plus two equals", "1")
+    #set log "
+        findpropstrict      QName(PackageNamespace(\"\"), \"log\")
+        pushstring          $\"1\"
+        getlocal            $2
+        callpropvoid        QName(PackageNamespace(\"\"), \"log\"), 2
+    "
+    
+    ; ...
+    
+    pushbyte 2
+    pushbyte 2
+    add_i
+    setlocal1
+    #call $"log"("two plus two equals", "1")
      
 Highlighting
 ------------
@@ -344,19 +344,19 @@ instead of indexes, allowing easy manipulation without having to worry about
 record order or constant pools. Conversion between various states is done as
 follows:
 
-                           file.abc
-                             |  ^
-                   ABCReader |  | ABCWriter
-                             v  |   
-                           ABCFile
-                             |  ^
-                     ABCtoAS |  | AStoABC
-                             v  |
-                          ASProgram
-                             |  ^
-                Disassembler |  | Assembler
-                             v  |
-                          file.asasm
+                                 file.abc
+                                   |  ^
+                  ------ ABCReader |  | ABCWriter ----
+                 /                 v  |               \
+                /                ABCFile               \
+               /                   |  ^                 \
+        rabcdasm---------- ABCtoAS |  | AStoABC --------rabcasm
+               \                   v  |                 /
+                \               ASProgram              /
+                 \                 |  ^               /
+                  --- Disassembler |  | Assembler ----
+                                   v  |
+                                file.asasm
 
 `AStoABC` will rebuild the constant pools, in a manner similar to Adobe's
 compilers (reverse-sorted by reference count). The exact order will almost
@@ -394,19 +394,19 @@ RABCDAsm users.
    placed in the `OnBeforeResponse` function) will automatically save all SWF 
    files while preserving the directory structure.
 
-        if (oSession.oResponse.headers.ExistsAndContains("Content-Type", 
-                "application/x-shockwave-flash")) {
-            // Set desired path here
-            var path:String = "C:\\Temp\\FiddlerCapture\\" + 
-                oSession.host + oSession.PathAndQuery;
-            if (path.Contains('?'))
-                path = path.Substring(0, path.IndexOf('?'));
-            var dir:String = Path.GetDirectoryName(path);
-            if (!Directory.Exists(dir))
-                Directory.CreateDirectory(dir);
-            oSession.utilDecodeResponse();
-            oSession.SaveResponseBody(path);
-        }
+       if (oSession.oResponse.headers.ExistsAndContains("Content-Type", 
+               "application/x-shockwave-flash")) {
+           // Set desired path here
+           var path:String = "C:\\Temp\\FiddlerCapture\\" + 
+               oSession.host + oSession.PathAndQuery;
+           if (path.Contains('?'))
+               path = path.Substring(0, path.IndexOf('?'));
+           var dir:String = Path.GetDirectoryName(path);
+           if (!Directory.Exists(dir))
+               Directory.CreateDirectory(dir);
+           oSession.utilDecodeResponse();
+           oSession.SaveResponseBody(path);
+       }
 
    Once you have edited a SWF file, you can use Fiddler's [AutoResponder][] to
    replace the original file with your modified version.
