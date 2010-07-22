@@ -102,6 +102,9 @@ To assemble the `.asasm` files back, and update the SWF file:
     rabcasm file0/file0.main.asasm
     abcreplace file0.swf 0 file0/file0.main.abc
 
+The second `abcreplace` argument represents the index of the ABC block in the
+SWF file, and corresponds to the number in the filename created by `abcexport`.
+
 Syntax
 ======
 
