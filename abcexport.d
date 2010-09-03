@@ -21,6 +21,7 @@ module abcexport;
 import std.file;
 import std.path;
 import std.string;
+import std.stdio;
 import swffile;
 
 void main(string[] args)
@@ -28,22 +29,27 @@ void main(string[] args)
 	if (args.length == 1)
 		throw new Exception("No file specified");
 	foreach (arg; args[1..$])
-	{
-		scope swf = SWFFile.read(cast(ubyte[])read(arg));
-		uint count;
-		foreach (ref tag; swf.tags)
-			if ((tag.type == TagType.DoABC || tag.type == TagType.DoABC2))
-			{
-				ubyte[] abc;
-				if (tag.type == TagType.DoABC)
-					abc = tag.data;
-				else
+		try
+		{
+			scope swf = SWFFile.read(cast(ubyte[])read(arg));
+			uint count = 0;
+			foreach (ref tag; swf.tags)
+				if ((tag.type == TagType.DoABC || tag.type == TagType.DoABC2))
 				{
-					auto p = tag.data.ptr+4; // skip flags
-					while (*p++) {} // skip name
-					abc = tag.data[p-tag.data.ptr..$];
+					ubyte[] abc;
+					if (tag.type == TagType.DoABC)
+						abc = tag.data;
+					else
+					{
+						auto p = tag.data.ptr+4; // skip flags
+						while (*p++) {} // skip name
+						abc = tag.data[p-tag.data.ptr..$];
+					}
+					write(getName(arg) ~ .toString(count++) ~ ".abc", abc);
 				}
-				write(getName(arg) ~ .toString(count++) ~ ".abc", abc);
-			}
-	}
+			if (count == 0)
+				throw new Exception("No DoABC tags found");
+		}
+		catch (Object o)
+			writefln("Error while processing %s: %s", arg, o);
 }
