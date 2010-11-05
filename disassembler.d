@@ -109,6 +109,10 @@ final class RefBuilder : ASTraitsVisitor
 	{
 		foreach (i, ref v; as.scripts)
 			addMethod(v.sinit, "script" ~ .toString(i) ~ "_sinit");
+		foreach (vclass; as.orphanClasses)
+			addClass(vclass, "orphan");
+		foreach (method; as.orphanMethods)
+			addMethod(method, "orphan");
 		super.run();
 	}
 
@@ -257,9 +261,9 @@ final class RefBuilder : ASTraitsVisitor
 		return uniqueName;
 	}
 
-	void addClass(ASProgram.Class vclass)
+	void addClass(ASProgram.Class vclass, string field = null)
 	{
-		addObject(vclass, classByName, string.init);
+		addObject(vclass, classByName, field);
 		addMethod(vclass.cinit, "cinit");
 		addMethod(vclass.instance.iinit, "iinit");
 	}
