@@ -297,9 +297,9 @@ be instantiated in two ways:
      although variables are defined using a string syntax, they are not 
      inserted as a string using this syntax. Thus, the code:
 
-        #set str "Hello, world!"
-        ...
-        pushstring $str
+         #set str "Hello, world!"
+         ...
+         pushstring $str
 
      will expand to `pushstring Hello, world!`, which will result in an error.
      To correct the problem, add escaped quotes around the variable contents
@@ -435,7 +435,7 @@ Limitations
   of order. This results in a file that, when opened, will fail to load with 
   an error message similar to:
 
-  `VerifyError: Error #1014: Class AncestorClassName could not be found.`
+      VerifyError: Error #1014: Class AncestorClassName could not be found.
 
   The simple work-around is to re-order the classes as they are declared in 
   the `.main.asasm` file, and place ancestors before descendants.
