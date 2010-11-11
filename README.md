@@ -423,8 +423,6 @@ Limitations
 * Metadata is currently ignored. I haven't noticed any metadata blocks in any
   SWF files I've disassembled.
 
-* Floating point numbers may not be disassembled with adequate precision.
-
 * `rabcasm` may create a broken file due to not ordering classes by ancestry.
 
   The problem originates from the fact that a class's ancestors (extended 

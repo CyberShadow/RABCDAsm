@@ -416,7 +416,7 @@ final class Disassembler
 		if (v == ABCFile.NULL_DOUBLE)
 			sb ~= "null";
 		else
-			sb ~= .toString(v);
+			sb ~= format("%.18g", v);
 	}
 
 	void dumpString(StringBuilder sb, string str)
