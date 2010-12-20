@@ -125,7 +125,7 @@ use [this handy list][avm2i] as well). You will find it difficult to understand
 the disassembly without good understanding of concepts such as namespaces and
 multinames.
 
-  [avm2]: http://www.adobe.com/devnet/actionscript/articles/avm2overview.pdf
+  [avm2]: http://www.adobe.com/devnet-archive/actionscript/articles/avm2overview.pdf
   [avm2i]: http://www.anotherbigidea.com/javaswf/avm2/AVM2Instructions.html
 
 Overview
