@@ -686,19 +686,36 @@ private final class AStoABC
 	}
 
 	/// Maintain an unordered set of values; sort/index by usage count
-	struct Constant(T)
+	struct ConstantPool(T)
 	{
-		static Constant!(T)[T] pool;
-		static T[] values;
+		struct Constant
+		{
+			uint hits;
+			T value;
+			uint index;
 
-		static bool add(T value) // return true if added
+			mixin AutoCompare;
+
+			R processData(R, string prolog, string epilog, H)(ref H handler)
+			{
+				mixin(prolog);
+				mixin(addAutoField("hits", true));
+				mixin(addAutoField("value"));
+				mixin(epilog);
+			}
+		}
+
+		Constant[T] pool;
+		T[] values;
+
+		bool add(T value) // return true if added
 		{
 			if (isNull(value))
 				return false;
 			auto cp = value in pool;
 			if (cp is null)
 			{
-				pool[value] = Constant!(T)(1, value);
+				pool[value] = Constant(1, value);
 				return true;
 			}
 			else
@@ -708,12 +725,12 @@ private final class AStoABC
 			}
 		}
 
-		static bool notAdded(T value)
+		bool notAdded(T value)
 		{
 			return !(isNull(value) || value in pool);
 		}
 
-		static void sort()
+		void finalize()
 		{
 			auto all = pool.values;
 			all.sort;
@@ -725,35 +742,26 @@ private final class AStoABC
 			}
 		}
 
-		static uint get(T value)
+		uint get(T value)
 		{
 			if (isNull(value))
 				return 0;
 			return pool[value].index;
 		}
-
-		mixin AutoCompare;
-
-		R processData(R, string prolog, string epilog, H)(ref H handler)
-		{
-			mixin(prolog);
-			mixin(addAutoField("hits", true));
-			mixin(addAutoField("value"));
-			mixin(epilog);
-		}
-
-		uint hits;
-		T value;
-		uint index;
 	}
 
 	/// Pair an index with class instances
-	struct Reference(T)
+	struct ReferencePool(T)
 	{
-		static Reference[void*] references;
-		static T[] objects;
+		struct Reference
+		{
+			uint index;
+		}
 
-		static bool add(T obj) // return true if added
+		Reference[void*] references;
+		T[] objects;
+
+		bool add(T obj) // return true if added
 		{
 			if (obj is null)
 				return false;
@@ -761,7 +769,7 @@ private final class AStoABC
 			auto rp = p in references;
 			if (rp is null)
 			{
-				references[p] = Reference!(T)(1); //, objects.length
+				references[p] = Reference(1); //, objects.length
 				objects ~= obj;
 				return true;
 			}
@@ -769,52 +777,50 @@ private final class AStoABC
 				return false;
 		}
 
-		static bool notAdded(T obj)
+		bool notAdded(T obj)
 		{
 			return !(obj is null || (cast(void*)obj) in references);
 		}
 
-		static void reindex()
+		void finalize()
 		{
 			foreach (i, o; objects)
 				references[cast(void*)o].index = i;
 		}
 
-		static uint get(T obj)
+		uint get(T obj)
 		{
 			assert(obj !is null, "Trying to get index of null object");
 			return references[cast(void*)obj].index;
 		}
-
-		uint index;
 	}
 
-	typedef Constant!(long) IntC;
-	typedef Constant!(ulong) UIntC;
-	typedef Constant!(double) DoubleC;
-	typedef Constant!(string) StringC;
-	typedef Constant!(ASProgram.Namespace) NamespaceC;
-	typedef Constant!(ASProgram.Namespace[]) NamespaceSetC;
-	typedef Constant!(ASProgram.Multiname) MultinameC;
-	typedef Reference!(ASProgram.Class) ClassR;
-	typedef Reference!(ASProgram.Method) MethodR;
+	ConstantPool!(long) ints;
+	ConstantPool!(ulong) uints;
+	ConstantPool!(double) doubles;
+	ConstantPool!(string) strings;
+	ConstantPool!(ASProgram.Namespace) namespaces;
+	ConstantPool!(ASProgram.Namespace[]) namespaceSets;
+	ConstantPool!(ASProgram.Multiname) multinames;
+	ReferencePool!(ASProgram.Class) classes;
+	ReferencePool!(ASProgram.Method) methods;
 
 	void visitNamespace(ASProgram.Namespace ns)
 	{
-		if (NamespaceC.add(ns))
-			StringC.add(ns.name);
+		if (namespaces.add(ns))
+			strings.add(ns.name);
 	}
 
 	void visitNamespaceSet(ASProgram.Namespace[] nsSet)
 	{
-		if (NamespaceSetC.add(nsSet))
+		if (namespaceSets.add(nsSet))
 			foreach (ns; nsSet)
 				visitNamespace(ns);
 	}
 
 	void visitMultiname(ASProgram.Multiname multiname)
 	{
-		if (MultinameC.notAdded(multiname))
+		if (multinames.notAdded(multiname))
 		{
 			with (multiname)
 				switch (kind)
@@ -822,18 +828,18 @@ private final class AStoABC
 					case ASType.QName:
 					case ASType.QNameA:
 						visitNamespace(vQName.ns);
-						StringC.add(vQName.name);
+						strings.add(vQName.name);
 						break;
 					case ASType.RTQName:
 					case ASType.RTQNameA:
-						StringC.add(vRTQName.name);
+						strings.add(vRTQName.name);
 						break;
 					case ASType.RTQNameL:
 					case ASType.RTQNameLA:
 						break;
 					case ASType.Multiname:
 					case ASType.MultinameA:
-						StringC.add(vMultiname.name);
+						strings.add(vMultiname.name);
 						visitNamespaceSet(vMultiname.nsSet);
 						break;
 					case ASType.MultinameL:
@@ -848,7 +854,7 @@ private final class AStoABC
 					default:
 						throw new .Exception("Unknown Multiname kind");
 				}
-			bool r = MultinameC.add(multiname);
+			bool r = multinames.add(multiname);
 			assert(r);
 		}
 	}
@@ -893,16 +899,16 @@ private final class AStoABC
 		switch (value.vkind)
 		{
 			case ASType.Integer:
-				IntC.add(value.vint);
+				ints.add(value.vint);
 				break;
 			case ASType.UInteger:
-				UIntC.add(value.vuint);
+				uints.add(value.vuint);
 				break;
 			case ASType.Double:
-				DoubleC.add(value.vdouble);
+				doubles.add(value.vdouble);
 				break;
 			case ASType.Utf8:
-				StringC.add(value.vstring);
+				strings.add(value.vstring);
 				break;
 			case ASType.Namespace:
 			case ASType.PackageNamespace:
@@ -925,31 +931,31 @@ private final class AStoABC
 
 	void visitClass(ASProgram.Class vclass)
 	{
-		if (ClassR.notAdded(vclass))
+		if (classes.notAdded(vclass))
 		{
 			visitMethod(vclass.cinit);
 			visitTraits(vclass.traits);
 
 			visitInstance(vclass.instance);
 
-			bool r = ClassR.add(vclass);
+			bool r = classes.add(vclass);
 			assert(r);
 		}
 	}
 
 	void visitMethod(ASProgram.Method method)
 	{
-		if (MethodR.add(method))
+		if (methods.add(method))
 			with (method)
 			{
 				foreach (type; paramTypes)
 					visitMultiname(type);
 				visitMultiname(returnType);
-				StringC.add(name);
+				strings.add(name);
 				foreach (ref value; options)
 					visitValue(value);
 				foreach (name; paramNames)	
-					StringC.add(name);
+					strings.add(name);
 
 				if (vbody)
 					visitMethodBody(vbody);
@@ -971,16 +977,16 @@ private final class AStoABC
 						break;
 
 					case OpcodeArgumentType.Int:
-						IntC.add(instruction.arguments[i].intv);
+						ints.add(instruction.arguments[i].intv);
 						break;
 					case OpcodeArgumentType.UInt:
-						UIntC.add(instruction.arguments[i].uintv);
+						uints.add(instruction.arguments[i].uintv);
 						break;
 					case OpcodeArgumentType.Double:
-						DoubleC.add(instruction.arguments[i].doublev);
+						doubles.add(instruction.arguments[i].doublev);
 						break;
 					case OpcodeArgumentType.String:
-						StringC.add(instruction.arguments[i].stringv);
+						strings.add(instruction.arguments[i].stringv);
 						break;
 					case OpcodeArgumentType.Namespace:
 						visitNamespace(instruction.arguments[i].namespacev);
@@ -1029,13 +1035,13 @@ private final class AStoABC
 		switch (value.vkind)
 		{
 			case ASType.Integer:
-				return IntC.get(value.vint);
+				return ints.get(value.vint);
 			case ASType.UInteger:
-				return UIntC.get(value.vuint);
+				return uints.get(value.vuint);
 			case ASType.Double:
-				return DoubleC.get(value.vdouble);
+				return doubles.get(value.vdouble);
 			case ASType.Utf8:
-				return StringC.get(value.vstring);
+				return strings.get(value.vstring);
 			case ASType.Namespace:
 			case ASType.PackageNamespace:
 			case ASType.PackageInternalNs:
@@ -1043,7 +1049,7 @@ private final class AStoABC
 			case ASType.ExplicitNamespace:
 			case ASType.StaticProtectedNs:
 			case ASType.PrivateNamespace:
-				return NamespaceC.get(value.vnamespace);
+				return namespaces.get(value.vnamespace);
 			case ASType.True:
 			case ASType.False:
 			case ASType.Null:
@@ -1069,43 +1075,40 @@ private final class AStoABC
 		foreach (method; as.orphanMethods)
 			visitMethod(method);
 
-		IntC.sort();
-		UIntC.sort();
-		DoubleC.sort();
-		StringC.sort();
-		NamespaceC.sort();
-		NamespaceSetC.sort();
-		MultinameC.sort();
-		//MultinameC.flip();
-		//MultinameC.reindex();
-		//ClassR.flip();
-		ClassR.reindex();
-		MethodR.reindex();
+		ints.finalize();
+		uints.finalize();
+		doubles.finalize();
+		strings.finalize();
+		namespaces.finalize();
+		namespaceSets.finalize();
+		multinames.finalize();
+		classes.finalize();
+		methods.finalize();
 
-		abc.ints = IntC.values;
-		abc.uints = UIntC.values;
-		abc.doubles = DoubleC.values;
-		abc.strings = StringC.values;
+		abc.ints = ints.values;
+		abc.uints = uints.values;
+		abc.doubles = doubles.values;
+		abc.strings = strings.values;
 
-		abc.namespaces.length = NamespaceC.values.length;
-		foreach (i, v; NamespaceC.values[1..$])
+		abc.namespaces.length = namespaces.values.length;
+		foreach (i, v; namespaces.values[1..$])
 		{
 			auto n = &abc.namespaces[i+1];
 			n.kind = v.kind;
-			n.name = StringC.get(v.name);
+			n.name = strings.get(v.name);
 		}
 
-		abc.namespaceSets.length = NamespaceSetC.values.length;
-		foreach (i, v; NamespaceSetC.values[1..$])
+		abc.namespaceSets.length = namespaceSets.values.length;
+		foreach (i, v; namespaceSets.values[1..$])
 		{
 			auto n = new uint[v.length];
 			foreach (j, ns; v)
-				n[j] = NamespaceC.get(ns);
+				n[j] = namespaces.get(ns);
 			abc.namespaceSets[i+1] = n;
 		}
 
-		abc.multinames.length = MultinameC.values.length;
-		foreach (i, v; MultinameC.values[1..$])
+		abc.multinames.length = multinames.values.length;
+		foreach (i, v; multinames.values[1..$])
 		{
 			auto n = &abc.multinames[i+1];
 			n.kind = v.kind;
@@ -1113,30 +1116,30 @@ private final class AStoABC
 			{
 				case ASType.QName:
 				case ASType.QNameA:
-					n.QName.ns = NamespaceC.get(v.vQName.ns);
-					n.QName.name = StringC.get(v.vQName.name);
+					n.QName.ns = namespaces.get(v.vQName.ns);
+					n.QName.name = strings.get(v.vQName.name);
 					break;
 				case ASType.RTQName:
 				case ASType.RTQNameA:
-					n.RTQName.name = StringC.get(v.vRTQName.name);
+					n.RTQName.name = strings.get(v.vRTQName.name);
 					break;
 				case ASType.RTQNameL:
 				case ASType.RTQNameLA:
 					break;
 				case ASType.Multiname:
 				case ASType.MultinameA:
-					n.Multiname.name = StringC.get(v.vMultiname.name);
-					n.Multiname.nsSet = NamespaceSetC.get(v.vMultiname.nsSet);
+					n.Multiname.name = strings.get(v.vMultiname.name);
+					n.Multiname.nsSet = namespaceSets.get(v.vMultiname.nsSet);
 					break;
 				case ASType.MultinameL:
 				case ASType.MultinameLA:
-					n.MultinameL.nsSet = NamespaceSetC.get(v.vMultinameL.nsSet);
+					n.MultinameL.nsSet = namespaceSets.get(v.vMultinameL.nsSet);
 					break;
 				case ASType.TypeName:
-					n.TypeName.name = MultinameC.get(v.vTypeName.name);
+					n.TypeName.name = multinames.get(v.vTypeName.name);
 					n.TypeName.params.length = v.vTypeName.params.length;
 					foreach (j, param; v.vTypeName.params)
-						n.TypeName.params[j] = MultinameC.get(param);
+						n.TypeName.params[j] = multinames.get(param);
 					break;
 				default:
 					throw new Exception("Unknown Multiname kind");
@@ -1145,15 +1148,15 @@ private final class AStoABC
 
 		ASProgram.MethodBody[] bodies;
 
-		abc.methods.length = MethodR.objects.length;
-		foreach (i, o; MethodR.objects)
+		abc.methods.length = methods.objects.length;
+		foreach (i, o; methods.objects)
 		{
 			auto n = &abc.methods[i];
 			n.paramTypes.length = o.paramTypes.length;
 			foreach (j, p; o.paramTypes)
-				n.paramTypes[j] = MultinameC.get(p);
-			n.returnType = MultinameC.get(o.returnType);
-			n.name = StringC.get(o.name);
+				n.paramTypes[j] = multinames.get(p);
+			n.returnType = multinames.get(o.returnType);
+			n.name = strings.get(o.name);
 			n.flags = o.flags;
 			n.options.length = o.options.length;
 			foreach (j, ref value; o.options)
@@ -1163,34 +1166,34 @@ private final class AStoABC
 			}
 			n.paramNames.length = o.paramNames.length;
 			foreach (j, name; o.paramNames)
-				n.paramNames[j] = StringC.get(name);
+				n.paramNames[j] = strings.get(name);
 
 			if (o.vbody)
 				bodies ~= o.vbody;
 		}
 
-		abc.instances.length = ClassR.objects.length;
-		foreach (i, c; ClassR.objects)
+		abc.instances.length = classes.objects.length;
+		foreach (i, c; classes.objects)
 		{
 			auto o = c.instance;
 			auto n = &abc.instances[i];
 
-			n.name = MultinameC.get(o.name);
-			n.superName = MultinameC.get(o.superName);
+			n.name = multinames.get(o.name);
+			n.superName = multinames.get(o.superName);
 			n.flags = o.flags;
-			n.protectedNs = NamespaceC.get(o.protectedNs);
+			n.protectedNs = namespaces.get(o.protectedNs);
 			n.interfaces.length = o.interfaces.length;
 			foreach (j, intf; o.interfaces)
-				n.interfaces[j] = MultinameC.get(intf);
-			n.iinit = MethodR.get(o.iinit);
+				n.interfaces[j] = multinames.get(intf);
+			n.iinit = methods.get(o.iinit);
 			n.traits = convertTraits(o.traits);
 		}
 
-		abc.classes.length = ClassR.objects.length;
-		foreach (i, o; ClassR.objects)
+		abc.classes.length = classes.objects.length;
+		foreach (i, o; classes.objects)
 		{
 			auto n = &abc.classes[i];
-			n.cinit = MethodR.get(o.cinit);
+			n.cinit = methods.get(o.cinit);
 			n.traits = convertTraits(o.traits);
 		}
 
@@ -1198,7 +1201,7 @@ private final class AStoABC
 		foreach (i, o; as.scripts)
 		{
 			auto n = &abc.scripts[i];
-			n.sinit = MethodR.get(o.sinit);
+			n.sinit = methods.get(o.sinit);
 			n.traits = convertTraits(o.traits);
 		}
 
@@ -1206,7 +1209,7 @@ private final class AStoABC
 		foreach (i, o; bodies)
 		{
 			auto n = &abc.bodies[i];
-			n.method = MethodR.get(o.method);
+			n.method = methods.get(o.method);
 			n.maxStack = o.maxStack;
 			n.localCount = o.localCount;
 			n.initScopeDepth = o.initScopeDepth;
@@ -1221,8 +1224,8 @@ private final class AStoABC
 				ne.from = oe.from;
 				ne.to = oe.to;
 				ne.target = oe.target;
-				ne.excType = MultinameC.get(oe.excType);
-				ne.varName = MultinameC.get(oe.varName);
+				ne.excType = multinames.get(oe.excType);
+				ne.varName = multinames.get(oe.varName);
 			}
 			n.traits = convertTraits(o.traits);
 		}
@@ -1233,7 +1236,7 @@ private final class AStoABC
 		auto r = new ABCFile.TraitsInfo[traits.length];
 		foreach (i, ref trait; traits)
 		{
-			r[i].name = MultinameC.get(trait.name);
+			r[i].name = multinames.get(trait.name);
 			r[i].kind = trait.kind;
 			r[i].attr = trait.attr;
 			switch (trait.kind)
@@ -1241,23 +1244,23 @@ private final class AStoABC
 				case TraitKind.Slot:
 				case TraitKind.Const:
 					r[i].Slot.slotId = trait.vSlot.slotId;
-					r[i].Slot.typeName = MultinameC.get(trait.vSlot.typeName);
+					r[i].Slot.typeName = multinames.get(trait.vSlot.typeName);
 					r[i].Slot.vkind = trait.vSlot.value.vkind;
 					r[i].Slot.vindex = getValueIndex(trait.vSlot.value);
 					break;
 				case TraitKind.Class:
 					r[i].Class.slotId = trait.vClass.slotId;
-					r[i].Class.classi = ClassR.get(trait.vClass.vclass);
+					r[i].Class.classi = classes.get(trait.vClass.vclass);
 					break;
 				case TraitKind.Function:
 					r[i].Function.slotId = trait.vFunction.slotId;
-					r[i].Function.functioni = MethodR.get(trait.vFunction.vfunction);
+					r[i].Function.functioni = methods.get(trait.vFunction.vfunction);
 					break;
 				case TraitKind.Method:
 				case TraitKind.Getter:
 				case TraitKind.Setter:
 					r[i].Method.dispId = trait.vMethod.dispId;
-					r[i].Method.method = MethodR.get(trait.vMethod.vmethod);
+					r[i].Method.method = methods.get(trait.vMethod.vmethod);
 					break;
 				default:
 					throw new Exception("Unknown trait kind");
@@ -1289,28 +1292,28 @@ private final class AStoABC
 					break;
 
 				case OpcodeArgumentType.Int:
-					r.arguments[i].index = IntC.get(instruction.arguments[i].intv);
+					r.arguments[i].index = ints.get(instruction.arguments[i].intv);
 					break;
 				case OpcodeArgumentType.UInt:
-					r.arguments[i].index = UIntC.get(instruction.arguments[i].uintv);
+					r.arguments[i].index = uints.get(instruction.arguments[i].uintv);
 					break;
 				case OpcodeArgumentType.Double:
-					r.arguments[i].index = DoubleC.get(instruction.arguments[i].doublev);
+					r.arguments[i].index = doubles.get(instruction.arguments[i].doublev);
 					break;
 				case OpcodeArgumentType.String:
-					r.arguments[i].index = StringC.get(instruction.arguments[i].stringv);
+					r.arguments[i].index = strings.get(instruction.arguments[i].stringv);
 					break;
 				case OpcodeArgumentType.Namespace:
-					r.arguments[i].index = NamespaceC.get(instruction.arguments[i].namespacev);
+					r.arguments[i].index = namespaces.get(instruction.arguments[i].namespacev);
 					break;
 				case OpcodeArgumentType.Multiname:
-					r.arguments[i].index = MultinameC.get(instruction.arguments[i].multinamev);
+					r.arguments[i].index = multinames.get(instruction.arguments[i].multinamev);
 					break;
 				case OpcodeArgumentType.Class:
-					r.arguments[i].index = ClassR.get(instruction.arguments[i].classv);
+					r.arguments[i].index = classes.get(instruction.arguments[i].classv);
 					break;
 				case OpcodeArgumentType.Method:
-					r.arguments[i].index = MethodR.get(instruction.arguments[i].methodv);
+					r.arguments[i].index = methods.get(instruction.arguments[i].methodv);
 					break;
 
 				case OpcodeArgumentType.JumpTarget:
