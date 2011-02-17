@@ -125,6 +125,30 @@ final class ASProgram
 			}
 			mixin(epilog);
 		}
+
+		private Multiname[] toQNames()
+		{
+			switch (kind)
+			{
+				case ASType.QName:
+				case ASType.QNameA:
+					return [this];
+				case ASType.Multiname:
+				case ASType.MultinameA:
+					Multiname[] result;
+					foreach (ns; vMultiname.nsSet)
+					{
+						auto n = new Multiname;
+						n.kind = kind==ASType.Multiname ? ASType.QName : ASType.QNameA;
+						n.vQName.ns = ns;
+						n.vQName.name = vMultiname.name;
+						result ~= n;
+					}
+					return result;
+				default:
+					throw new .Exception("Can't expand Multiname of this kind");
+			}
+		}
 	}
 
 	static class Method
@@ -702,7 +726,7 @@ private final class AStoABC
 	/// Maintain an unordered set of values; sort/index by usage count
 	struct ConstantPool(T)
 	{
-		struct Constant
+		struct Entry
 		{
 			uint hits;
 			T value;
@@ -719,7 +743,7 @@ private final class AStoABC
 			}
 		}
 
-		Constant[T] pool;
+		Entry[T] pool;
 		T[] values;
 
 		bool add(T value) // return true if added
@@ -729,7 +753,7 @@ private final class AStoABC
 			auto cp = value in pool;
 			if (cp is null)
 			{
-				pool[value] = Constant(1, value);
+				pool[value] = Entry(1, value);
 				return true;
 			}
 			else
@@ -741,7 +765,10 @@ private final class AStoABC
 
 		bool notAdded(T value)
 		{
-			return !(isNull(value) || value in pool);
+			auto ep = value in pool;
+			if (ep)
+				ep.hits++;
+			return !(isNull(value) || ep);
 		}
 
 		void finalize()
@@ -765,14 +792,29 @@ private final class AStoABC
 	}
 
 	/// Pair an index with class instances
-	struct ReferencePool(T)
+	struct ReferencePool(T : Object)
 	{
-		struct Reference
+		struct Entry
 		{
-			uint index;
+			uint hits;
+			void* object;
+			uint addIndex, index;
+			void*[] parents;
+
+			int opCmp(Entry* o)
+			{
+				if (this.parents.contains(o.object))
+					return  1;
+				if (o.parents.contains(this.object))
+					return -1;
+				if (o.hits==hits)
+					return addIndex-o.addIndex;
+				else
+					return o.hits-hits;
+			}
 		}
 
-		Reference[void*] references;
+		Entry[void*] pool;
 		T[] objects;
 
 		bool add(T obj) // return true if added
@@ -780,32 +822,106 @@ private final class AStoABC
 			if (obj is null)
 				return false;
 			auto p = cast(void*)obj;
-			auto rp = p in references;
+			auto rp = p in pool;
 			if (rp is null)
 			{
-				references[p] = Reference(1); //, objects.length
-				objects ~= obj;
+				pool[p] = Entry(1, p, pool.length);
 				return true;
 			}
 			else
+			{
+				rp.hits++;
 				return false;
+			}
 		}
 
 		bool notAdded(T obj)
 		{
-			return !(obj is null || (cast(void*)obj) in references);
+			auto ep = (cast(void*)obj) in pool;
+			if (ep)
+				ep.hits++;
+			return !(obj is null || ep);
+		}
+
+		void registerDependency(T from, T to)
+		{
+			auto pfrom = (cast(void*)from) in pool;
+			assert(pfrom, "Unknown dependency source");
+			auto vto = cast(void*)to;
+			auto pto = vto in pool;
+			assert(pto, "Unknown dependency target");
+			assert(!pfrom.parents.contains(vto), "Dependency already set");
+			pfrom.parents ~= vto;
+		}
+
+		T[] getPreliminaryObjects()
+		{
+			return cast(T[])pool.keys;
 		}
 
 		void finalize()
 		{
-			foreach (i, o; objects)
-				references[cast(void*)o].index = i;
+			// assign unique index
+			int i=0;
+			foreach (ref e; pool)
+				e.index = i++;
+
+			// topographical sort
+			bool done;
+			while (!done)
+			{
+				done = true;
+
+				foreach (ref a; pool)
+					foreach (parent; a.parents)
+					{
+						auto pb = parent in pool;
+						assert(pb !is null, "Can't find referenced object");
+						if (pb.index > a.index)
+						{
+							auto t = pb.index;
+							pb.index = a.index;
+							a.index = t;
+							done = false;
+							break;
+						}
+					}
+			}
+
+			// copy to array
+			auto all = new Entry[i];
+			foreach (ref e; pool)
+				all[e.index] = e;
+
+			// sort
+			//all.sort; // sort preserving topological integrity demands compared items to always be adjacent
+			done = false;
+			while (!done)
+			{
+				done = true;
+
+				for (int j=0; j<all.length-1; j++)
+					if (all[j] > &all[j+1])
+					{
+						auto t = all[j];
+						all[j] = all[j+1];
+						all[j+1] = t;
+						done = false;
+					}
+			}
+
+			objects.length = i;
+			foreach (j, ref e; all)
+			{
+				pool[e.object].index = j;
+				objects[j] = cast(T)e.object;
+			}
 		}
 
 		uint get(T obj)
 		{
 			assert(obj !is null, "Trying to get index of null object");
-			return references[cast(void*)obj].index;
+			return pool[cast(void*)obj].index;
 		}
 	}
 
@@ -1030,6 +1146,7 @@ private final class AStoABC
 			visitMultiname(exception.varName);
 		}
 
+		visitMethod(vbody.method);
 		visitTraits(vbody.traits);
 	}
 
@@ -1074,6 +1191,28 @@ private final class AStoABC
 		}
 	}
 
+	void registerClassDependencies()
+	{
+		ASProgram.Class[ASProgram.Multiname] classByName;
+
+		ASProgram.Class[] classObjects = classes.getPreliminaryObjects();
+		foreach (c; classObjects)
+		{
+			assert(!(c.instance.name in classByName), "Duplicate class name " ~ c.instance.name.toString());
+			classByName[c.instance.name] = c;
+		}
+
+		foreach (c; classObjects)
+			foreach (dependency; [c.instance.superName] ~ c.instance.interfaces)
+				if (dependency)
+					foreach (dependencyName; dependency.toQNames())
+					{
+						auto pp = dependencyName in classByName;
+						if (pp)
+							classes.registerDependency(c, *pp);
+					}
+	}
+
 	this(ASProgram as)
 	{
 		this.abc = new ABCFile();
@@ -1088,6 +1227,8 @@ private final class AStoABC
 			visitClass(vclass);
 		foreach (method; as.orphanMethods)
 			visitMethod(method);
+
+		registerClassDependencies();
 
 		ints.finalize();
 		uints.finalize();
@@ -1392,4 +1533,12 @@ class ASTraitsVisitor
 				throw new Exception("Unknown trait kind");
 		}
 	}
+}
+
+private bool contains(T)(T[] arr, T val)
+{
+	foreach (v; arr)
+		if (v == val)
+			return true;
+	return false;
 }

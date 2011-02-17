@@ -363,10 +363,7 @@ follows:
 
 `AStoABC` will rebuild the constant pools, in a manner similar to Adobe's
 compilers (reverse-sorted by reference count). The exact order will almost
-surely be different, however. Also, some records (classes and methods) are
-currently not sorted by reference count, which may cause `rabcasm` to generate 
-slightly larger files than the originals (due to variable-length encoding of 
-integers).
+surely be different, however.
 
 Should you need to write an utility to manipulate ABC, you can use the existing
 code to load the file to either an `ABCFile` or `ASProgram` instance, and 
@@ -422,21 +419,6 @@ Limitations
 
 * Metadata is currently ignored. I haven't noticed any metadata blocks in any
   SWF files I've disassembled.
-
-* `rabcasm` may create a broken file due to not ordering classes by ancestry.
-
-  The problem originates from the fact that a class's ancestors (extended 
-  class and implemented interfaces) are stored as multinames, and not as 
-  class indices. (This makes sense, since classes may extend objects outside 
-  the current ABC file.) Since `rabcasm` currently doesn't decode multinames, 
-  it is unaware of the class dependencies, and may thus write the classes out 
-  of order. This results in a file that, when opened, will fail to load with 
-  an error message similar to:
-
-      VerifyError: Error #1014: Class AncestorClassName could not be found.
-
-  The simple work-around is to re-order the classes as they are declared in 
-  the `.main.asasm` file, and place ancestors before descendants.
 
 License
 =======
