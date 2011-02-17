@@ -656,6 +656,9 @@ final class Assembler
 						case "value":
 							t.vSlot.value = readValue();
 							break;
+						case "metadata":
+							t.metadata ~= readMetadata();
+							break;
 						case "end":
 							return t;
 						default:
@@ -678,6 +681,9 @@ final class Assembler
 							mustBeNull(t.vClass.vclass);
 							t.vClass.vclass = readClass();
 							break;
+						case "metadata":
+							t.metadata ~= readMetadata();
+							break;
 						case "end":
 							return t;
 						default:
@@ -699,6 +705,9 @@ final class Assembler
 						case "method":
 							mustBeNull(t.vFunction.vfunction);
 							t.vFunction.vfunction = readMethod();
+							break;
+						case "metadata":
+							t.metadata ~= readMetadata();
 							break;
 						case "end":
 							return t;
@@ -724,6 +733,9 @@ final class Assembler
 							mustBeNull(t.vMethod.vmethod);
 							t.vMethod.vmethod = readMethod();
 							break;
+						case "metadata":
+							t.metadata ~= readMetadata();
+							break;
 						case "end":
 							return t;
 						default:
@@ -733,6 +745,23 @@ final class Assembler
 			default:
 				throw new Exception("Unknown trait kind");
 		}
+	}
+
+	ASProgram.Metadata readMetadata()
+	{
+		auto metadata = new ASProgram.Metadata;
+		metadata.name = readString();
+		while (true)
+			switch (readWord())
+			{
+				case "item":
+					metadata.items ~= ASProgram.Metadata.Item(readString(), readString());
+					break;
+				case "end":
+					return metadata;
+				default:
+					throw new Exception("Expected item or end");
+			}
 	}
 
 	ASProgram.Method readMethod()

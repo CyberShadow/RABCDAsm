@@ -171,7 +171,10 @@ are the trait fields, varying by trait kind:
  * `method` / `getter` / `setter` : `dispid` (unsigned integer), `method`
 
 Additionally, all traits may have `flag` fields, describing the trait's 
-attributes (`FINAL` / `OVERRIDE` / `METADATA`).
+attributes (`FINAL` / `OVERRIDE` / `METADATA`), and `metadata` blocks.
+
+`metadata` blocks (which are ignored by the AVM) consist of a name string, and
+a series of `item` fields - each item having a key and value string.
 
 `class` blocks have mandatory `instance` and `cinit` fields, defining the class
 instance and the class initializer method respectively. They may also have 
@@ -417,8 +420,7 @@ RABCDAsm users.
 Limitations
 ===========
 
-* Metadata is currently ignored. I haven't noticed any metadata blocks in any
-  SWF files I've disassembled.
+* None known.
 
 License
 =======

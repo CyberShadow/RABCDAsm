@@ -168,10 +168,16 @@ final class ASProgram
 		struct Item
 		{
 			string key, value;
+
+			mixin AutoCompare;
+			mixin ProcessAllData;
 		}
 
 		string name;
 		Item[] items;
+
+		mixin AutoCompare;
+		mixin ProcessAllData;
 	}
 
 	static class Instance
@@ -517,6 +523,9 @@ private final class ABCtoAS
 				default:
 					throw new Exception("Unknown trait kind");
 			}
+			r[i].metadata.length = trait.metadata.length;
+			foreach (j, index; trait.metadata)
+				r[i].metadata[j] = metadata[index];
 		}
 		return r;
 	}
@@ -724,7 +733,7 @@ private final class AStoABC
 	}
 
 	/// Maintain an unordered set of values; sort/index by usage count
-	struct ConstantPool(T)
+	struct ConstantPool(T, bool haveNull = true)
 	{
 		struct Entry
 		{
@@ -748,7 +757,7 @@ private final class AStoABC
 
 		bool add(T value) // return true if added
 		{
-			if (isNull(value))
+			if (haveNull && isNull(value))
 				return false;
 			auto cp = value in pool;
 			if (cp is null)
@@ -768,24 +777,25 @@ private final class AStoABC
 			auto ep = value in pool;
 			if (ep)
 				ep.hits++;
-			return !(isNull(value) || ep);
+			return !((haveNull && isNull(value)) || ep);
 		}
 
 		void finalize()
 		{
 			auto all = pool.values;
 			all.sort;
-			values.length = all.length+1;
+			enum { NullOffset = haveNull ? 1 : 0 }
+			values.length = all.length + NullOffset;
 			foreach (i, ref c; all)
 			{
-				pool[c.value].index = i+1;
-				values[i+1] = c.value;
+				pool[c.value].index = i + NullOffset;
+				values[i + NullOffset] = c.value;
 			}
 		}
 
 		uint get(T value)
 		{
-			if (isNull(value))
+			if (haveNull && isNull(value))
 				return 0;
 			return pool[value].index;
 		}
@@ -932,6 +942,7 @@ private final class AStoABC
 	ConstantPool!(ASProgram.Namespace) namespaces;
 	ConstantPool!(ASProgram.Namespace[]) namespaceSets;
 	ConstantPool!(ASProgram.Multiname) multinames;
+	ConstantPool!(ASProgram.Metadata, false) metadatas;
 	ReferencePool!(ASProgram.Class) classes;
 	ReferencePool!(ASProgram.Method) methods;
 
@@ -1020,6 +1031,21 @@ private final class AStoABC
 					break;
 				default:
 					throw new Exception("Unknown trait kind");
+			}
+			foreach (metadata; trait.metadata)
+				visitMetadata(metadata);
+		}
+	}
+
+	void visitMetadata(ASProgram.Metadata metadata)
+	{
+		if (metadatas.add(metadata))
+		{
+			strings.add(metadata.name);
+			foreach (ref item; metadata.items)
+			{
+				strings.add(item.key);
+				strings.add(item.value);
 			}
 		}
 	}
@@ -1237,6 +1263,7 @@ private final class AStoABC
 		namespaces.finalize();
 		namespaceSets.finalize();
 		multinames.finalize();
+		metadatas.finalize();
 		classes.finalize();
 		methods.finalize();
 
@@ -1298,6 +1325,19 @@ private final class AStoABC
 					break;
 				default:
 					throw new Exception("Unknown Multiname kind");
+			}
+		}
+
+		abc.metadata.length = metadatas.values.length;
+		foreach (i, m; metadatas.values)
+		{
+			auto n = &abc.metadata[i];
+			n.name = strings.get(m.name);
+			n.items.length = m.items.length;
+			foreach (j, ref item; m.items)
+			{
+				n.items[j].key = strings.get(m.items[j].key);
+				n.items[j].value = strings.get(m.items[j].value);
 			}
 		}
 
@@ -1420,6 +1460,9 @@ private final class AStoABC
 				default:
 					throw new Exception("Unknown trait kind");
 			}
+			r[i].metadata.length = trait.metadata.length;
+			foreach (j, ref m; trait.metadata)
+				r[i].metadata[j] = metadatas.get(m);
 		}
 		return r;
 	}

@@ -74,10 +74,12 @@
         <word name="implements"/>
         <word name="initscopedepth"/>
         <word name="instance"/>
+        <word name="item"/>
         <word name="localcount"/>
         <word name="majorversion"/>
         <word name="maxscopedepth"/>
         <word name="maxstack"/>
+        <word name="metadata"/>
         <word name="method"/>
         <word name="minorversion"/>
         <word name="name"/>

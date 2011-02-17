@@ -551,6 +551,7 @@ final class Disassembler
 			dumpMultiname(sb, trait.name);
 			if (trait.attr)
 				dumpFlags!(true)(sb, trait.attr, TraitAttributeNames);
+			bool inLine = false;
 			switch (trait.kind)
 			{
 				case TraitKind.Slot:
@@ -570,8 +571,7 @@ final class Disassembler
 						sb ~= " value ";
 						dumpValue(sb, trait.vSlot.value);
 					}
-					sb ~= " end";
-					sb.newLine();
+					inLine = true;
 					break;
 				case TraitKind.Class:
 					if (trait.vClass.slotId)
@@ -582,7 +582,6 @@ final class Disassembler
 					sb.indent++; sb.newLine();
 					sb ~= "class";
 					dumpClass(sb, trait.vClass.vclass);
-					sb.indent--; sb ~= "end ; trait"; sb.newLine();
 					break;
 				case TraitKind.Function:
 					if (trait.vFunction.slotId)
@@ -593,7 +592,6 @@ final class Disassembler
 					sb.indent++; sb.newLine();
 					sb ~= "method";
 					dumpMethod(sb, trait.vFunction.vfunction);
-					sb.indent--; sb ~= "end ; trait"; sb.newLine();
 					break;
 				case TraitKind.Method:
 				case TraitKind.Getter:
@@ -606,12 +604,42 @@ final class Disassembler
 					sb.indent++; sb.newLine();
 					sb ~= "method";
 					dumpMethod(sb, trait.vMethod.vmethod);
-					sb.indent--; sb ~= "end ; trait"; sb.newLine();
 					break;
 				default:
 					throw new Exception("Unknown trait kind");
 			}
+
+			foreach (metadata; trait.metadata)
+			{
+				if (inLine)
+				{
+					sb.indent++; sb.newLine();
+					inLine = false;
+				}
+				dumpMetadata(sb, metadata);
+			}
+
+			if (inLine)
+				{ sb ~= " end"; sb.newLine(); }
+			else
+				{ sb.indent--; sb ~= "end ; trait"; sb.newLine(); }
 		}
+	}
+
+	void dumpMetadata(StringBuilder sb, ASProgram.Metadata metadata)
+	{
+		sb ~= "metadata ";
+		dumpString(sb, metadata.name);
+		sb.indent++; sb.newLine();
+		foreach (ref item; metadata.items)
+		{
+			sb ~= "item ";
+			dumpString(sb, item.key);
+			sb ~= " ";
+			dumpString(sb, item.value);
+			sb.newLine();
+		}
+		sb.indent--; sb ~= "end ; metadata"; sb.newLine();
 	}
 
 	void dumpFlags(bool oneLine = false)(StringBuilder sb, ubyte flags, string[] names)

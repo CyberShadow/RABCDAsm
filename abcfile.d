@@ -1716,7 +1716,7 @@ private final class ABCWriter
 		if (v.attr & TraitAttributes.Metadata)
 		{
 			writeU30(v.metadata.length);
-			foreach (ref value; v.metadata)
+			foreach (value; v.metadata)
 				writeU30(value);
 		}
 	}
