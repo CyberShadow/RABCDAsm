@@ -87,6 +87,7 @@ final class ASProgram
 		}
 
 		mixin AutoCompare;
+		mixin AutoToString;
 
 		R processData(R, string prolog, string epilog, H)(ref H handler)
 		{
@@ -212,6 +213,11 @@ final class ASProgram
 		Trait[] traits;
 
 		Instance instance;
+
+		string toString()
+		{
+			return instance.name.toString();
+		}
 	}
 
 	static class Script
