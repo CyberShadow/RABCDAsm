@@ -371,7 +371,7 @@ private final class ABCtoAS
 		return n;
 	}
 
-	ASProgram.Multiname convertMultiname(ref ABCFile.Multiname multiname, uint i)
+	ASProgram.Multiname convertMultiname(ref ABCFile.Multiname multiname)
 	{
 		auto n = new ASProgram.Multiname();
 		n.kind = multiname.kind;
@@ -399,21 +399,26 @@ private final class ABCtoAS
 				n.vMultinameL.nsSet = namespaceSets[multiname.MultinameL.nsSet];
 				break;
 			case ASType.TypeName:
-				if (multiname.TypeName.name >= i)
-					throw new Exception("Forward Multiname/TypeName reference");
-				n.vTypeName.name = multinames[multiname.TypeName.name];
-				n.vTypeName.params.length = multiname.TypeName.params.length;
-				foreach (j, param; multiname.TypeName.params)
-				{
-					if (param >= i)
-						throw new Exception("Forward Multiname/TypeName parameter reference");
-					n.vTypeName.params[j] = multinames[param];
-				}
+				// handled in postConvertMultiname
 				break;
 			default:
 				throw new Exception("Unknown Multiname kind");
 		}
 		return n;
+	}
+
+	void postConvertMultiname(ref ABCFile.Multiname multiname, ASProgram.Multiname n)
+	{
+		switch (multiname.kind)
+		{
+			case ASType.TypeName:
+				n.vTypeName.name = multinames[multiname.TypeName.name];
+				n.vTypeName.params.length = multiname.TypeName.params.length;
+				foreach (j, param; multiname.TypeName.params)
+					n.vTypeName.params[j] = multinames[param];
+			default:
+				break;
+		}
 	}
 
 	ASProgram.Method convertMethod(ref ABCFile.MethodInfo method)
@@ -626,7 +631,10 @@ private final class ABCtoAS
 		multinames.length = abc.multinames.length;
 		foreach (i, ref multiname; abc.multinames)
 			if (i)
-				multinames[i] = convertMultiname(multiname, i);
+				multinames[i] = convertMultiname(multiname);
+		foreach (i, ref multiname; abc.multinames)
+			if (i)
+				postConvertMultiname(multiname, multinames[i]);
 
 		methods.length = methodAdded.length = abc.methods.length;
 		foreach (i, ref method; abc.methods)
