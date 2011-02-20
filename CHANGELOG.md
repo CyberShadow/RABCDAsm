@@ -1,6 +1,15 @@
 RABCDAsm Changelog
 ==================
 
+RABCDAsm v1.4 (2011.02.xx)
+--------------------------
+
+ * Add support for forward-references for TypeName-kind Multinames
+ * Correctly order classes by dependencies (extends/implements) and reference
+   count
+ * Finish Metadata support
+ * Documentation updates
+
 RABCDAsm v1.3 (2010.11.11)
 --------------------------
 
