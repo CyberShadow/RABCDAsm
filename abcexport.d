@@ -20,7 +20,7 @@ module abcexport;
 
 import std.file;
 import std.path;
-import std.string;
+import std.conv;
 import std.stdio;
 import swffile;
 
@@ -45,11 +45,11 @@ void main(string[] args)
 						while (*p++) {} // skip name
 						abc = tag.data[p-tag.data.ptr..$];
 					}
-					write(getName(arg) ~ .toString(count++) ~ ".abc", abc);
+					std.file.write(getName(arg) ~ to!string(count++) ~ ".abc", abc);
 				}
 			if (count == 0)
 				throw new Exception("No DoABC tags found");
 		}
-		catch (Object o)
-			writefln("Error while processing %s: %s", arg, o);
+		catch (Exception e)
+			writefln("Error while processing %s: %s", arg, e);
 }

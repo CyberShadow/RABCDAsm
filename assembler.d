@@ -22,6 +22,7 @@ import std.file;
 import std.string;
 import std.conv;
 import std.path;
+import std.exception;
 import abcfile;
 import asprogram;
 
@@ -44,8 +45,8 @@ final class Assembler
 	{
 		string filename;
 		string buf;
-		char* pos;
-		char* end;
+		immutable(char)* pos;
+		immutable(char)* end;
 		string[] arguments;
 		string basePath;
 
@@ -61,7 +62,7 @@ final class Assembler
 
 		static File fromData(string name, string data, string[] arguments = null, string basePath = null)
 		{
-			data ~= \0; data = data[0..$-1]; // hack to prevent readWord etc. from checking for end-of-file on every character
+			data ~= "\0"; data = data[0..$-1]; // hack to prevent readWord etc. from checking for end-of-file on every character
 			return File(name, data, data.ptr, data.ptr + data.length, arguments, basePath);
 		}
 
@@ -98,11 +99,11 @@ final class Assembler
 	{
 		if (filename.length == 0)
 			throw new Exception("Empty filename");
-		filename = filename.dup;
-		foreach (ref c; filename)
+		auto buf = filename.dup;
+		foreach (ref c; buf)
 			if (c == '\\')
 				c = '/';
-		return std.path.join(getBasePath, filename);
+		return std.path.join(getBasePath, assumeUnique(buf));
 	}
 
 	void skipWhitespace()
@@ -190,7 +191,7 @@ final class Assembler
 			foreach (ref file; files[0..fileCount])
 				if (file.arguments.length)
 				{
-					uint index = .toUint(name)-1;
+					uint index = .to!uint(name)-1;
 					if (index >= file.arguments.length)
 						throw new Exception("Argument index out-of-bounds");
 					string value = file.arguments[index];
@@ -254,7 +255,7 @@ final class Assembler
 		}
 	}
 
-	void pushFile(ref File file)
+	void pushFile(File file)
 	{
 		if (fileCount == files.length)
 			throw new Exception("Recursion limit exceeded");
@@ -264,7 +265,7 @@ final class Assembler
 	}
 
 	/// For restoring the position of an error
-	void setFile(ref File file)
+	void setFile(File file)
 	{
 		files[0] = file;
 		fileCount = -1;
@@ -357,7 +358,7 @@ final class Assembler
 			static const char[16] hexDigits = "0123456789ABCDEF";
 
 			// TODO: optimize
-			string s = \";
+			string s = "\"";
 			foreach (c; str)
 				if (c == 0x0A)
 					s ~= `\n`;
@@ -422,7 +423,7 @@ final class Assembler
 		return v;
 	}
 
-	ubyte readFlag(string[] names)
+	ubyte readFlag(const string[] names)
 	{
 		auto word = readWord();
 		ubyte f = 1;
@@ -490,7 +491,7 @@ final class Assembler
 		string w = readWord();
 		if (w == "null")
 			return ABCFile.NULL_INT;
-		return toInt(w);
+		return to!int(w);
 	}
 
 	ulong readUInt()
@@ -498,7 +499,7 @@ final class Assembler
 		string w = readWord();
 		if (w == "null")
 			return ABCFile.NULL_UINT;
-		return toUint(w);
+		return to!uint(w);
 	}
 
 	double readDouble()
@@ -506,7 +507,7 @@ final class Assembler
 		string w = readWord();
 		if (w == "null")
 			return ABCFile.NULL_DOUBLE;
-		return toDouble(w);
+		return to!double(w);
 	}
 
 	string readString()
@@ -967,7 +968,7 @@ final class Assembler
 			if (c=='-' || c=='+')
 			{
 				name = label[0..i];
-				offset = .toInt(label[i..$]);
+				offset = to!int(label[i..$]);
 				break;
 			}
 		auto lp = name in labels;
@@ -1075,10 +1076,10 @@ final class Assembler
 		{
 			try
 				instructions[f.ii].arguments[f.ai].jumpTarget = parseLabel(f.name, labels);
-			catch (Object o)
+			catch (Exception e)
 			{
 				setFile(f.where.load);
-				throw o;
+				throw e;
 			}
 		}
 
@@ -1086,10 +1087,10 @@ final class Assembler
 		{
 			try
 				instructions[f.ii].arguments[f.ai].switchTargets[f.si] = parseLabel(f.name, labels);
-			catch (Object o)
+			catch (Exception e)
 			{
 				setFile(f.where.load);
-				throw o;
+				throw e;
 			}
 		}
 
@@ -1109,10 +1110,10 @@ final class Assembler
 			auto word = readWord();
 			try
 				return parseLabel(word, labels);
-			catch (Object o)
+			catch (Exception e)
 			{
 				backpedal(word.length);
-				throw o;
+				throw e;
 			}
 		}
 
@@ -1213,9 +1214,9 @@ final class Assembler
 				*f.ptr = *mp;
 			}
 		}
-		catch (Object o)
+		catch (Exception e)
 		{
-			string s = files[0].positionStr ~ ": " ~ o.toString();
+			string s = files[0].positionStr ~ ": " ~ e.msg;
 			if (fileCount == -1)
 				s ~= "\n\t(inclusion context unavailable)";
 			else

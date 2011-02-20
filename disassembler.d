@@ -20,12 +20,14 @@ module disassembler;
 
 import std.file;
 import std.string;
+import std.conv;
+import std.exception;
 import abcfile;
 import asprogram;
 
 final class StringBuilder
 {
-	string buf;
+	char[] buf;
 	size_t pos;
 	string filename;
 
@@ -108,7 +110,7 @@ final class RefBuilder : ASTraitsVisitor
 	override void run()
 	{
 		foreach (i, ref v; as.scripts)
-			addMethod(v.sinit, "script" ~ .toString(i) ~ "_sinit");
+			addMethod(v.sinit, "script" ~ to!string(i) ~ "_sinit");
 		foreach (vclass; as.orphanClasses)
 			addClass(vclass, "orphan");
 		foreach (method; as.orphanMethods)
@@ -157,7 +159,7 @@ final class RefBuilder : ASTraitsVisitor
 			int n = 0;
 			uint* pindex;
 			while ((pindex = name in privateNamespaceByName) !is null && *pindex != index)
-				name = bname ~ .toString(++n);
+				name = bname ~ to!string(++n);
 		}
 		auto pname = index in privateNamespaceNames;
 		if (pname)
@@ -242,11 +244,11 @@ final class RefBuilder : ASTraitsVisitor
 			strings[i] = qNameToString(m);
 		if (field)
 			strings[$-1] = field;
-		string s = join(strings, "/");
+		char[] s = join(strings, "/").dup;
 		foreach (ref c; s)
 			if (c < 0x20 || c == '"')
 				c = '_';
-		return s;
+		return assumeUnique(s);
 	}
 
 	string addObject(T)(T obj, ref T[string] objByName, string field)
@@ -255,7 +257,7 @@ final class RefBuilder : ASTraitsVisitor
 		auto uniqueName = name;
 		int i = 1;
 		while (uniqueName in objByName)
-			uniqueName = name ~ "_" ~ .toString(++i);
+			uniqueName = name ~ "_" ~ to!string(++i);
 		objByName[uniqueName] = obj;
 		objName[cast(void*)obj] = uniqueName;
 		return uniqueName;
@@ -300,7 +302,7 @@ final class RefBuilder : ASTraitsVisitor
 		if (pname)
 			return *pname;
 		else
-			//throw new Exception("Nameless private namespace: " ~ .toString(index));
+			//throw new Exception("Nameless private namespace: " ~ to!string(index));
 			return addPrivateNamespace(index, "OrphanPrivateNamespace");
 	}
 }
@@ -335,10 +337,10 @@ final class Disassembler
 		sb.indent++; sb.newLine();
 
 		sb ~= "minorversion ";
-		sb ~= .toString(as.minorVersion);
+		sb ~= to!string(as.minorVersion);
 		sb.newLine();
 		sb ~= "majorversion ";
-		sb ~= .toString(as.majorVersion);
+		sb ~= to!string(as.majorVersion);
 		sb.newLine();
 		sb.newLine();
 
@@ -388,7 +390,7 @@ final class Disassembler
 		uint[] indices = refs.privateNamespaceNames.keys.sort;
 		foreach (index; indices)
 		{
-			sb ~= "#privatens " ~ .toString(index) ~ " ";
+			sb ~= "#privatens " ~ to!string(index) ~ " ";
 			dumpString(sb, refs.privateNamespaceNames[index]);
 			sb.newLine();
 		}
@@ -400,7 +402,7 @@ final class Disassembler
 		if (v == ABCFile.NULL_INT)
 			sb ~= "null";
 		else
-			sb ~= .toString(v);
+			sb ~= to!string(v);
 	}
 
 	void dumpUInt(StringBuilder sb, ulong v)
@@ -408,7 +410,7 @@ final class Disassembler
 		if (v == ABCFile.NULL_UINT)
 			sb ~= "null";
 		else
-			sb ~= .toString(v);
+			sb ~= to!string(v);
 	}
 
 	void dumpDouble(StringBuilder sb, double v)
@@ -642,7 +644,7 @@ final class Disassembler
 		sb.indent--; sb ~= "end ; metadata"; sb.newLine();
 	}
 
-	void dumpFlags(bool oneLine = false)(StringBuilder sb, ubyte flags, string[] names)
+	void dumpFlags(bool oneLine = false)(StringBuilder sb, ubyte flags, const string[] names)
 	{
 		for (int i=0; flags; i++, flags>>=1)
 			if (flags & 1)
@@ -747,13 +749,14 @@ final class Disassembler
 
 	string toFileName(string refid)
 	{
-		string filename = refid.dup;
-		foreach (ref c; filename)
+		char[] buf = refid.dup;
+		foreach (ref c; buf)
 			if (c == '.' || c == ':')
 				c = '/';
 			else
 			if (c == '\\' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|')
 				c = '_';
+		string filename = assumeUnique(buf);
 
 		version (Windows)
 		{
@@ -835,7 +838,7 @@ final class Disassembler
 	void dumpScript(StringBuilder sb, ASProgram.Script script, uint index)
 	{
 		sb ~= "script ; ";
-		sb ~= .toString(index);
+		sb ~= to!string(index);
 		sb.indent++; sb.newLine();
 		sb ~= "sinit"; dumpMethod(sb, script.sinit);
 		dumpTraits(sb, script.traits);
@@ -853,12 +856,12 @@ final class Disassembler
 	void dumpLabel(StringBuilder sb, ref ABCFile.Label label)
 	{
 		sb ~= 'L';
-		sb ~= .toString(label.index);
+		sb ~= to!string(label.index);
 		if (label.offset != 0)
 		{
 			if (label.offset > 0)
 				sb ~= '+';
-			sb ~= .toString(label.offset);
+			sb ~= to!string(label.offset);
 		}
 	}
 		
@@ -925,7 +928,7 @@ final class Disassembler
 			{
 				sb.noIndent();
 				sb ~= 'L';
-				sb ~= .toString(ii);
+				sb ~= to!string(ii);
 				sb ~= ':';
 				sb.newLine();
 			}
@@ -953,13 +956,13 @@ final class Disassembler
 							throw new Exception("Don't know how to disassemble OP_" ~ opcodeInfo[instruction.opcode].name);
 
 						case OpcodeArgumentType.UByteLiteral:
-							sb ~= .toString(instruction.arguments[i].ubytev);
+							sb ~= to!string(instruction.arguments[i].ubytev);
 							break;
 						case OpcodeArgumentType.IntLiteral:
-							sb ~= .toString(instruction.arguments[i].intv);
+							sb ~= to!string(instruction.arguments[i].intv);
 							break;
 						case OpcodeArgumentType.UIntLiteral:
-							sb ~= .toString(instruction.arguments[i].uintv);
+							sb ~= to!string(instruction.arguments[i].uintv);
 							break;
 
 						case OpcodeArgumentType.Int:
