@@ -48,15 +48,13 @@ bytecode with the following properties:
 Compiling from source
 ---------------------
 
-RABCDAsm is written in the [D programming language, version 1][d1]. It uses one
-third-party library, [std2][] (for some fancy template stuff).
+RABCDAsm is written in the [D programming language, version 2][d2].
 
 Assuming you have [dmd][], [git][] and [svn][] installed, compiling should be
 as straight-forward as:
 
     git clone git://github.com/CyberShadow/RABCDAsm.git
     cd RABCDAsm
-    svn co http://svn.dsource.org/projects/std2/trunk/std2/std2
     dmd rabcdasm abcfile asprogram disassembler autodata murmurhash2a
     dmd rabcasm  abcfile asprogram    assembler autodata murmurhash2a
     dmd abcexport     swffile zlibx
@@ -64,8 +62,7 @@ as straight-forward as:
     dmd swfdecompress swffile zlibx
     dmd swf7zcompress swffile zlibx
 
-  [d1]: http://www.digitalmars.com/d/1.0/
-  [std2]: http://dsource.org/projects/std2
+  [d2]: http://www.digitalmars.com/d/2.0/
   [dmd]: http://www.digitalmars.com/d/download.html
   [git]: http://git-scm.com/
   [svn]: http://subversion.apache.org/

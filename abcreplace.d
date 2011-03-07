@@ -27,7 +27,7 @@ void main(string[] args)
 	if (args.length != 4)
 		throw new Exception("Bad arguments. Usage: abcreplace file.swf index code.abc");
 	auto swf = SWFFile.read(cast(ubyte[])read(args[1]));
-	auto index = toUint(args[2]);
+	auto index = to!uint(args[2]);
 	uint count;
 	foreach (ref tag; swf.tags)
 		if ((tag.type == TagType.DoABC || tag.type == TagType.DoABC2) && count++ == index)

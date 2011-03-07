@@ -31,7 +31,7 @@ public:
 		m_size  = 0;
 	}
 
-	void Add ( void * vdata, int len )
+	void Add ( const(void) * vdata, int len )
 	{
 		ubyte * data = cast(ubyte*)vdata;
 		m_size += len;

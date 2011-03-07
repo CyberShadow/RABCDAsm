@@ -41,16 +41,7 @@ final class ASProgram
 		uint privateIndex; // unique index for private namespaces
 
 		mixin AutoCompare;
-		//mixin ProcessAllData;
-
-		R processData(R, string prolog, string epilog, H)(ref H handler)
-		{
-			mixin(prolog);
-			mixin(addAutoField("kind"));
-			mixin(addAutoField("name"));
-			mixin(addAutoField("privateIndex"));
-			mixin(epilog);
-		}
+		mixin ProcessAllData;
 	}
 
 	static class Multiname
@@ -89,7 +80,7 @@ final class ASProgram
 		mixin AutoCompare;
 		mixin AutoToString;
 
-		R processData(R, string prolog, string epilog, H)(ref H handler)
+		R processData(R, string prolog, string epilog, H)(ref H handler) const
 		{
 			mixin(prolog);
 			mixin(addAutoField("kind"));
@@ -244,7 +235,7 @@ final class ASProgram
 
 		Instance instance;
 
-		string toString()
+		override string toString()
 		{
 			return instance.name.toString();
 		}
@@ -735,6 +726,8 @@ private final class AStoABC
 	/// Maintain an unordered set of values; sort/index by usage count
 	struct ConstantPool(T, bool haveNull = true)
 	{
+		alias immutable(T) I;
+
 		struct Entry
 		{
 			uint hits;
@@ -743,7 +736,7 @@ private final class AStoABC
 
 			mixin AutoCompare;
 
-			R processData(R, string prolog, string epilog, H)(ref H handler)
+			R processData(R, string prolog, string epilog, H)(ref H handler) const
 			{
 				mixin(prolog);
 				mixin(addAutoField("hits", true));
@@ -752,17 +745,18 @@ private final class AStoABC
 			}
 		}
 
-		Entry[T] pool;
+		Entry[immutable(T)] pool;
 		T[] values;
 
 		bool add(T value) // return true if added
 		{
+			enum ivalue = cast(I)value;
 			if (haveNull && isNull(value))
 				return false;
-			auto cp = value in pool;
+			auto cp = ivalue in pool;
 			if (cp is null)
 			{
-				pool[value] = Entry(1, value);
+				pool[ivalue] = Entry(1, value);
 				return true;
 			}
 			else
@@ -774,7 +768,8 @@ private final class AStoABC
 
 		bool notAdded(T value)
 		{
-			auto ep = value in pool;
+			enum ivalue = cast(I)value;
+			auto ep = ivalue in pool;
 			if (ep)
 				ep.hits++;
 			return !((haveNull && isNull(value)) || ep);
@@ -788,16 +783,17 @@ private final class AStoABC
 			values.length = all.length + NullOffset;
 			foreach (i, ref c; all)
 			{
-				pool[c.value].index = i + NullOffset;
+				pool[cast(I)c.value].index = i + NullOffset;
 				values[i + NullOffset] = c.value;
 			}
 		}
 
 		uint get(T value)
 		{
+			enum ivalue = cast(I)value;
 			if (haveNull && isNull(value))
 				return 0;
-			return pool[value].index;
+			return pool[ivalue].index;
 		}
 	}
 

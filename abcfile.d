@@ -19,6 +19,7 @@
 module abcfile;
 
 import std.string : format; // exception formatting
+import std.exception;
 
 /** 
  * Implements a shallow representation of an .abc file. 
@@ -181,7 +182,7 @@ class ABCFile
 
 		// TraitAttributes bitmask
 		ubyte attr() { return cast(ubyte)(kindAttr >> 4); }
-		void attr(ubyte value) { kindAttr = (kindAttr&0xF) | (value<<4); }
+		void attr(ubyte value) { kindAttr = cast(ubyte)((kindAttr&0xF) | (value<<4)); }
 	}
 
 	struct Class
@@ -992,8 +993,8 @@ private final class ABCReader
 			foreach (ref value; abc.bodies)
 				value = readMethodBody();
 		}
-		catch (Object o)
-			throw new Exception(format("Error at %d (0x%X): %s", pos, pos, o));
+		catch (Exception e)
+			throw new Exception(format("Error at %d (0x%X): %s", pos, pos, e), e);
 	}
 
 	ubyte readU8()
@@ -1061,8 +1062,9 @@ private final class ABCReader
 
 	string readString()
 	{
-		string s = new char[readU30()];
-		readExact(s.ptr, s.length);
+		char[] buf = new char[readU30()];
+		readExact(buf.ptr, buf.length);
+		string s = assumeUnique(buf);
 		if (s.length == 0)
 			s = ""; // not null!
 		return s;
@@ -1551,7 +1553,7 @@ private final class ABCWriter
 		writeU32(v);
 	}
 
-	void writeExact(void* ptr, size_t len)
+	void writeExact(const(void)* ptr, size_t len)
 	{
 		while (pos+len > buf.length)
 			buf.length = buf.length * 2;
