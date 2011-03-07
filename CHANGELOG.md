@@ -1,9 +1,10 @@
 RABCDAsm Changelog
 ==================
 
-RABCDAsm v1.4 (2011.02.xx)
+RABCDAsm v1.4 (2011.03.07)
 --------------------------
 
+ * Source code ported to D2
  * Add support for forward-references for TypeName-kind Multinames
  * Correctly order classes by dependencies (extends/implements) and reference
    count
