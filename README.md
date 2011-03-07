@@ -50,8 +50,8 @@ Compiling from source
 
 RABCDAsm is written in the [D programming language, version 2][d2].
 
-Assuming you have [dmd][], [git][] and [svn][] installed, compiling should be
-as straight-forward as:
+Assuming you have [dmd][] and [git][] installed, compiling should be as
+straight-forward as:
 
     git clone git://github.com/CyberShadow/RABCDAsm.git
     cd RABCDAsm
@@ -65,7 +65,6 @@ as straight-forward as:
   [d2]: http://www.digitalmars.com/d/2.0/
   [dmd]: http://www.digitalmars.com/d/download.html
   [git]: http://git-scm.com/
-  [svn]: http://subversion.apache.org/
 
 Pre-compiled binaries
 ---------------------
