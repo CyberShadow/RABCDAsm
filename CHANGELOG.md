@@ -1,6 +1,13 @@
 RABCDAsm Changelog
 ==================
 
+RABCDAsm v1.5 (2011.03.??)
+--------------------------
+
+ * Fixed v1.4 constant pool regression
+ * Speed optimizations
+ * Documentation updates
+
 RABCDAsm v1.4 (2011.03.07)
 --------------------------
 
