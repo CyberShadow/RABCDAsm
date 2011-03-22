@@ -55,12 +55,12 @@ straight-forward as:
 
     git clone git://github.com/CyberShadow/RABCDAsm.git
     cd RABCDAsm
-    dmd -release -O -inline rabcdasm abcfile asprogram disassembler autodata murmurhash2a
-    dmd -release -O -inline rabcasm  abcfile asprogram    assembler autodata murmurhash2a
-    dmd -release -O -inline abcexport     swffile zlibx
-    dmd -release -O -inline abcreplace    swffile zlibx
-    dmd -release -O -inline swfdecompress swffile zlibx
-    dmd -release -O -inline swf7zcompress swffile zlibx
+    dmd -O -inline rabcdasm abcfile asprogram disassembler autodata murmurhash2a
+    dmd -O -inline rabcasm  abcfile asprogram    assembler autodata murmurhash2a
+    dmd -O -inline abcexport     swffile zlibx
+    dmd -O -inline abcreplace    swffile zlibx
+    dmd -O -inline swfdecompress swffile zlibx
+    dmd -O -inline swf7zcompress swffile zlibx
 
   [d2]: http://www.digitalmars.com/d/2.0/
   [dmd]: http://www.digitalmars.com/d/download.html
