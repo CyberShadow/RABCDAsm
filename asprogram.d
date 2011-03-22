@@ -18,6 +18,8 @@
 
 module asprogram;
 
+import std.algorithm;
+import core.stdc.string;
 import abcfile;
 import autodata;
 
@@ -723,6 +725,19 @@ private final class AStoABC
 			return value == T.init;
 	}
 
+	static void move(T)(T[] array, size_t from, size_t to)
+	{
+		assert(from<array.length && to<array.length);
+		if (from == to)
+			return;
+		T t = array[from];
+		if (from < to)
+			memmove(array.ptr+from, array.ptr+from+1, (to-from)*T.sizeof);
+		else
+			memmove(array.ptr+to+1, array.ptr+to,     (from-to)*T.sizeof);
+		array[to] = t;
+	}
+
 	/// Maintain an unordered set of values; sort/index by usage count
 	struct ConstantPool(T, bool haveNull = true)
 	{
@@ -807,17 +822,8 @@ private final class AStoABC
 			uint addIndex, index;
 			void*[] parents;
 
-			int opCmp(Entry* o)
-			{
-				if (this.parents.contains(o.object))
-					return  1;
-				if (o.parents.contains(this.object))
-					return -1;
-				if (o.hits==hits)
-					return addIndex-o.addIndex;
-				else
-					return o.hits-hits;
-			}
+			mixin AutoToString;
+			mixin ProcessAllData;
 		}
 
 		Entry[void*] pool;
@@ -867,61 +873,37 @@ private final class AStoABC
 
 		void finalize()
 		{
-			// assign unique index
+			// create array
+			auto all = new Entry*[pool.length];
 			int i=0;
 			foreach (ref e; pool)
-				e.index = i++;
-
-			// topographical sort
-			bool done;
-			while (!done)
-			{
-				done = true;
-
-				foreach (ref a; pool)
-					foreach (parent; a.parents)
-					{
-						auto pb = parent in pool;
-						assert(pb !is null, "Can't find referenced object");
-						if (pb.index > a.index)
-						{
-							auto t = pb.index;
-							pb.index = a.index;
-							a.index = t;
-							done = false;
-							break;
-						}
-					}
-			}
-
-			// copy to array
-			auto all = new Entry[i];
-			foreach (ref e; pool)
-				all[e.index] = e;
+				all[i++] = &e;
 
 			// sort
-			//all.sort; // sort preserving topological integrity demands compared items to always be adjacent
-			done = false;
-			while (!done)
-			{
-				done = true;
+			sort!q{a.hits > b.hits || (a.hits == b.hits && a.addIndex < b.addIndex)}(all);
 
-				for (int j=0; j<all.length-1; j++)
-					if (all[j] > &all[j+1])
+			// topographical sort
+			topSort:
+
+			// update indices
+			foreach (j, e; all)
+				e.index = j;
+
+			foreach (ref a; pool)
+				foreach (parent; a.parents)
+				{
+					auto pb = parent in pool;
+					assert(pb !is null, "Can't find referenced object");
+					if (pb.index > a.index)
 					{
-						auto t = all[j];
-						all[j] = all[j+1];
-						all[j+1] = t;
-						done = false;
+						move(all, pb.index, a.index);
+						goto topSort;
 					}
-			}
+				}
 
 			objects.length = i;
-			foreach (j, ref e; all)
-			{
-				pool[e.object].index = j;
+			foreach (j, e; all)
 				objects[j] = cast(T)e.object;
-			}
 		}
 
 		uint get(T obj)
