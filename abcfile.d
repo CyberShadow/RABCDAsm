@@ -1755,7 +1755,8 @@ private final class ABCWriter
 			// we don't know the length before writing all the instructions - swap buffer with a temporary one
 			auto globalBuf = buf;
 			auto globalPos = pos;
-			buf = new ubyte[1024];
+			static ubyte[1024*16] methodBuf;
+			buf = methodBuf[];
 			pos = 0;
 
 			struct Fixup { ABCFile.Label target; uint pos, base; }
