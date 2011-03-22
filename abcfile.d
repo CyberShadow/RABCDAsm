@@ -999,7 +999,7 @@ private final class ABCReader
 
 	ubyte readU8()
 	{
-		assert(pos < buf.length);
+		enforce(pos < buf.length, "End of file reached");
 		return buf[pos++];
 	}
 
@@ -1047,7 +1047,7 @@ private final class ABCReader
 
 	void readExact(void* ptr, size_t len)
 	{
-		assert(pos+len <= buf.length);
+		enforce(pos+len <= buf.length, "End of file reached");
 		(cast(ubyte*)ptr)[0..len] = buf[pos..pos+len];
 		pos += len;
 	}
@@ -1473,7 +1473,7 @@ private final class ABCWriter
 		foreach (ref value; abc.instances)
 			writeInstance(value);
 
-		assert(abc.classes.length == abc.instances.length);
+		assert(abc.classes.length == abc.instances.length, "Number of classes and instances differs");
 		foreach (ref value; abc.classes)
 			writeClass(value);
 
@@ -1645,7 +1645,7 @@ private final class ABCWriter
 		}
 		if (v.flags & MethodFlags.HAS_PARAM_NAMES)
 		{
-			assert(v.paramNames.length == v.paramTypes.length);
+			assert(v.paramNames.length == v.paramTypes.length, "Mismatching number of parameter names and types");
 			foreach (value; v.paramNames)
 				writeU30(value);
 		}

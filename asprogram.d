@@ -992,7 +992,7 @@ private final class AStoABC
 						throw new .Exception("Unknown Multiname kind");
 				}
 			bool r = multinames.add(multiname);
-			assert(r);
+			assert(r, "Recursive multiname reference");
 		}
 	}
 
@@ -1091,7 +1091,7 @@ private final class AStoABC
 			visitInstance(vclass.instance);
 
 			bool r = classes.add(vclass);
-			assert(r);
+			assert(r, "Recursive class reference");
 		}
 	}
 
