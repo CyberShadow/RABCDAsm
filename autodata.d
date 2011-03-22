@@ -107,9 +107,6 @@ template RawDataHandlerWrapper()
 
 	template getMixinRecursive(T, string name, string loopDepth)
 	{
-		static if (!hasAliasing!(T))
-			enum getMixinRecursive = getRawMixin!("&" ~ name, name ~ ".sizeof");
-		else
 		static if (is(T U : U[]))
 			enum getMixinRecursive = 
 				"{ bool _AutoDataNullTest = " ~ name ~ " is null; " ~ getRawMixin!("&_AutoDataNullTest", "bool.sizeof") ~ "}" ~
@@ -118,6 +115,9 @@ template RawDataHandlerWrapper()
 				:
 					"foreach (ref _AutoDataArrayItem" ~ loopDepth ~ "; " ~ name ~ ") {" ~ getMixinRecursive!(U, "_AutoDataArrayItem" ~ loopDepth, loopDepth~"Item") ~ "}"
 				);
+		else
+		static if (!hasAliasing!(T))
+			enum getMixinRecursive = getRawMixin!("&" ~ name, name ~ ".sizeof");
 		else
 		static if (is(typeof((new T).toHash())))
 			enum getMixinRecursive = name ~ ".processData!(void, ``, ``)(handler);";
