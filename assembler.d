@@ -212,7 +212,7 @@ final class Assembler
 
 	static bool isWordChar(char c)
 	{
-		return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.'; // TODO: use lookup table?
+		return (c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9') || c == '_' || c == '-' || c == '+' || c == '.';
 	}
 
 	string readWord()
