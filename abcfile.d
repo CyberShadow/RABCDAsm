@@ -207,6 +207,8 @@ class ABCFile
 		Instruction[] instructions;
 		ExceptionInfo[] exceptions;
 		TraitsInfo[] traits;
+
+		string error;
 	}
 
 	/// Destination for a jump or exception block boundary
@@ -1307,12 +1309,13 @@ private final class ABCReader
 			label.offset = absoluteOffset-instructionOffset;
 		}
 
+		size_t start = pos;
+		size_t end = pos + len;
+
+		uint offset() { return pos - start; }
+
+		try
 		{
-			size_t start = pos;
-			size_t end = pos + len;
-
-			uint offset() { return pos - start; }
-
 			instructionAtOffset[] = uint.max;
 			uint[] instructionOffsets;
 			while (pos < end)
@@ -1388,8 +1391,13 @@ private final class ABCReader
 						default:
 							break;
 					}
-			pos = end;
 		}
+		catch (Exception e)
+		{
+			r.instructions = null;
+			r.error = e.msg;
+		}
+		pos = end;
 
 		r.exceptions.length = readU30();
 		foreach (ref value; r.exceptions)

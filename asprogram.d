@@ -259,6 +259,8 @@ final class ASProgram
 		Instruction[] instructions;
 		Exception[] exceptions;
 		Trait[] traits;
+
+		string error;
 	}
 
 	struct Instruction
@@ -577,6 +579,7 @@ private final class ABCtoAS
 			e.varName = multinames[exc.varName];
 		}
 		n.traits = convertTraits(vbody.traits);
+		n.error = vbody.error;
 		return n;
 	}
 

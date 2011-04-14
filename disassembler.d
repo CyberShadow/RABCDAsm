@@ -881,7 +881,16 @@ final class Disassembler
 		// reserve exception labels
 		foreach (ref e; mbody.exceptions)
 			labels[e.from.index] = labels[e.to.index] = labels[e.target.index] = true;
-		dumpInstructions(sb, mbody.instructions, labels);
+
+		sb.indent++;
+		if (mbody.error)
+		{
+			sb ~= "; Error while disassembling method: " ~ mbody.error;
+			sb.newLine();
+		}
+		else
+			dumpInstructions(sb, mbody.instructions, labels);
+		sb.indent--;
 
 		sb ~= "end ; code";
 		sb.newLine();
@@ -906,7 +915,6 @@ final class Disassembler
 
 	void dumpInstructions(StringBuilder sb, ASProgram.Instruction[] instructions, bool[] labels)
 	{
-		sb.indent++;
 		foreach (ref instruction; instructions)
 			foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
 				switch (type)
@@ -1015,7 +1023,6 @@ final class Disassembler
 			sb.newLine();
 		}
 		checkLabel(instructions.length);
-		sb.indent--;
 	}
 }
 
