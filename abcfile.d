@@ -994,7 +994,7 @@ private final class ABCReader
 				value = readMethodBody();
 		}
 		catch (Exception e)
-			throw new Exception(format("Error at %d (0x%X): %s", pos, pos, e), e);
+			throw new Exception(format("Error at %d (0x%X):", pos, pos), e);
 	}
 
 	ubyte readU8()

@@ -1074,24 +1074,14 @@ final class Assembler
 
 		foreach (ref f; jumpFixups)
 		{
-			try
-				instructions[f.ii].arguments[f.ai].jumpTarget = parseLabel(f.name, labels);
-			catch (Exception e)
-			{
-				setFile(f.where.load);
-				throw e;
-			}
+			scope(failure) setFile(f.where.load);
+			instructions[f.ii].arguments[f.ai].jumpTarget = parseLabel(f.name, labels);
 		}
 
 		foreach (ref f; switchFixups)
 		{
-			try
-				instructions[f.ii].arguments[f.ai].switchTargets[f.si] = parseLabel(f.name, labels);
-			catch (Exception e)
-			{
-				setFile(f.where.load);
-				throw e;
-			}
+			scope(failure) setFile(f.where.load);
+			instructions[f.ii].arguments[f.ai].switchTargets[f.si] = parseLabel(f.name, labels);
 		}
 
 		foreach (ref f; localClassFixups)
@@ -1108,13 +1098,8 @@ final class Assembler
 		ABCFile.Label readLabel()
 		{
 			auto word = readWord();
-			try
-				return parseLabel(word, labels);
-			catch (Exception e)
-			{
-				backpedal(word.length);
-				throw e;
-			}
+			scope(failure) backpedal(word.length);
+			return parseLabel(word, labels);
 		}
 
 		ASProgram.Exception e;
@@ -1216,13 +1201,13 @@ final class Assembler
 		}
 		catch (Exception e)
 		{
-			string s = files[0].positionStr ~ ": " ~ e.msg;
+			string s = files[0].positionStr ~ ": ";
 			if (fileCount == -1)
 				s ~= "\n\t(inclusion context unavailable)";
 			else
 				foreach (ref f; files[1..fileCount])
 					s ~= "\n\t(included from " ~ f.positionStr ~ ")";
-			throw new Exception(s);
+			throw new Exception(s, e);
 		}
 
 		classFixups = null;
