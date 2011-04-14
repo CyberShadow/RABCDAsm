@@ -1,10 +1,11 @@
 RABCDAsm Changelog
 ==================
 
-RABCDAsm v1.5 (2011.03.??)
+RABCDAsm v1.5 (2011.04.14)
 --------------------------
 
  * Fixed v1.4 constant pool regression
+ * Added support for memory-access and sign-extend opcodes
  * Speed optimizations
  * Documentation updates
 
