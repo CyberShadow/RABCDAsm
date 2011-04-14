@@ -296,9 +296,9 @@ be instantiated in two ways:
      although variables are defined using a string syntax, they are not 
      inserted as a string using this syntax. Thus, the code:
 
-         #set str "Hello, world!"
-         ...
-         pushstring $str
+        #set str "Hello, world!"
+        ...
+        pushstring $str
 
      will expand to `pushstring Hello, world!`, which will result in an error.
      To correct the problem, add escaped quotes around the variable contents
@@ -384,7 +384,7 @@ RABCDAsm users.
 
 2. If you plan on making non-trivial changes to SWF files, you should install 
    the [debug Flash Player][]. This will allow you to see validation and 
-   run-time error messages, instead of simply getting a blank rectangle.
+   run-time error messages, instead of simply getting an empty window.
 
   [debug Flash Player]: http://www.adobe.com/support/flashplayer/downloads.html
 
@@ -393,19 +393,19 @@ RABCDAsm users.
    placed in the `OnBeforeResponse` function) will automatically save all SWF 
    files while preserving the directory structure.
 
-       if (oSession.oResponse.headers.ExistsAndContains("Content-Type", 
-               "application/x-shockwave-flash")) {
-           // Set desired path here
-           var path:String = "C:\\Temp\\FiddlerCapture\\" + 
-               oSession.host + oSession.PathAndQuery;
-           if (path.Contains('?'))
-               path = path.Substring(0, path.IndexOf('?'));
-           var dir:String = Path.GetDirectoryName(path);
-           if (!Directory.Exists(dir))
-               Directory.CreateDirectory(dir);
-           oSession.utilDecodeResponse();
-           oSession.SaveResponseBody(path);
-       }
+        if (oSession.oResponse.headers.ExistsAndContains("Content-Type",
+                "application/x-shockwave-flash")) {
+            // Set desired path here
+            var path:String = "C:\\Temp\\FiddlerCapture\\" +
+                oSession.host + oSession.PathAndQuery;
+            if (path.Contains('?'))
+                path = path.Substring(0, path.IndexOf('?'));
+            var dir:String = Path.GetDirectoryName(path);
+            if (!Directory.Exists(dir))
+                Directory.CreateDirectory(dir);
+            oSession.utilDecodeResponse();
+            oSession.SaveResponseBody(path);
+        }
 
    Once you have edited a SWF file, you can use Fiddler's [AutoResponder][] to
    replace the original file with your modified version.
