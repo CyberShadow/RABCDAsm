@@ -32,7 +32,7 @@ void main(string[] args)
 	{
 		scope abc = ABCFile.read(cast(ubyte[])read(arg));
 		scope as = ASProgram.fromABC(abc);
-		scope disassembler = new Disassembler(as, getName(getBaseName(arg)));
+		scope disassembler = new Disassembler(as, getName(arg), getName(getBaseName(arg)));
 		disassembler.disassemble();
 	}
 }

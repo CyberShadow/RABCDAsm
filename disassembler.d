@@ -310,16 +310,17 @@ final class RefBuilder : ASTraitsVisitor
 final class Disassembler
 {
 	ASProgram as;
-	string name;
+	string name, dir;
 	RefBuilder refs;
 
 	version (Windows)
 		string[string] filenameMappings;
 
-	this(ASProgram as, string name)
+	this(ASProgram as, string dir, string name)
 	{
 		this.as = as;
 		this.name = name;
+		this.dir = dir;
 	}
 
 	void disassemble()
@@ -327,7 +328,7 @@ final class Disassembler
 		refs = new RefBuilder(as);
 		refs.run();
 
-		StringBuilder sb = new StringBuilder(name ~ "/" ~ name ~ ".main.asasm");
+		StringBuilder sb = new StringBuilder(dir ~ "/" ~ name ~ ".main.asasm");
 
 		sb ~= "#include ";
 		dumpString(sb, name ~ ".privatens.asasm");
@@ -386,7 +387,7 @@ final class Disassembler
 		sb.save();
 
 		// now dump the private namespace indices
-		sb = new StringBuilder(name ~ "/" ~ name ~ ".privatens.asasm");
+		sb = new StringBuilder(dir ~ "/" ~ name ~ ".privatens.asasm");
 		uint[] indices = refs.privateNamespaceNames.keys.sort;
 		foreach (index; indices)
 		{
@@ -786,7 +787,7 @@ final class Disassembler
 			throw new Exception("TODO: nested classes");
 		auto refName = cast(void*)vclass in refs.objName;
 		auto filename = toFileName(refs.getClassName(vclass));
-		StringBuilder sb = new StringBuilder(name ~ "/" ~ filename);
+		StringBuilder sb = new StringBuilder(dir ~ "/" ~ filename);
 		if (refName)
 		{
 			sb ~= "refid ";
