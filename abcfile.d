@@ -1318,6 +1318,7 @@ private final class ABCReader
 			while (pos < end)
 			{
 				uint instructionOffset = offset;
+				scope(failure) pos = start + instructionOffset;
 				instructionAtOffset[instructionOffset] = r.instructions.length;
 				ABCFile.Instruction instruction;
 				instruction.opcode = cast(Opcode)readU8();
