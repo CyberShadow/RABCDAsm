@@ -950,7 +950,7 @@ final class Disassembler
 					sb ~= ' ';
 				foreach (i, type; argTypes)
 				{
-					switch (type)
+					final switch (type)
 					{
 						case OpcodeArgumentType.Unknown:
 							throw new Exception("Don't know how to disassemble OP_" ~ opcodeInfo[instruction.opcode].name);
@@ -1006,9 +1006,6 @@ final class Disassembler
 							}
 							sb ~= ']';
 							break;
-
-						default:
-							assert(0);
 					}
 					if (i < argTypes.length-1)
 						sb ~= ", ";

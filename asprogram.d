@@ -587,7 +587,7 @@ private final class ABCtoAS
 		r.arguments.length = instruction.arguments.length;
 
 		foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
-			switch (type)
+			final switch (type)
 			{
 				case OpcodeArgumentType.Unknown:
 					throw new Exception("Don't know how to convert OP_" ~ opcodeInfo[instruction.opcode].name);
@@ -635,9 +635,6 @@ private final class ABCtoAS
 				case OpcodeArgumentType.SwitchTargets:
 					r.arguments[i].switchTargets = instruction.arguments[i].switchTargets;
 					break;
-
-				default:
-					assert(0);
 			}
 		return r;
 	}
@@ -1100,7 +1097,7 @@ private final class AStoABC
 	{
 		foreach (ref instruction; vbody.instructions)
 			foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
-				switch (type)
+				final switch (type)
 				{
 					case OpcodeArgumentType.Unknown:
 						throw new Exception("Don't know how to visit OP_" ~ opcodeInfo[instruction.opcode].name);
@@ -1139,9 +1136,6 @@ private final class AStoABC
 					case OpcodeArgumentType.SwitchDefaultTarget:
 					case OpcodeArgumentType.SwitchTargets:
 						break;
-
-					default:
-						assert(0);
 				}
 
 		foreach (ref exception; vbody.exceptions)
@@ -1452,7 +1446,7 @@ private final class AStoABC
 		r.arguments.length = instruction.arguments.length;
 
 		foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
-			switch (type)
+			final switch (type)
 			{
 				case OpcodeArgumentType.Unknown:
 					throw new Exception("Don't know how to convert OP_" ~ opcodeInfo[instruction.opcode].name);
@@ -1500,9 +1494,6 @@ private final class AStoABC
 				case OpcodeArgumentType.SwitchTargets:
 					r.arguments[i].switchTargets = instruction.arguments[i].switchTargets;
 					break;
-
-				default:
-					assert(0);
 			}
 		return r;
 	}

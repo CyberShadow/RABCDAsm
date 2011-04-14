@@ -1010,7 +1010,7 @@ final class Assembler
 			instruction.arguments.length = argTypes.length;
 			foreach (i, type; argTypes)
 			{
-				switch (type)
+				final switch (type)
 				{
 					case OpcodeArgumentType.Unknown:
 						throw new Exception("Don't know how to assemble OP_" ~ opcodeInfo[instruction.opcode].name);
@@ -1061,9 +1061,6 @@ final class Assembler
 						foreach (li, s; switchTargetLabels)
 							switchFixups ~= LocalFixup(files[0].position, instructions.length, i, s, li);
 						break;
-
-					default:
-						assert(0);
 				}
 				if (i < argTypes.length-1)
 					expectChar(',');

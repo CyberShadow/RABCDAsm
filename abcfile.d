@@ -1324,7 +1324,7 @@ private final class ABCReader
 				instruction.opcode = cast(Opcode)readU8();
 				instruction.arguments.length = opcodeInfo[instruction.opcode].argumentTypes.length;
 				foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
-					switch (type)
+					final switch (type)
 					{
 						case OpcodeArgumentType.Unknown:
 							throw new Exception("Don't know how to decode OP_" ~ opcodeInfo[instruction.opcode].name);
@@ -1364,9 +1364,6 @@ private final class ABCReader
 							foreach (ref label; instruction.arguments[i].switchTargets)
 								label.absoluteOffset = instructionOffset + readS24();
 							break;
-
-						default:
-							assert(0);
 					}
 				r.instructions ~= instruction;
 				instructionOffsets ~= instructionOffset;
@@ -1774,7 +1771,7 @@ private final class ABCWriter
 					throw new Exception("Mismatching number of arguments");
 
 				foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
-					switch (type)
+					final switch (type)
 					{
 						case OpcodeArgumentType.Unknown:
 							throw new Exception("Don't know how to encode OP_" ~ opcodeInfo[instruction.opcode].name);
@@ -1820,9 +1817,6 @@ private final class ABCWriter
 								writeS24(0);
 							}
 							break;
-
-						default:
-							assert(0);
 					}
 			}
 
