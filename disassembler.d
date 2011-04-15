@@ -22,6 +22,7 @@ import std.file;
 import std.string;
 import std.conv;
 import std.exception;
+import std.algorithm;
 import abcfile;
 import asprogram;
 import autodata;
@@ -540,10 +541,12 @@ final class Disassembler
 
 		// now dump the private namespace indices
 		sb = new StringBuilder(dir ~ "/" ~ name ~ ".privatens.asasm");
-		uint[] indices = refs.privateNamespaceName.keys.sort;
+		uint[] indices = refs.privateNamespaceName.keys;
+		bool alphaSortDelegate(uint a, uint b) { return refs.privateNamespaceName[a] < refs.privateNamespaceName[b]; }
+		sort!alphaSortDelegate(indices);
 		foreach (index; indices)
 		{
-			sb ~= "#privatens " ~ to!string(index) ~ " ";
+			sb ~= format("#privatens %4d ", index);
 			dumpString(sb, refs.privateNamespaceName[index]);
 			sb.newLine();
 		}
