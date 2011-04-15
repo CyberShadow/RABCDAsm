@@ -249,10 +249,27 @@ final class RefBuilder : ASTraitsVisitor
 		if (uninteresting(c1)) return c2;
 		if (uninteresting(c2)) return c1;
 
+		static bool nsSimilar(ASProgram.Namespace ns1, ASProgram.Namespace ns2)
+		{
+			if (ns1.kind==ASType.PrivateNamespace || ns2.kind==ASType.PrivateNamespace)
+				return ns1.kind==ns2.kind && ns1.privateIndex==ns2.privateIndex;
+			// ignore ns kind in other cases
+			return ns1.name == ns2.name;
+		}
+
+		static bool similar(ref ContextItem i1, ref ContextItem i2)
+		{
+			if (i1.type != i2.type) return false;
+			if (i1.type == ContextItem.Type.String)
+				return i1.str == i2.str;
+			if (i1.multiname.vQName.name != i2.multiname.vQName.name) return false;
+			return nsSimilar(i1.multiname.vQName.ns, i2.multiname.vQName.ns);
+		}
+
 		int i=0;
-		while (i<c1.length && i<c2.length && c1[i]==c2[i]) i++;
+		while (i<c1.length && i<c2.length && similar(c1[i], c2[i])) i++;
 		auto c = c1[0..i];
-		if (i<c1.length && i<c2.length && c1[i].type==ContextItem.Type.Multiname && c2[i].type==ContextItem.Type.Multiname && c1[i].multiname.vQName.ns == c2[i].multiname.vQName.ns && c1[i].multiname.vQName.ns.name.length)
+		if (i<c1.length && i<c2.length && c1[i].type==ContextItem.Type.Multiname && c2[i].type==ContextItem.Type.Multiname && nsSimilar(c1[i].multiname.vQName.ns, c2[i].multiname.vQName.ns) && c1[i].multiname.vQName.ns.name.length)
 		{
 			auto m = new ASProgram.Multiname;
 			m.kind = ASType.QName;
