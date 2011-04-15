@@ -299,7 +299,7 @@ final class RefBuilder : ASTraitsVisitor
 		if (ns.kind == ASType.PrivateNamespace)
 		{
 			assert(context.length > 0, "No context");
-			assert(ns.name is null, "Named private namespace");
+			//assert(ns.name is null, "Named private namespace");
 
 			int myPos = context.length;
 			foreach (i, ref item; context)
