@@ -42,7 +42,6 @@ RABCDAsm v1.1 (2010.06.30)
 
  * Private namespaces are now referenced by auto-generated names
  * Use `:` to delimit namespace and name in QNames for consistency
-    * Warning: this breaks compatibility with v1.0 disassemblies
  * Fixed relative include paths
  * Add optional byte offsets to labels, which allows lossless representation
    of jumps inside instructions and outside the function bounds
