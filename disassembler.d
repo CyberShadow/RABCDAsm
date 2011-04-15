@@ -112,16 +112,7 @@ final class RefBuilder : ASTraitsVisitor
 			{
 			case Type.Multiname:
 				assert(multiname.kind == ASType.QName);
-
-				string nsName;
-				if (multiname.vQName.ns.kind == ASType.PrivateNamespace)
-				{
-					auto pcontext = multiname.vQName.ns.privateIndex in refs.privateNamespaceContext;
-					assert(pcontext, "Stringifying unknown private namespace");
-					nsName = refs.contextToString(*pcontext);
-				}
-				else
-					nsName = multiname.vQName.ns.name;
+				string nsName = refs.namespaceToString(multiname.vQName.ns);
 
 				if (nsName.length)
 					if (multiname.vQName.name.length)
@@ -275,6 +266,18 @@ final class RefBuilder : ASTraitsVisitor
 	ContextItem[][uint] privateNamespaceContext;
 	string[uint] privateNamespaceName;
 
+	string namespaceToString(ASProgram.Namespace ns)
+	{
+		if (ns.kind == ASType.PrivateNamespace)
+		{
+			auto pcontext = ns.privateIndex in privateNamespaceContext;
+			assert(pcontext, "Stringifying unknown private namespace");
+			return contextToString(*pcontext);
+		}
+		else
+			return ns.name;
+	}
+
 	void finalizePrivateNamespaceNames()
 	{
 		bool[string] nameTaken;
@@ -381,7 +384,7 @@ final class RefBuilder : ASTraitsVisitor
 		    context[1].type==ContextItem.Type.Multiname &&
 		//  context[1].multiname.kind==ASType.QName &&
 		//  context[1].multiname.vQName.ns.kind==ASType.ProtectedNamespace &&
-		    context[1].multiname.vQName.ns.name == context[0].multiname.vQName.ns.name ~ ":" ~ context[0].multiname.vQName.name)
+		    namespaceToString(context[1].multiname.vQName.ns) == namespaceToString(context[0].multiname.vQName.ns) ~ ":" ~ context[0].multiname.vQName.name)
 			strings[1] = context[1].multiname.vQName.name;
 		else
 		if (context.length>=2 &&
@@ -391,7 +394,7 @@ final class RefBuilder : ASTraitsVisitor
 		    context[1].type==ContextItem.Type.Multiname &&
 		//  context[1].multiname.kind==ASType.QName &&
 		//  context[1].multiname.vQName.ns.kind==ASType.PackageInternalNs &&
-		    context[1].multiname.vQName.ns.name == context[0].multiname.vQName.ns.name)
+		    namespaceToString(context[1].multiname.vQName.ns) == namespaceToString(context[0].multiname.vQName.ns))
 			strings[1] = context[1].multiname.vQName.name;
 
 		char[] s = join(strings, "/").dup;
