@@ -24,6 +24,7 @@ import std.conv;
 import std.exception;
 import abcfile;
 import asprogram;
+import autodata;
 
 final class StringBuilder
 {
@@ -93,14 +94,85 @@ final class StringBuilder
 
 final class RefBuilder : ASTraitsVisitor
 {
-	string[void*] objName;
-	ASProgram.Class[string] classByName;
-	ASProgram.Method[string] methodByName;
+	struct ContextItem
+	{
+		enum Type { Multiname, String }
+		Type type;
 
-	string[uint] privateNamespaceNames;
-	uint[string] privateNamespaceByName;
+		union
+		{
+			ASProgram.Multiname multiname;
+			string str;
+		}
 
-	ASProgram.Multiname[] context;
+		string getString(RefBuilder refs)
+		{
+			final switch(type)
+			{
+			case Type.Multiname:
+				assert(multiname.kind == ASType.QName);
+
+				string nsName;
+				if (multiname.vQName.ns.kind == ASType.PrivateNamespace)
+				{
+					auto pcontext = multiname.vQName.ns.privateIndex in refs.privateNamespaceContext;
+					assert(pcontext, "Stringifying unknown private namespace");
+					nsName = refs.contextToString(*pcontext);
+				}
+				else
+					nsName = multiname.vQName.ns.name;
+
+				if (nsName.length)
+					if (multiname.vQName.name.length)
+						return nsName ~ ":" ~ multiname.vQName.name;
+					else
+						return nsName;
+				else
+					if (multiname.vQName.name.length)
+						return multiname.vQName.name;
+					else
+						assert(0);
+			case Type.String:
+				return str;
+			}
+		}
+
+		this(ASProgram.Multiname m)
+		{
+			this.type = Type.Multiname;
+			this.multiname = m;
+		}
+
+		this(string s)
+		{
+			this.type = Type.String;
+			this.str = s;
+		}
+
+		mixin AutoCompare;
+		mixin AutoToString;
+
+		R processData(R, string prolog, string epilog, H)(ref H handler) const
+		{
+			mixin(prolog);
+			mixin(addAutoField("type"));
+			final switch (type)
+			{
+			case Type.Multiname:
+				mixin(addAutoField("multiname"));
+				break;
+			case Type.String:
+				mixin(addAutoField("str"));
+				break;
+			}
+			mixin(epilog);
+		}
+	}
+
+	ContextItem[] context; // potential optimization: use array-based stack
+
+	void pushContext(T)(T v) { context ~= ContextItem(v); }
+	void popContext() { context = context[0..$-1]; }
 
 	this(ASProgram as)
 	{
@@ -110,12 +182,29 @@ final class RefBuilder : ASTraitsVisitor
 	override void run()
 	{
 		foreach (i, ref v; as.scripts)
-			addMethod(v.sinit, "script" ~ to!string(i) ~ "_sinit");
-		foreach (vclass; as.orphanClasses)
-			addClass(vclass, "orphan");
-		foreach (method; as.orphanMethods)
-			addMethod(method, "orphan");
+		{
+			pushContext("script_" ~ to!string(i));
+			pushContext("sinit");
+			addMethod(v.sinit);
+			popContext();
+			popContext();
+		}
+		foreach (i, vclass; as.orphanClasses)
+		{
+			pushContext("orphan_class_" ~ to!string(i));
+			addClass(vclass);
+			popContext();
+		}
+		foreach (i, method; as.orphanMethods)
+		{
+			pushContext("orphan_method_" ~ to!string(i));
+			addMethod(method);
+			popContext();
+		}
 		super.run();
+
+		finalizePrivateNamespaceNames();
+		finalizeObjectNames();
 	}
 
 	override void visitTrait(ref ASProgram.Trait trait)
@@ -125,9 +214,8 @@ final class RefBuilder : ASTraitsVisitor
 		if (m.kind != ASType.QName)
 			throw new Exception("Trait name is not a QName");
 		
+		pushContext(m);
 		visitMultiname(m);
-		
-		context ~= m;
 		switch (trait.kind)
 		{
 			case TraitKind.Class:
@@ -140,45 +228,92 @@ final class RefBuilder : ASTraitsVisitor
 				addMethod(trait.vMethod.vmethod);
 				break;
 			case TraitKind.Getter:
-				addMethod(trait.vMethod.vmethod, "getter");
+				pushContext("getter");
+				addMethod(trait.vMethod.vmethod);
+				popContext();
 				break;
 			case TraitKind.Setter:
-				addMethod(trait.vMethod.vmethod, "setter");
+				pushContext("setter");
+				addMethod(trait.vMethod.vmethod);
+				popContext();
 				break;
 			default:
 				break;
 		}
 		super.visitTrait(trait);
-		context = context[0..$-1];
+		popContext();
 	}
 
-	string addPrivateNamespace(uint index, string bname)
+	static ContextItem[] contextRoot(ContextItem[] c1, ContextItem[] c2)
 	{
-		string name = bname;
+		static bool uninteresting(ContextItem[] c)
 		{
+			return
+				(c.length==2 && c[0].type==ContextItem.Type.String && c[0].str.startsWith("script_") && c[1].type==ContextItem.Type.String && c[1].str == "sinit") ||
+				(c.length==1 && c[0].type==ContextItem.Type.String && c[0].str.startsWith("orphan_method_")) ||
+				false;
+		}
+
+		if (uninteresting(c1)) return c2;
+		if (uninteresting(c2)) return c1;
+
+		int i=0;
+		while (i<c1.length && i<c2.length && c1[i]==c2[i]) i++;
+		auto c = c1[0..i];
+		if (i<c1.length && i<c2.length && c1[i].type==ContextItem.Type.Multiname && c2[i].type==ContextItem.Type.Multiname && c1[i].multiname.vQName.ns == c2[i].multiname.vQName.ns && c1[i].multiname.vQName.ns.name.length)
+		{
+			auto m = new ASProgram.Multiname;
+			m.kind = ASType.QName;
+			m.vQName.ns = c1[i].multiname.vQName.ns;
+			c ~= ContextItem(m);
+		}
+		assert(c.length, format("Can't find common private namespace root between ", c1, " and ", c2));
+		return c;
+	}
+
+	ContextItem[][uint] privateNamespaceContext;
+	string[uint] privateNamespaceName;
+
+	void finalizePrivateNamespaceNames()
+	{
+		bool[string] nameTaken;
+		foreach (index; privateNamespaceContext.keys.sort)
+		{
+			auto context = privateNamespaceContext[index];
+			auto bname = contextToString(context);
+			auto name = bname;
 			int n = 0;
-			uint* pindex;
-			while ((pindex = name in privateNamespaceByName) !is null && *pindex != index)
-				name = bname ~ to!string(++n);
+			while (name in nameTaken)
+				name = bname ~ '#' ~ to!string(++n);
+			privateNamespaceName[index] = name;
+			nameTaken[name] = true;
 		}
-		auto pname = index in privateNamespaceNames;
-		if (pname)
-		{
-			if (*pname != name)
-				throw new Exception("Ambiguous private namespace: " ~ *pname ~ " and " ~ name);
-		}
-		else
-		{
-			privateNamespaceNames[index] = name;
-			privateNamespaceByName[name] = index;
-		}
-		return name;
 	}
 
 	void visitNamespace(ASProgram.Namespace ns)
 	{
-		if (ns.kind == ASType.PrivateNamespace && context.length>0 && context[0].vQName.ns.kind != ASType.PrivateNamespace)
-			addPrivateNamespace(ns.privateIndex, qNameToString(context[0]));
+		if (ns.kind == ASType.PrivateNamespace)
+		{
+			assert(context.length > 0, "No context");
+			assert(ns.name is null, "Named private namespace");
+
+			int myPos = context.length;
+			foreach (i, ref item; context)
+				if (item.type == ContextItem.Type.Multiname && item.multiname.vQName.ns == ns)
+				{
+					myPos = i;
+					break;
+				}
+			if (myPos == 0)
+				return;
+			auto myContext = context[0..myPos].dup;
+
+			auto pexisting = ns.privateIndex in privateNamespaceContext;
+			if (pexisting)
+				privateNamespaceContext[ns.privateIndex] = contextRoot(*pexisting, myContext);
+			else
+				privateNamespaceContext[ns.privateIndex] = myContext;
+		}
 	}
 
 	void visitNamespaceSet(ASProgram.Namespace[] nsSet)
@@ -231,19 +366,33 @@ final class RefBuilder : ASTraitsVisitor
 				}
 	}
 
-	static string qNameToString(ASProgram.Multiname m)
+	string contextToString(ContextItem[] context)
 	{
-		assert(m.kind == ASType.QName);
-		return (m.vQName.ns.name.length ? m.vQName.ns.name ~ ":" : "") ~ m.vQName.name;
-	}
+		string[] strings = new string[context.length];
+		foreach (i, c; context)
+			strings[i] = c.getString(this);
 
-	string contextToString(string field)
-	{
-		string[] strings = new string[context.length + (field ? 1 : 0)];
-		foreach (i, m; context)
-			strings[i] = qNameToString(m);
-		if (field)
-			strings[$-1] = field;
+		// omit some repeating segments
+		if (context.length>=2 &&
+		    context[0].type==ContextItem.Type.Multiname &&
+		//  context[0].multiname.kind==ASType.QName &&
+		//  context[0].multiname.vQName.ns.kind==ASType.PackageNamespace &&
+		    context[1].type==ContextItem.Type.Multiname &&
+		//  context[1].multiname.kind==ASType.QName &&
+		//  context[1].multiname.vQName.ns.kind==ASType.ProtectedNamespace &&
+		    context[1].multiname.vQName.ns.name == context[0].multiname.vQName.ns.name ~ ":" ~ context[0].multiname.vQName.name)
+			strings[1] = context[1].multiname.vQName.name;
+		else
+		if (context.length>=2 &&
+		    context[0].type==ContextItem.Type.Multiname &&
+		//  context[0].multiname.kind==ASType.QName &&
+		//  context[0].multiname.vQName.ns.kind==ASType.PackageNamespace &&
+		    context[1].type==ContextItem.Type.Multiname &&
+		//  context[1].multiname.kind==ASType.QName &&
+		//  context[1].multiname.vQName.ns.kind==ASType.PackageInternalNs &&
+		    context[1].multiname.vQName.ns.name == context[0].multiname.vQName.ns.name)
+			strings[1] = context[1].multiname.vQName.name;
+
 		char[] s = join(strings, "/").dup;
 		foreach (ref c; s)
 			if (c < 0x20 || c == '"')
@@ -251,59 +400,62 @@ final class RefBuilder : ASTraitsVisitor
 		return assumeUnique(s);
 	}
 
-	string addObject(T)(T obj, ref T[string] objByName, string field)
+	string[void*] objName;
+	ContextItem[][void*] objContext;
+
+	void finalizeObjectNames()
 	{
-		auto name = contextToString(field);
-		auto uniqueName = name;
-		int i = 1;
-		while (uniqueName in objByName)
-			uniqueName = name ~ "_" ~ to!string(++i);
-		objByName[uniqueName] = obj;
-		objName[cast(void*)obj] = uniqueName;
-		return uniqueName;
+		bool[string] nameTaken;
+		foreach (obj; objContext.keys.sort)
+		{
+			auto context = objContext[obj];
+			auto bname = contextToString(context);
+			auto name = bname;
+			int n = 0;
+			while (name in nameTaken)
+				name = bname ~ '#' ~ to!string(++n);
+			objName[obj] = name;
+			nameTaken[name] = true;
+		}
 	}
 
-	void addClass(ASProgram.Class vclass, string field = null)
+	void addObject(T)(T obj)
 	{
-		addObject(vclass, classByName, field);
-		addMethod(vclass.cinit, "cinit");
-		addMethod(vclass.instance.iinit, "iinit");
+		auto p = cast(void*)obj;
+		enforce(p !in objContext, "Duplicate object reference");
+		objContext[p] = context.dup;
 	}
 
-	void addMethod(ASProgram.Method method, string field = null)
+	void addClass(ASProgram.Class vclass)
 	{
-		addObject(method, methodByName, field);
+		addObject(vclass);
+		pushContext("cinit");
+		addMethod(vclass.cinit);
+		popContext();
+		pushContext("iinit");
+		addMethod(vclass.instance.iinit);
+		popContext();
+	}
+
+	void addMethod(ASProgram.Method method)
+	{
+		addObject(method);
 		if (method.vbody)
 			visitMethodBody(method.vbody);
 	}
 
-	string getObjectName(T)(T obj, ref T[string] objByName)
+	string getObjectName(T)(T obj)
 	{
 		auto pname = cast(void*)obj in objName;
-		if (pname)
-			return *pname;
-		else
-			return addObject(obj, objByName, "orphan");
-	}
-
-	string getClassName(ASProgram.Class vclass)
-	{
-		return getObjectName(vclass, classByName);
-	}
-
-	string getMethodName(ASProgram.Method method)
-	{
-		return getObjectName(method, methodByName);
+		assert(pname, "Unscanned object");
+		return *pname;
 	}
 
 	string getPrivateNamespaceName(uint index)
 	{
-		auto pname = index in privateNamespaceNames;
-		if (pname)
-			return *pname;
-		else
-			//throw new Exception("Nameless private namespace: " ~ to!string(index));
-			return addPrivateNamespace(index, "OrphanPrivateNamespace");
+		auto pname = index in privateNamespaceName;
+		assert(pname, "Unscanned private namespace: " ~ to!string(index));
+		return *pname;
 	}
 }
 
@@ -388,11 +540,11 @@ final class Disassembler
 
 		// now dump the private namespace indices
 		sb = new StringBuilder(dir ~ "/" ~ name ~ ".privatens.asasm");
-		uint[] indices = refs.privateNamespaceNames.keys.sort;
+		uint[] indices = refs.privateNamespaceName.keys.sort;
 		foreach (index; indices)
 		{
 			sb ~= "#privatens " ~ to!string(index) ~ " ";
-			dumpString(sb, refs.privateNamespaceNames[index]);
+			dumpString(sb, refs.privateNamespaceName[index]);
 			sb.newLine();
 		}
 		sb.save();
@@ -711,11 +863,11 @@ final class Disassembler
 			dumpString(sb, method.name);
 			sb.newLine();
 		}
-		auto refName = cast(void*)method in refs.objName;
+		auto refName = refs.getObjectName(method);
 		if (refName)
 		{
 			sb ~= "refid ";
-			dumpString(sb, *refName);
+			dumpString(sb, refName);
 			sb.newLine();
 		}
 		foreach (m; method.paramTypes)
@@ -785,13 +937,13 @@ final class Disassembler
 	{
 		if (mainsb.filename.split("/").length != 2)
 			throw new Exception("TODO: nested classes");
-		auto refName = cast(void*)vclass in refs.objName;
-		auto filename = toFileName(refs.getClassName(vclass));
+		auto refName = refs.getObjectName(vclass);
+		auto filename = toFileName(refName);
 		StringBuilder sb = new StringBuilder(dir ~ "/" ~ filename);
 		if (refName)
 		{
 			sb ~= "refid ";
-			dumpString(sb, *refName);
+			dumpString(sb, refName);
 			sb.newLine();
 		}
 		sb ~= "instance ";
@@ -993,10 +1145,10 @@ final class Disassembler
 							dumpMultiname(sb, instruction.arguments[i].multinamev);
 							break;
 						case OpcodeArgumentType.Class:
-							dumpString(sb, refs.getClassName(instruction.arguments[i].classv));
+							dumpString(sb, refs.getObjectName(instruction.arguments[i].classv));
 							break;
 						case OpcodeArgumentType.Method:
-							dumpString(sb, refs.getMethodName(instruction.arguments[i].methodv));
+							dumpString(sb, refs.getObjectName(instruction.arguments[i].methodv));
 							break;
 
 						case OpcodeArgumentType.JumpTarget:

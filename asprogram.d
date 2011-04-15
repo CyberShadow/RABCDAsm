@@ -43,6 +43,7 @@ final class ASProgram
 		uint privateIndex; // unique index for private namespaces
 
 		mixin AutoCompare;
+		mixin AutoToString;
 		mixin ProcessAllData;
 	}
 

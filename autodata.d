@@ -77,7 +77,7 @@ template AutoToString()
 	static if (is(typeof(this)==class))
 		override string toString() { return _AutoDataToString(); }
 	else // struct
-	    string toString() const { return _AutoDataToString(); }
+	    string toString() { return _AutoDataToString(); }
 
 	string _AutoDataToString() const
 	{
@@ -119,7 +119,7 @@ template RawDataHandlerWrapper()
 		static if (!hasAliasing!(T))
 			enum getMixinRecursive = getRawMixin!("&" ~ name, name ~ ".sizeof");
 		else
-		static if (is(typeof((new T).toHash())))
+		static if (is(typeof(this)==struct) || is(typeof(this)==class))
 			enum getMixinRecursive = name ~ ".processData!(void, ``, ``)(handler);";
 		else
 			static assert(0, "Don't know how to process type: " ~ T.stringof);
