@@ -171,8 +171,18 @@ final class RefBuilder : ASTraitsVisitor
 		super(as);
 	}
 
+	bool[void*] orphans;
+	void addOrphan(T)(T obj) { orphans[cast(void*)obj] = true; }
+	bool isOrphan(T)(T obj) { return (cast(void*)obj in orphans) ? true : false; }
+
 	override void run()
 	{
+		foreach (i, vclass; as.orphanClasses)
+			addOrphan(vclass);
+		foreach (i, method; as.orphanMethods)
+			addOrphan(method);
+
+		super.run();
 		foreach (i, ref v; as.scripts)
 		{
 			pushContext("script_" ~ to!string(i));
@@ -182,18 +192,19 @@ final class RefBuilder : ASTraitsVisitor
 			popContext();
 		}
 		foreach (i, vclass; as.orphanClasses)
-		{
-			pushContext("orphan_class_" ~ to!string(i));
-			addClass(vclass);
-			popContext();
-		}
+			if (!objectAdded(vclass))
+			{
+				pushContext("orphan_class_" ~ to!string(i));
+				addClass(vclass);
+				popContext();
+			}
 		foreach (i, method; as.orphanMethods)
-		{
-			pushContext("orphan_method_" ~ to!string(i));
-			addMethod(method);
-			popContext();
-		}
-		super.run();
+			if (!objectAdded(method))
+			{
+				pushContext("orphan_method_" ~ to!string(i));
+				addMethod(method);
+				popContext();
+			}
 
 		finalizePrivateNamespaceNames();
 		finalizeObjectNames();
@@ -382,6 +393,18 @@ final class RefBuilder : ASTraitsVisitor
 					case OpcodeArgumentType.Multiname:
 						visitMultiname(instruction.arguments[i].multinamev);
 						break;
+					case OpcodeArgumentType.Class:
+						pushContext("inline_class");
+						if (isOrphan(instruction.arguments[i].classv))
+							addClass(instruction.arguments[i].classv);
+						popContext();
+						break;
+					case OpcodeArgumentType.Method:
+						pushContext("inline_method");
+						if (isOrphan(instruction.arguments[i].methodv))
+							addMethod(instruction.arguments[i].methodv);
+						popContext();
+						break;
 					default:
 						break;
 				}
@@ -422,14 +445,14 @@ final class RefBuilder : ASTraitsVisitor
 	}
 
 	string[void*] objName;
-	ContextItem[][void*] objContext;
+	ContextItem[][void*] objLocation;
 
 	void finalizeObjectNames()
 	{
 		bool[string] nameTaken;
-		foreach (obj; objContext.keys.sort)
+		foreach (obj; objLocation.keys.sort)
 		{
-			auto context = objContext[obj];
+			auto context = objLocation[obj];
 			auto bname = contextToString(context);
 			auto name = bname;
 			int n = 0;
@@ -443,9 +466,11 @@ final class RefBuilder : ASTraitsVisitor
 	void addObject(T)(T obj)
 	{
 		auto p = cast(void*)obj;
-		enforce(p !in objContext, "Duplicate object reference");
-		objContext[p] = context.dup;
+		enforce(p !in objLocation, "Duplicate object reference: " ~ contextToString(objLocation[p]) ~ " and " ~ contextToString(context));
+		objLocation[p] = context.dup;
 	}
+
+	bool objectAdded(T)(T obj) { return (cast(void*)obj in objLocation) ? true : false; }
 
 	void addClass(ASProgram.Class vclass)
 	{
@@ -489,6 +514,52 @@ final class Disassembler
 	version (Windows)
 		string[string] filenameMappings;
 
+	void newInclude(StringBuilder mainsb, string filename, void delegate(StringBuilder) callback)
+	{
+		if (mainsb.filename.split("/").length != 2)
+			throw new Exception("TODO");
+		StringBuilder sb = new StringBuilder(dir ~ "/" ~ filename);
+		callback(sb);
+		sb.save();
+
+		mainsb ~= "#include ";
+		dumpString(mainsb, filename);
+		mainsb.newLine();
+	}
+
+	string toFileName(string refid)
+	{
+		char[] buf = refid.dup;
+		foreach (ref c; buf)
+			if (c == '.' || c == ':')
+				c = '/';
+			else
+			if (c == '\\' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|')
+				c = '_';
+		string filename = assumeUnique(buf);
+
+		version (Windows)
+		{
+			string[] dirSegments = split(filename, "/");
+			for (int l=0; l<dirSegments.length; l++)
+			{
+			again:
+				string subpath = join(dirSegments[0..l+1], "/");
+				string subpathl = tolower(subpath);
+				string* canonicalp = subpathl in filenameMappings;
+				if (canonicalp && *canonicalp != subpath)
+				{
+					dirSegments[l] = dirSegments[l] ~ "_"; // not ~=
+					goto again;
+				}
+				filenameMappings[subpathl] = subpath;
+			}
+			filename = join(dirSegments, "/");
+		}
+
+		return filename ~ ".asasm";
+	}
+
 	this(ASProgram as, string dir, string name)
 	{
 		this.as = as;
@@ -526,32 +597,28 @@ final class Disassembler
 
 		if (as.orphanClasses.length)
 		{
-			sb.newLine();
-			sb ~= "; ===========================================================================";
+			sb ~= "; ============================= Orphan classes ==============================";
 			sb.newLine();
 			sb.newLine();
 
 			foreach (i, vclass; as.orphanClasses)
-			{
-				sb ~= "class";
 				dumpClass(sb, vclass);
-				sb.newLine();
-			}
+
+			sb.newLine();
 		}
 
 		if (as.orphanMethods.length)
 		{
-			sb.newLine();
-			sb ~= "; ===========================================================================";
+			sb ~= "; ============================= Orphan methods ==============================";
 			sb.newLine();
 			sb.newLine();
 
 			foreach (i, method; as.orphanMethods)
-			{
-				sb ~= "method";
-				dumpMethod(sb, method);
-				sb.newLine();
-			}
+				newInclude(sb, toFileName(refs.getObjectName(method)), (StringBuilder sb) {
+					dumpMethod(sb, method, "method");
+				});
+
+			sb.newLine();
 		}
 
 		sb.indent--;
@@ -771,7 +838,6 @@ final class Disassembler
 						dumpUInt(sb, trait.vClass.slotId);
 					}
 					sb.indent++; sb.newLine();
-					sb ~= "class";
 					dumpClass(sb, trait.vClass.vclass);
 					break;
 				case TraitKind.Function:
@@ -781,8 +847,7 @@ final class Disassembler
 						dumpUInt(sb, trait.vFunction.slotId);
 					}
 					sb.indent++; sb.newLine();
-					sb ~= "method";
-					dumpMethod(sb, trait.vFunction.vfunction);
+					dumpMethod(sb, trait.vFunction.vfunction, "method");
 					break;
 				case TraitKind.Method:
 				case TraitKind.Getter:
@@ -793,8 +858,7 @@ final class Disassembler
 						dumpUInt(sb, trait.vMethod.dispId);
 					}
 					sb.indent++; sb.newLine();
-					sb ~= "method";
-					dumpMethod(sb, trait.vMethod.vmethod);
+					dumpMethod(sb, trait.vMethod.vmethod, "method");
 					break;
 				default:
 					throw new Exception("Unknown trait kind");
@@ -890,8 +954,9 @@ final class Disassembler
 		}
 	}
 
-	void dumpMethod(StringBuilder sb, ASProgram.Method method)
+	void dumpMethod(StringBuilder sb, ASProgram.Method method, string label)
 	{
+		sb ~= label;
 		sb.indent++; sb.newLine();
 		if (method.name !is null)
 		{
@@ -936,64 +1001,25 @@ final class Disassembler
 		sb.indent--; sb ~= "end ; method"; sb.newLine();
 	}
 
-	string toFileName(string refid)
-	{
-		char[] buf = refid.dup;
-		foreach (ref c; buf)
-			if (c == '.' || c == ':')
-				c = '/';
-			else
-			if (c == '\\' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|')
-				c = '_';
-		string filename = assumeUnique(buf);
-
-		version (Windows)
-		{
-			string[] dirSegments = split(filename, "/");
-			for (int l=0; l<dirSegments.length; l++)
-			{
-			again:	
-				string subpath = join(dirSegments[0..l+1], "/");
-				string subpathl = tolower(subpath);
-				string* canonicalp = subpathl in filenameMappings;
-				if (canonicalp && *canonicalp != subpath)
-				{
-					dirSegments[l] = dirSegments[l] ~ "_"; // not ~=
-					goto again;
-				}
-				filenameMappings[subpathl] = subpath;
-			}
-			filename = join(dirSegments, "/");
-		}
-
-		return filename ~ ".asasm";
-	}
-
 	void dumpClass(StringBuilder mainsb, ASProgram.Class vclass)
 	{
-		if (mainsb.filename.split("/").length != 2)
-			throw new Exception("TODO: nested classes");
 		auto refName = refs.getObjectName(vclass);
-		auto filename = toFileName(refName);
-		StringBuilder sb = new StringBuilder(dir ~ "/" ~ filename);
-		if (refName)
-		{
-			sb ~= "refid ";
-			dumpString(sb, refName);
-			sb.newLine();
-		}
-		sb ~= "instance ";
-		dumpInstance(sb, vclass.instance);
-		sb ~= "cinit"; dumpMethod(sb, vclass.cinit);
-		dumpTraits(sb, vclass.traits);
+		newInclude(mainsb, toFileName(refName), (StringBuilder sb) {
+			sb ~= "class"; sb.indent++; sb.newLine();
 
-		sb.save();
+			if (refName)
+			{
+				sb ~= "refid ";
+				dumpString(sb, refName);
+				sb.newLine();
+			}
+			sb ~= "instance ";
+			dumpInstance(sb, vclass.instance);
+			dumpMethod(sb, vclass.cinit, "cinit");
+			dumpTraits(sb, vclass.traits);
 
-		mainsb.indent++; mainsb.newLine();
-		mainsb ~= "#include ";
-		dumpString(mainsb, filename);
-		mainsb.newLine();
-		mainsb.indent--; mainsb ~= "end ; class"; mainsb.newLine();
+			sb.indent--; sb ~= "end ; class"; sb.newLine();
+		});
 	}
 
 	void dumpInstance(StringBuilder sb, ASProgram.Instance instance)
@@ -1019,7 +1045,7 @@ final class Disassembler
 			dumpNamespace(sb, instance.protectedNs);
 			sb.newLine();
 		}
-		sb ~= "iinit"; dumpMethod(sb, instance.iinit);
+		dumpMethod(sb, instance.iinit, "iinit");
 		dumpTraits(sb, instance.traits);
 		sb.indent--; sb ~= "end ; instance"; sb.newLine();
 	}
@@ -1029,7 +1055,7 @@ final class Disassembler
 		sb ~= "script ; ";
 		sb ~= to!string(index);
 		sb.indent++; sb.newLine();
-		sb ~= "sinit"; dumpMethod(sb, script.sinit);
+		dumpMethod(sb, script.sinit, "sinit");
 		dumpTraits(sb, script.traits);
 		sb.indent--; sb ~= "end ; script"; sb.newLine();
 	}
