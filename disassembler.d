@@ -566,6 +566,19 @@ final class Disassembler
 		sort!alphaSortDelegate(indices);
 		foreach (index; indices)
 		{
+			sb ~= "; ";
+			auto context = refs.privateNamespaceContext[index];
+			foreach (i, c; context)
+			{
+				if (c.type == RefBuilder.ContextItem.Type.Multiname)
+					dumpMultiname(sb, c.multiname);
+				else
+					sb ~= c.str;
+				if (i < context.length-1)
+					sb ~= " -> ";
+			}
+			sb.newLine();
+
 			sb ~= format("#privatens %4d ", index);
 			dumpString(sb, refs.privateNamespaceName[index]);
 			sb.newLine();
