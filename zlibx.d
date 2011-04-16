@@ -13,7 +13,7 @@ ubyte[] exactUncompress(ubyte[] srcbuf, size_t destlen)
 
 	auto destbuf = new ubyte[destlen];
 	uint err;
-		
+
 	zs.next_in = srcbuf.ptr;
 	zs.avail_in = srcbuf.length;
 
@@ -37,7 +37,7 @@ ubyte[] exactUncompress(ubyte[] srcbuf, size_t destlen)
 	}
 	if (zs.avail_out != 0)
 		throw new Exception("Too little data in stream");
-	
+
 	err = etc.c.zlib.inflateEnd(&zs);
 	if (err != Z_OK)
 		goto Lerr;

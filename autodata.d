@@ -77,7 +77,7 @@ template AutoToString()
 	static if (is(typeof(this)==class))
 		override string toString() { return _AutoDataToString(); }
 	else // struct
-	    string toString() { return _AutoDataToString(); }
+		string toString() { return _AutoDataToString(); }
 
 	string _AutoDataToString() const
 	{
@@ -108,7 +108,7 @@ template RawDataHandlerWrapper()
 	template getMixinRecursive(T, string name, string loopDepth)
 	{
 		static if (is(T U : U[]))
-			enum getMixinRecursive = 
+			enum getMixinRecursive =
 				"{ bool _AutoDataNullTest = " ~ name ~ " is null; " ~ getRawMixin!("&_AutoDataNullTest", "bool.sizeof") ~ "}" ~
 				(!hasAliasing!(U) ?
 					getRawMixin!(name ~ ".ptr", name ~ ".length")
@@ -182,7 +182,7 @@ struct CmpDataHandler(O)
 		static if (is(typeof(T.opCmp)))
 			enum dataCode = "{ int _AutoDataCmp = this." ~ name ~ ".opCmp(_AutoDataOther." ~ name ~ "); if (_AutoDataCmp != 0) return " ~ reverseStr ~ "_AutoDataCmp; }";
 		else
-			enum dataCode = "if (this." ~ name ~ " < _AutoDataOther." ~ name ~ ") return " ~ reverseStr ~ "(-1);" ~ 
+			enum dataCode = "if (this." ~ name ~ " < _AutoDataOther." ~ name ~ ") return " ~ reverseStr ~ "(-1);" ~
 			                "if (this." ~ name ~ " > _AutoDataOther." ~ name ~ ") return " ~ reverseStr ~ "( 1);";
 		enum code = arrCode ~ dataCode;
 	}

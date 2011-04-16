@@ -54,7 +54,7 @@ final class Assembler
 		{
 			return fromFile(filename, cast(string)read(filename), arguments);
 		}
-		
+
 		static File fromFile(string filename, string data, string[] arguments = null)
 		{
 			return fromData(filename, data, arguments, getDirName(filename));
@@ -75,7 +75,7 @@ final class Assembler
 		}
 
 		string positionStr()
-		{	
+		{
 			auto lines = splitlines(buf);
 			foreach (i, line; lines)
 				if (pos <= line.ptr + line.length)
@@ -94,7 +94,7 @@ final class Assembler
 				return file.basePath;
 		return null;
 	}
-	
+
 	string convertFilename(string filename)
 	{
 		if (filename.length == 0)
@@ -127,7 +127,7 @@ final class Assembler
 				do {} while (*++files[0].pos != '\n');
 			}
 			else
-				return;	
+				return;
 		}
 	}
 
@@ -250,7 +250,7 @@ final class Assembler
 			case 'd': case 'D': return 13;
 			case 'e': case 'E': return 14;
 			case 'f': case 'F': return 15;
-			default: 
+			default:
 				throw new Exception("Malformed hex digit " ~ x);
 		}
 	}
@@ -540,8 +540,8 @@ final class Assembler
 						default: s ~= *files[0].pos;
 					}
 					break;
-				default: 
-					s ~= *files[0].pos;	
+				default:
+					s ~= *files[0].pos;
 			}
 	}
 
@@ -974,10 +974,10 @@ final class Assembler
 		auto lp = name in labels;
 		if (lp is null)
 			throw new Exception("Unknown label " ~ name);
-			
+
 		return ABCFile.Label(*lp, offset);
 	}
-		
+
 	ASProgram.Instruction[] readInstructions(ref uint[string] _labels)
 	{
 		ASProgram.Instruction[] instructions;

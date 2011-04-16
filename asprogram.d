@@ -23,7 +23,7 @@ import core.stdc.string;
 import abcfile;
 import autodata;
 
-/** 
+/**
  * Represents a hierarchically-organized ActionScript program,
  * with all constants expanded and bytecode disassembled to separate instructions.
  */
@@ -186,7 +186,7 @@ final class ASProgram
 	}
 
 	struct Value
-	{	
+	{
 		ASType vkind;
 		union
 		{
@@ -1089,7 +1089,7 @@ private final class AStoABC
 				strings.add(name);
 				foreach (ref value; options)
 					visitValue(value);
-				foreach (name; paramNames)	
+				foreach (name; paramNames)
 					strings.add(name);
 
 				if (vbody)

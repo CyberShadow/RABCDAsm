@@ -21,8 +21,8 @@ module swffile;
 import std.zlib;
 import zlibx;
 
-/** 
- * Implements a shallow representation of a .swf file. 
+/**
+ * Implements a shallow representation of a .swf file.
  * Loading and saving a .swf file using this class should produce
  * output identical to the input (aside zlib compression differences).
  */
@@ -230,7 +230,7 @@ private final class SWFWriter
 		buf ~= swf.frameSize.bytes;
 		buf ~= toArray(swf.frameRate);
 		buf ~= toArray(swf.frameCount);
-		
+
 		foreach (ref tag; swf.tags)
 		{
 			ushort u = cast(ushort)(tag.type << 6);

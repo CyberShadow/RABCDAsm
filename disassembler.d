@@ -205,7 +205,7 @@ final class RefBuilder : ASTraitsVisitor
 
 		if (m.kind != ASType.QName)
 			throw new Exception("Trait name is not a QName");
-		
+
 		pushContext(m);
 		visitMultiname(m);
 		switch (trait.kind)
@@ -1053,7 +1053,7 @@ final class Disassembler
 			sb ~= to!string(label.offset);
 		}
 	}
-		
+
 	void dumpMethodBody(StringBuilder sb, ASProgram.MethodBody mbody)
 	{
 		sb ~= "body";
@@ -1118,7 +1118,7 @@ final class Disassembler
 					default:
 						break;
 				}
-		
+
 		void checkLabel(uint ii)
 		{
 			if (labels[ii])

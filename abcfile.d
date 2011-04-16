@@ -21,8 +21,8 @@ module abcfile;
 import std.string : format; // exception formatting
 import std.exception;
 
-/** 
- * Implements a shallow representation of an .abc file. 
+/**
+ * Implements a shallow representation of an .abc file.
  * Loading and saving an .abc file using this class should produce
  * output identical to the input.
  */
@@ -390,7 +390,7 @@ enum MethodFlags : ubyte
 	NEED_REST = 0x04, // This flag creates an ActionScript 3.0 rest arguments array. Must not be used with NEED_ARGUMENTS. See Chapter 3.
 	HAS_OPTIONAL = 0x08, // Must be set if this method has optional parameters and the options field is present in this method_info structure.
 	SET_DXNS = 0x40, // Must be set if this method uses the dxns or dxnslate opcodes.
-	HAS_PARAM_NAMES = 0x80, // Must be set when the param_names field is present in this method_info structure.	
+	HAS_PARAM_NAMES = 0x80, // Must be set when the param_names field is present in this method_info structure.
 }
 
 const string[8] MethodFlagNames = ["NEED_ARGUMENTS", "NEED_ACTIVATION", "NEED_REST", "HAS_OPTIONAL", "0x10", "0x20", "SET_DXNS", "HAS_PARAM_NAMES"];
