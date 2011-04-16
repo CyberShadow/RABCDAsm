@@ -103,30 +103,62 @@ final class RefBuilder : ASTraitsVisitor
 		union
 		{
 			ASProgram.Multiname multiname;
+			struct
+			{
+				string str;
+				bool filenameSuffix;
+			}
+		}
+
+		struct Segment
+		{
+			char delim;
 			string str;
 		}
 
-		string getString(RefBuilder refs)
+		Segment[] toSegments(bool filename)
 		{
 			final switch(type)
 			{
 			case Type.Multiname:
 				assert(multiname.kind == ASType.QName);
-				string nsName = refs.namespaceToString(multiname.vQName.ns);
+				if (multiname.vQName.ns.kind == ASType.PrivateNamespace)
+					throw new Exception("Stringifying unexpanded context");
 
+				auto nsName = multiname.vQName.ns.name;
 				if (nsName.length)
 					if (multiname.vQName.name.length)
-						return nsName ~ ":" ~ multiname.vQName.name;
+						return [Segment('/', nsName), Segment(filename ? '/' : ':', multiname.vQName.name)];
 					else
-						return nsName;
+						return [Segment('/', nsName)];
 				else
 					if (multiname.vQName.name.length)
-						return multiname.vQName.name;
+						return [Segment('/', multiname.vQName.name)];
 					else
 						assert(0);
 			case Type.String:
-				return str;
+				return [Segment(filenameSuffix ? '.' : '/', str)];
 			}
+		}
+
+		static ContextItem[] expand(RefBuilder refs, ContextItem[] context) /// recursively expand all private namespaces
+		{
+			ContextItem[] newContext;
+			foreach (ref c; context)
+				newContext ~= c.expand(refs);
+			return newContext;
+		}
+
+		ContextItem[] expand(RefBuilder refs)
+		{
+			if (type==Type.Multiname && multiname.vQName.ns.kind == ASType.PrivateNamespace)
+			{
+				auto pcontext = multiname.vQName.ns.privateIndex in refs.privateNamespaces.contexts;
+				assert(pcontext, "Expanding unknown private namespace");
+				return expand(refs, *pcontext) ~ (multiname.vQName.name.length ? [ContextItem(multiname.vQName.name)] : null); // hack
+			}
+			else
+				return (&this)[0..1];
 		}
 
 		this(ASProgram.Multiname m)
@@ -135,10 +167,11 @@ final class RefBuilder : ASTraitsVisitor
 			this.multiname = m;
 		}
 
-		this(string s)
+		this(string s, bool filenameSuffix = false)
 		{
 			this.type = Type.String;
 			this.str = s;
+			this.filenameSuffix = filenameSuffix;
 		}
 
 		mixin AutoCompare;
@@ -155,6 +188,7 @@ final class RefBuilder : ASTraitsVisitor
 				break;
 			case Type.String:
 				mixin(addAutoField("str"));
+				mixin(addAutoField("filenameSuffix"));
 				break;
 			}
 			mixin(epilog);
@@ -163,8 +197,61 @@ final class RefBuilder : ASTraitsVisitor
 
 	ContextItem[] context; // potential optimization: use array-based stack
 
-	void pushContext(T)(T v) { context ~= ContextItem(v); }
+	void pushContext(T...)(T v) { context ~= ContextItem(v); }
 	void popContext() { context = context[0..$-1]; }
+
+	struct ContextSet(T)
+	{
+		ContextItem[][T] contexts;
+		string[T] names, filenames;
+
+		void coagulate(RefBuilder refs)
+		{
+			int[string] collisionCounter;
+			T[string] first;
+
+			foreach (obj; contexts.keys.sort)
+			{
+				auto context = contexts[obj];
+				auto bname = refs.contextToString(context, false);
+				auto bfilename = refs.contextToString(context, true);
+				auto pcounter = bname in collisionCounter;
+				int counter = pcounter ? *pcounter : 0;
+				if (counter==1)
+				{
+					auto firstObj = first[bname];
+					names[firstObj] ~= "#0";
+					filenames[firstObj] ~= "#0";
+				}
+
+				string suffix;
+				if (counter==0)
+					first[bname] = cast(T)obj;
+				else
+					suffix = '#' ~ to!string(counter);
+				names[obj] = bname ~ suffix;
+				filenames[obj] = bfilename ~ suffix;
+				collisionCounter[bname] = counter+1;
+			}
+		}
+
+		bool isAdded(U)(U obj) { return (cast(T)obj in contexts) ? true : false; }
+		ContextItem[] getContext(U)(U obj) { return contexts[cast(T)obj]; }
+
+		string getName(U)(U obj)
+		{
+			auto pname = cast(T)obj in names;
+			assert(pname, format("Unscanned object: ", obj));
+			return *pname;
+		}
+
+		string getFilename(U)(U obj)
+		{
+			auto pname = cast(T)obj in filenames;
+			assert(pname, format("Unscanned object: ", obj));
+			return *pname;
+		}
+	}
 
 	this(ASProgram as)
 	{
@@ -185,29 +272,38 @@ final class RefBuilder : ASTraitsVisitor
 		super.run();
 		foreach (i, ref v; as.scripts)
 		{
-			pushContext("script_" ~ to!string(i));
-			pushContext("sinit");
+			ContextItem[][] classContexts;
+			foreach (trait; v.traits)
+				if (trait.kind == TraitKind.Class)
+					classContexts ~= ContextItem.expand(this, objects.getContext(trait.vClass.vclass));
+			if (classContexts.length == 0)
+				foreach (trait; v.traits)
+					classContexts ~= [ContextItem(trait.name)];
+			try
+				context = reduce!contextRoot(classContexts);
+			catch
+				{ pushContext("script_" ~ to!string(i)); }
+			pushContext("sinit", true);
 			addMethod(v.sinit);
-			popContext();
-			popContext();
+			context = null;
 		}
 		foreach (i, vclass; as.orphanClasses)
-			if (!objectAdded(vclass))
+			if (!objects.isAdded(vclass))
 			{
 				pushContext("orphan_class_" ~ to!string(i));
 				addClass(vclass);
 				popContext();
 			}
 		foreach (i, method; as.orphanMethods)
-			if (!objectAdded(method))
+			if (!objects.isAdded(method))
 			{
 				pushContext("orphan_method_" ~ to!string(i));
 				addMethod(method);
 				popContext();
 			}
 
-		finalizePrivateNamespaceNames();
-		finalizeObjectNames();
+		privateNamespaces.coagulate(this);
+		objects.coagulate(this);
 	}
 
 	override void visitTrait(ref ASProgram.Trait trait)
@@ -252,7 +348,7 @@ final class RefBuilder : ASTraitsVisitor
 		static bool uninteresting(ContextItem[] c)
 		{
 			return
-				(c.length==2 && c[0].type==ContextItem.Type.String && c[0].str.startsWith("script_") && c[1].type==ContextItem.Type.String && c[1].str == "sinit") ||
+				(c.length==1 && c[0].type==ContextItem.Type.String && c[0].str.startsWith("script_") && c[0].str.endsWith("_sinit")) ||
 				(c.length==1 && c[0].type==ContextItem.Type.String && c[0].str.startsWith("orphan_method_")) ||
 				false;
 		}
@@ -291,36 +387,7 @@ final class RefBuilder : ASTraitsVisitor
 		return c;
 	}
 
-	ContextItem[][uint] privateNamespaceContext;
-	string[uint] privateNamespaceName;
-
-	string namespaceToString(ASProgram.Namespace ns)
-	{
-		if (ns.kind == ASType.PrivateNamespace)
-		{
-			auto pcontext = ns.privateIndex in privateNamespaceContext;
-			assert(pcontext, "Stringifying unknown private namespace");
-			return contextToString(*pcontext);
-		}
-		else
-			return ns.name;
-	}
-
-	void finalizePrivateNamespaceNames()
-	{
-		bool[string] nameTaken;
-		foreach (index; privateNamespaceContext.keys.sort)
-		{
-			auto context = privateNamespaceContext[index];
-			auto bname = contextToString(context);
-			auto name = bname;
-			int n = 0;
-			while (name in nameTaken)
-				name = bname ~ '#' ~ to!string(++n);
-			privateNamespaceName[index] = name;
-			nameTaken[name] = true;
-		}
-	}
+	ContextSet!uint privateNamespaces;
 
 	void visitNamespace(ASProgram.Namespace ns)
 	{
@@ -340,11 +407,11 @@ final class RefBuilder : ASTraitsVisitor
 				return;
 			auto myContext = context[0..myPos].dup;
 
-			auto pexisting = ns.privateIndex in privateNamespaceContext;
+			auto pexisting = ns.privateIndex in privateNamespaces.contexts;
 			if (pexisting)
-				privateNamespaceContext[ns.privateIndex] = contextRoot(*pexisting, myContext);
+				privateNamespaces.contexts[ns.privateIndex] = contextRoot(*pexisting, myContext);
 			else
-				privateNamespaceContext[ns.privateIndex] = myContext;
+				privateNamespaces.contexts[ns.privateIndex] = myContext;
 		}
 	}
 
@@ -410,67 +477,50 @@ final class RefBuilder : ASTraitsVisitor
 				}
 	}
 
-	string contextToString(ContextItem[] context)
+	string contextToString(ContextItem[] context, bool filename)
 	{
-		string[] strings = new string[context.length];
-		foreach (i, c; context)
-			strings[i] = c.getString(this);
+		context = ContextItem.expand(this, context);
 
-		// omit some repeating segments
-		if (context.length>=2 &&
-		    context[0].type==ContextItem.Type.Multiname &&
-		//  context[0].multiname.kind==ASType.QName &&
-		//  context[0].multiname.vQName.ns.kind==ASType.PackageNamespace &&
-		    context[1].type==ContextItem.Type.Multiname &&
-		//  context[1].multiname.kind==ASType.QName &&
-		//  context[1].multiname.vQName.ns.kind==ASType.ProtectedNamespace &&
-		    namespaceToString(context[1].multiname.vQName.ns) == namespaceToString(context[0].multiname.vQName.ns) ~ ":" ~ context[0].multiname.vQName.name)
-			strings[1] = context[1].multiname.vQName.name;
-		else
-		if (context.length>=2 &&
-		    context[0].type==ContextItem.Type.Multiname &&
-		//  context[0].multiname.kind==ASType.QName &&
-		//  context[0].multiname.vQName.ns.kind==ASType.PackageNamespace &&
-		    context[1].type==ContextItem.Type.Multiname &&
-		//  context[1].multiname.kind==ASType.QName &&
-		//  context[1].multiname.vQName.ns.kind==ASType.PackageInternalNs &&
-		    namespaceToString(context[1].multiname.vQName.ns) == namespaceToString(context[0].multiname.vQName.ns))
-			strings[1] = context[1].multiname.vQName.name;
+		foreach_reverse (i, c; context)
+			if (i>0 && c==context[i-1])
+				context = context[0..i] ~ context[i+1..$];
 
-		char[] s = join(strings, "/").dup;
-		foreach (ref c; s)
-			if (c < 0x20 || c == '"')
-				c = '_';
-		return assumeUnique(s);
-	}
+		ContextItem.Segment[] segments;
+		foreach (ci; context)
+			segments ~= ci.toSegments(filename);
 
-	string[void*] objName;
-	ContextItem[][void*] objLocation;
-
-	void finalizeObjectNames()
-	{
-		bool[string] nameTaken;
-		foreach (obj; objLocation.keys.sort)
+		string escape(string s)
 		{
-			auto context = objLocation[obj];
-			auto bname = contextToString(context);
-			auto name = bname;
-			int n = 0;
-			while (name in nameTaken)
-				name = bname ~ '#' ~ to!string(++n);
-			objName[obj] = name;
-			nameTaken[name] = true;
+			if (!filename)
+				return s;
+
+			string result;
+			foreach (c; s)
+				if (c == '.')
+					result ~= '/';
+				else
+				if (c == ':' || c == '\\' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|' || c < 0x20 || c >= 0x7F)
+					result ~= format("%%%02X", c);
+				else
+					result ~= c;
+			return result;
 		}
+
+		string[] strings = new string[segments.length];
+		foreach (i, ref s; segments)
+			strings[i] = (i>0 ? cast(string)[s.delim] : null) ~ escape(s.str);
+
+		return join(strings);
 	}
+
+	ContextSet!(void*) objects;
 
 	void addObject(T)(T obj)
 	{
 		auto p = cast(void*)obj;
-		enforce(p !in objLocation, "Duplicate object reference: " ~ contextToString(objLocation[p]) ~ " and " ~ contextToString(context));
-		objLocation[p] = context.dup;
+		enforce(p !in objects.contexts, "Duplicate object reference: " ~ contextToString(objects.contexts[p], false) ~ " and " ~ contextToString(context, false));
+		objects.contexts[p] = context.dup;
 	}
-
-	bool objectAdded(T)(T obj) { return (cast(void*)obj in objLocation) ? true : false; }
 
 	void addClass(ASProgram.Class vclass)
 	{
@@ -488,20 +538,6 @@ final class RefBuilder : ASTraitsVisitor
 		addObject(method);
 		if (method.vbody)
 			visitMethodBody(method.vbody);
-	}
-
-	string getObjectName(T)(T obj)
-	{
-		auto pname = cast(void*)obj in objName;
-		assert(pname, "Unscanned object");
-		return *pname;
-	}
-
-	string getPrivateNamespaceName(uint index)
-	{
-		auto pname = index in privateNamespaceName;
-		assert(pname, "Unscanned private namespace: " ~ to!string(index));
-		return *pname;
 	}
 }
 
@@ -527,16 +563,9 @@ final class Disassembler
 		mainsb.newLine();
 	}
 
-	string toFileName(string refid)
+	string getFilename(Object o)
 	{
-		char[] buf = refid.dup;
-		foreach (ref c; buf)
-			if (c == '.' || c == ':')
-				c = '/';
-			else
-			if (c == '\\' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|')
-				c = '_';
-		string filename = assumeUnique(buf);
+		string filename = refs.objects.getFilename(o);
 
 		version (Windows)
 		{
@@ -614,7 +643,7 @@ final class Disassembler
 			sb.newLine();
 
 			foreach (i, method; as.orphanMethods)
-				newInclude(sb, toFileName(refs.getObjectName(method)), (StringBuilder sb) {
+				newInclude(sb, getFilename(method), (StringBuilder sb) {
 					dumpMethod(sb, method, "method");
 				});
 
@@ -628,26 +657,33 @@ final class Disassembler
 
 		// now dump the private namespace indices
 		sb = new StringBuilder(dir ~ "/" ~ name ~ ".privatens.asasm");
-		uint[] indices = refs.privateNamespaceName.keys;
-		bool alphaSortDelegate(uint a, uint b) { return refs.privateNamespaceName[a] < refs.privateNamespaceName[b]; }
+		uint[] indices = refs.privateNamespaces.names.keys;
+		bool alphaSortDelegate(uint a, uint b) { return refs.privateNamespaces.names[a] < refs.privateNamespaces.names[b]; }
 		sort!alphaSortDelegate(indices);
 		foreach (index; indices)
 		{
-			sb ~= "; ";
-			auto context = refs.privateNamespaceContext[index];
-			foreach (i, c; context)
+			void dumpContext(RefBuilder.ContextItem[] context)
 			{
-				if (c.type == RefBuilder.ContextItem.Type.Multiname)
-					dumpMultiname(sb, c.multiname);
-				else
-					sb ~= c.str;
-				if (i < context.length-1)
-					sb ~= " -> ";
+				sb ~= "; ";
+				foreach (i, c; context)
+				{
+					if (c.type == RefBuilder.ContextItem.Type.Multiname)
+						dumpMultiname(sb, c.multiname);
+					else
+						sb ~= c.str;
+					if (i < context.length-1)
+						sb ~= " -> ";
+				}
+				sb.newLine();
 			}
-			sb.newLine();
+			auto context = refs.privateNamespaces.contexts[index];
+			dumpContext(context);
+			/*auto contextEx = refs.ContextItem.expand(refs, context);
+			if (context != contextEx)
+				dumpContext(contextEx);*/
 
 			sb ~= format("#privatens %4d ", index);
-			dumpString(sb, refs.privateNamespaceName[index]);
+			dumpString(sb, refs.privateNamespaces.names[index]);
 			sb.newLine();
 		}
 		sb.save();
@@ -724,7 +760,7 @@ final class Disassembler
 			if (kind == ASType.PrivateNamespace)
 			{
 				sb ~= ", ";
-				dumpString(sb, refs.getPrivateNamespaceName(privateIndex));
+				dumpString(sb, refs.privateNamespaces.getName(privateIndex));
 			}
 			sb ~= ')';
 		}
@@ -964,7 +1000,7 @@ final class Disassembler
 			dumpString(sb, method.name);
 			sb.newLine();
 		}
-		auto refName = refs.getObjectName(method);
+		auto refName = refs.objects.getName(method);
 		if (refName)
 		{
 			sb ~= "refid ";
@@ -1003,10 +1039,10 @@ final class Disassembler
 
 	void dumpClass(StringBuilder mainsb, ASProgram.Class vclass)
 	{
-		auto refName = refs.getObjectName(vclass);
-		newInclude(mainsb, toFileName(refName), (StringBuilder sb) {
+		newInclude(mainsb, getFilename(vclass), (StringBuilder sb) {
 			sb ~= "class"; sb.indent++; sb.newLine();
 
+			auto refName = refs.objects.getName(vclass);
 			if (refName)
 			{
 				sb ~= "refid ";
@@ -1055,7 +1091,9 @@ final class Disassembler
 		sb ~= "script ; ";
 		sb ~= to!string(index);
 		sb.indent++; sb.newLine();
-		dumpMethod(sb, script.sinit, "sinit");
+		newInclude(sb, getFilename(script.sinit), (StringBuilder sb) {
+			dumpMethod(sb, script.sinit, "sinit");
+		});
 		dumpTraits(sb, script.traits);
 		sb.indent--; sb ~= "end ; script"; sb.newLine();
 	}
@@ -1207,10 +1245,10 @@ final class Disassembler
 							dumpMultiname(sb, instruction.arguments[i].multinamev);
 							break;
 						case OpcodeArgumentType.Class:
-							dumpString(sb, refs.getObjectName(instruction.arguments[i].classv));
+							dumpString(sb, refs.objects.getName(instruction.arguments[i].classv));
 							break;
 						case OpcodeArgumentType.Method:
-							dumpString(sb, refs.getObjectName(instruction.arguments[i].methodv));
+							dumpString(sb, refs.objects.getName(instruction.arguments[i].methodv));
 							break;
 
 						case OpcodeArgumentType.JumpTarget:
