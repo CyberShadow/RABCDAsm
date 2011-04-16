@@ -141,21 +141,31 @@ final class RefBuilder : ASTraitsVisitor
 			}
 		}
 
-		static ContextItem[] expand(RefBuilder refs, ContextItem[] context) /// recursively expand all private namespaces
+		static ContextItem[] expand(RefBuilder refs, ContextItem[] context, bool noThrow) /// recursively expand all private namespaces
 		{
 			ContextItem[] newContext;
 			foreach (ref c; context)
-				newContext ~= c.expand(refs);
+			{
+				auto cEx = c.expand(refs, noThrow);
+				if (cEx is null) return null;
+				newContext ~= cEx;
+			}
 			return newContext;
 		}
 
-		ContextItem[] expand(RefBuilder refs)
+		ContextItem[] expand(RefBuilder refs, bool noThrow)
 		{
 			if (type==Type.Multiname && multiname.vQName.ns.kind == ASType.PrivateNamespace)
 			{
 				auto pcontext = multiname.vQName.ns.privateIndex in refs.privateNamespaces.contexts;
-				assert(pcontext, "Expanding unknown private namespace");
-				return expand(refs, *pcontext) ~ (multiname.vQName.name.length ? [ContextItem(multiname.vQName.name)] : null); // hack
+				if (pcontext is null)
+					if (noThrow)
+						return null;
+					else
+						throw new Exception("Expanding unknown private namespace " ~ to!string(multiname.vQName.ns.privateIndex));
+				auto expanded = expand(refs, *pcontext, noThrow);
+				if (expanded is null) return null;
+				return expanded ~ (multiname.vQName.name.length ? [ContextItem(multiname.vQName.name)] : null); // hack
 			}
 			else
 				return (&this)[0..1];
@@ -275,7 +285,7 @@ final class RefBuilder : ASTraitsVisitor
 			ContextItem[][] classContexts;
 			foreach (trait; v.traits)
 				if (trait.kind == TraitKind.Class)
-					classContexts ~= ContextItem.expand(this, objects.getContext(trait.vClass.vclass));
+					classContexts ~= ContextItem.expand(this, objects.getContext(trait.vClass.vclass), true);
 			if (classContexts.length == 0)
 				foreach (trait; v.traits)
 					classContexts ~= [ContextItem(trait.name)];
@@ -479,7 +489,7 @@ final class RefBuilder : ASTraitsVisitor
 
 	string contextToString(ContextItem[] context, bool filename)
 	{
-		context = ContextItem.expand(this, context);
+		context = ContextItem.expand(this, context, false);
 
 		foreach_reverse (i, c; context)
 			if (i>0 && c==context[i-1])
