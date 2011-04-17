@@ -210,10 +210,32 @@ final class RefBuilder : ASTraitsVisitor
 	void pushContext(T...)(T v) { context ~= ContextItem(v); }
 	void popContext() { context = context[0..$-1]; }
 
-	struct ContextSet(T)
+	struct ContextSet(T, bool ALLOW_DUPLICATES)
 	{
 		ContextItem[][T] contexts;
 		string[T] names, filenames;
+
+		void add(U)(U obj, ContextItem[] context)
+		{
+			auto p = cast(T)obj;
+			static if (ALLOW_DUPLICATES)
+			{
+				auto pexisting = p in contexts;
+				if (pexisting)
+				{
+					auto rootContext = contextRoot(*pexisting, context);
+					enforce(rootContext.length, format("Can't find common private namespace root between ", *pexisting, " and ", context));
+					contexts[p] = rootContext;
+				}
+				else
+					contexts[p] = context;
+			}
+			else
+			{
+				enforce(p !in contexts, format("Duplicate object reference: ", contexts[p], " and ", context));
+				contexts[p] = context.dup;
+			}
+		}
 
 		void coagulate(RefBuilder refs)
 		{
@@ -255,13 +277,40 @@ final class RefBuilder : ASTraitsVisitor
 			return *pname;
 		}
 
+		version (Windows)
+			static string[string] filenameMappings;
+
 		string getFilename(U)(U obj)
 		{
 			auto pname = cast(T)obj in filenames;
 			assert(pname, format("Unscanned object: ", obj));
-			return *pname;
+			auto filename = *pname;
+
+			version (Windows)
+			{
+				string[] dirSegments = split(filename, "/");
+				for (int l=0; l<dirSegments.length; l++)
+				{
+				again:
+					string subpath = join(dirSegments[0..l+1], "/");
+					string subpathl = tolower(subpath);
+					string* canonicalp = subpathl in filenameMappings;
+					if (canonicalp && *canonicalp != subpath)
+					{
+						dirSegments[l] = dirSegments[l] ~ "_"; // not ~=
+						goto again;
+					}
+					filenameMappings[subpathl] = subpath;
+				}
+				filename = join(dirSegments, "/");
+			}
+
+			return filename ~ ".asasm";
 		}
 	}
+
+	ContextSet!(uint, true) privateNamespaces;
+	ContextSet!(void*, false) objects, scripts;
 
 	this(ASProgram as)
 	{
@@ -280,19 +329,19 @@ final class RefBuilder : ASTraitsVisitor
 			addOrphan(method);
 
 		super.run();
-		foreach (i, ref v; as.scripts)
+		foreach (i, v; as.scripts)
 		{
 			ContextItem[][] classContexts;
 			foreach (trait; v.traits)
-				if (trait.kind == TraitKind.Class)
-					classContexts ~= ContextItem.expand(this, objects.getContext(trait.vClass.vclass), true);
-			if (classContexts.length == 0)
-				foreach (trait; v.traits)
-					classContexts ~= [ContextItem(trait.name)];
-			try
-				context = reduce!contextRoot(classContexts);
-			catch
-				{ pushContext("script_" ~ to!string(i)); }
+			{
+				auto c = ContextItem.expand(this, [ContextItem(trait.name)], true);
+				if (c)
+					classContexts ~= c;
+			}
+			context = reduce!contextRoot(new ContextItem[0], classContexts);
+			if (context.length==0)
+				pushContext("script_" ~ to!string(i));
+			scripts.add(v, context);
 			pushContext("sinit", true);
 			addMethod(v.sinit);
 			context = null;
@@ -314,6 +363,7 @@ final class RefBuilder : ASTraitsVisitor
 
 		privateNamespaces.coagulate(this);
 		objects.coagulate(this);
+		scripts.coagulate(this);
 	}
 
 	override void visitTrait(ref ASProgram.Trait trait)
@@ -358,6 +408,7 @@ final class RefBuilder : ASTraitsVisitor
 		static bool uninteresting(ContextItem[] c)
 		{
 			return
+				(c.length==0) ||
 				(c.length==1 && c[0].type==ContextItem.Type.String && c[0].str.startsWith("script_") && c[0].str.endsWith("_sinit")) ||
 				(c.length==1 && c[0].type==ContextItem.Type.String && c[0].str.startsWith("orphan_method_")) ||
 				false;
@@ -393,11 +444,8 @@ final class RefBuilder : ASTraitsVisitor
 			m.vQName.ns = c1[i].multiname.vQName.ns;
 			c ~= ContextItem(m);
 		}
-		assert(c.length, format("Can't find common private namespace root between ", c1, " and ", c2));
 		return c;
 	}
-
-	ContextSet!uint privateNamespaces;
 
 	void visitNamespace(ASProgram.Namespace ns)
 	{
@@ -417,11 +465,7 @@ final class RefBuilder : ASTraitsVisitor
 				return;
 			auto myContext = context[0..myPos].dup;
 
-			auto pexisting = ns.privateIndex in privateNamespaces.contexts;
-			if (pexisting)
-				privateNamespaces.contexts[ns.privateIndex] = contextRoot(*pexisting, myContext);
-			else
-				privateNamespaces.contexts[ns.privateIndex] = myContext;
+			privateNamespaces.add(ns.privateIndex, myContext);
 		}
 	}
 
@@ -523,14 +567,7 @@ final class RefBuilder : ASTraitsVisitor
 		return join(strings);
 	}
 
-	ContextSet!(void*) objects;
-
-	void addObject(T)(T obj)
-	{
-		auto p = cast(void*)obj;
-		enforce(p !in objects.contexts, "Duplicate object reference: " ~ contextToString(objects.contexts[p], false) ~ " and " ~ contextToString(context, false));
-		objects.contexts[p] = context.dup;
-	}
+	void addObject(T)(T obj) { objects.add(obj, context); }
 
 	void addClass(ASProgram.Class vclass)
 	{
@@ -557,9 +594,6 @@ final class Disassembler
 	string name, dir;
 	RefBuilder refs;
 
-	version (Windows)
-		string[string] filenameMappings;
-
 	void newInclude(StringBuilder mainsb, string filename, void delegate(StringBuilder) callback)
 	{
 		if (mainsb.filename.split("/").length != 2)
@@ -571,32 +605,6 @@ final class Disassembler
 		mainsb ~= "#include ";
 		dumpString(mainsb, filename);
 		mainsb.newLine();
-	}
-
-	string getFilename(Object o)
-	{
-		string filename = refs.objects.getFilename(o);
-
-		version (Windows)
-		{
-			string[] dirSegments = split(filename, "/");
-			for (int l=0; l<dirSegments.length; l++)
-			{
-			again:
-				string subpath = join(dirSegments[0..l+1], "/");
-				string subpathl = tolower(subpath);
-				string* canonicalp = subpathl in filenameMappings;
-				if (canonicalp && *canonicalp != subpath)
-				{
-					dirSegments[l] = dirSegments[l] ~ "_"; // not ~=
-					goto again;
-				}
-				filenameMappings[subpathl] = subpath;
-			}
-			filename = join(dirSegments, "/");
-		}
-
-		return filename ~ ".asasm";
 	}
 
 	this(ASProgram as, string dir, string name)
@@ -630,9 +638,11 @@ final class Disassembler
 
 		foreach (i, script; as.scripts)
 		{
-			dumpScript(sb, script, i);
-			sb.newLine();
+			newInclude(sb, refs.scripts.getFilename(script), (StringBuilder sb) {
+				dumpScript(sb, script, i);
+			});
 		}
+		sb.newLine();
 
 		if (as.orphanClasses.length)
 		{
@@ -641,7 +651,9 @@ final class Disassembler
 			sb.newLine();
 
 			foreach (i, vclass; as.orphanClasses)
-				dumpClass(sb, vclass);
+				newInclude(sb, refs.objects.getFilename(vclass), (StringBuilder sb) {
+					dumpClass(sb, vclass);
+				});
 
 			sb.newLine();
 		}
@@ -653,7 +665,7 @@ final class Disassembler
 			sb.newLine();
 
 			foreach (i, method; as.orphanMethods)
-				newInclude(sb, getFilename(method), (StringBuilder sb) {
+				newInclude(sb, refs.objects.getFilename(method), (StringBuilder sb) {
 					dumpMethod(sb, method, "method");
 				});
 
@@ -1047,25 +1059,23 @@ final class Disassembler
 		sb.indent--; sb ~= "end ; method"; sb.newLine();
 	}
 
-	void dumpClass(StringBuilder mainsb, ASProgram.Class vclass)
+	void dumpClass(StringBuilder sb, ASProgram.Class vclass)
 	{
-		newInclude(mainsb, getFilename(vclass), (StringBuilder sb) {
-			sb ~= "class"; sb.indent++; sb.newLine();
+		sb ~= "class"; sb.indent++; sb.newLine();
 
-			auto refName = refs.objects.getName(vclass);
-			if (refName)
-			{
-				sb ~= "refid ";
-				dumpString(sb, refName);
-				sb.newLine();
-			}
-			sb ~= "instance ";
-			dumpInstance(sb, vclass.instance);
-			dumpMethod(sb, vclass.cinit, "cinit");
-			dumpTraits(sb, vclass.traits);
+		auto refName = refs.objects.getName(vclass);
+		if (refName)
+		{
+			sb ~= "refid ";
+			dumpString(sb, refName);
+			sb.newLine();
+		}
+		sb ~= "instance ";
+		dumpInstance(sb, vclass.instance);
+		dumpMethod(sb, vclass.cinit, "cinit");
+		dumpTraits(sb, vclass.traits);
 
-			sb.indent--; sb ~= "end ; class"; sb.newLine();
-		});
+		sb.indent--; sb ~= "end ; class"; sb.newLine();
 	}
 
 	void dumpInstance(StringBuilder sb, ASProgram.Instance instance)
@@ -1101,9 +1111,7 @@ final class Disassembler
 		sb ~= "script ; ";
 		sb ~= to!string(index);
 		sb.indent++; sb.newLine();
-		newInclude(sb, getFilename(script.sinit), (StringBuilder sb) {
-			dumpMethod(sb, script.sinit, "sinit");
-		});
+		dumpMethod(sb, script.sinit, "sinit");
 		dumpTraits(sb, script.traits);
 		sb.indent--; sb ~= "end ; script"; sb.newLine();
 	}
