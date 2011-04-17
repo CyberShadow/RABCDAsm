@@ -35,6 +35,8 @@ final class StringBuilder
 
 	this(string filename)
 	{
+		if (exists(filename))
+			throw new Exception(filename ~ " exists");
 		this.filename = filename;
 		buf.length = 1024;
 	}
