@@ -766,13 +766,12 @@ private final class AStoABC
 
 		bool add(T value) // return true if added
 		{
-			enum ivalue = cast(I)value;
 			if (haveNull && isNull(value))
 				return false;
-			auto cp = ivalue in pool;
+			auto cp = cast(I)value in pool;
 			if (cp is null)
 			{
-				pool[ivalue] = Entry(1, value);
+				pool[cast(I)value] = Entry(1, value);
 				return true;
 			}
 			else
@@ -784,8 +783,7 @@ private final class AStoABC
 
 		bool notAdded(T value)
 		{
-			enum ivalue = cast(I)value;
-			auto ep = ivalue in pool;
+			auto ep = cast(I)value in pool;
 			if (ep)
 				ep.hits++;
 			return !((haveNull && isNull(value)) || ep);
@@ -806,10 +804,9 @@ private final class AStoABC
 
 		uint get(T value)
 		{
-			enum ivalue = cast(I)value;
 			if (haveNull && isNull(value))
 				return 0;
-			return pool[ivalue].index;
+			return pool[cast(I)value].index;
 		}
 	}
 
