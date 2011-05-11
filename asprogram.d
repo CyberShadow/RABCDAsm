@@ -262,6 +262,7 @@ final class ASProgram
 		Trait[] traits;
 
 		string error;
+		ubyte[] rawBytes;
 	}
 
 	struct Instruction
@@ -581,6 +582,7 @@ private final class ABCtoAS
 		}
 		n.traits = convertTraits(vbody.traits);
 		n.error = vbody.error;
+		n.rawBytes = vbody.rawBytes;
 		return n;
 	}
 

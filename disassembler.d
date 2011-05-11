@@ -72,6 +72,7 @@ final class StringBuilder
 
 	int indent;
 	bool indented;
+	string linePrefix;
 
 	void newLine()
 	{
@@ -91,6 +92,8 @@ final class StringBuilder
 			for (int i=0; i<indent; i++)
 				this ~= ' ';
 			indented = true;
+			if (linePrefix)
+				this ~= linePrefix;
 		}
 	}
 }
@@ -1148,6 +1151,13 @@ final class Disassembler
 
 	void dumpMethodBody(StringBuilder sb, ASProgram.MethodBody mbody)
 	{
+		if (mbody.error)
+		{
+			sb ~= "; Error while disassembling method: " ~ mbody.error;
+			sb.newLine();
+			sb.linePrefix = "; ";
+		}
+
 		sb ~= "body";
 		sb.indent++; sb.newLine();
 		dumpUIntField(sb, "maxstack", mbody.maxStack);
@@ -1164,10 +1174,14 @@ final class Disassembler
 
 		sb.indent++;
 		if (mbody.error)
-		{
-			sb ~= "; Error while disassembling method: " ~ mbody.error;
-			sb.newLine();
-		}
+			foreach (i, b; mbody.rawBytes)
+			{
+				sb ~= format("0x%02X", b);
+				if (i%16==15 || i==mbody.rawBytes.length-1)
+					sb.newLine();
+				else
+					sb ~= " ";
+			}
 		else
 			dumpInstructions(sb, mbody.instructions, labels);
 		sb.indent--;
@@ -1191,6 +1205,7 @@ final class Disassembler
 		}
 		dumpTraits(sb, mbody.traits);
 		sb.indent--; sb ~= "end ; body"; sb.newLine();
+		sb.linePrefix = null;
 	}
 
 	void dumpInstructions(StringBuilder sb, ASProgram.Instruction[] instructions, bool[] labels)

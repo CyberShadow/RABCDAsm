@@ -209,6 +209,7 @@ class ABCFile
 		TraitsInfo[] traits;
 
 		string error;
+		ubyte[] rawBytes;
 	}
 
 	/// Destination for a jump or exception block boundary
@@ -1280,6 +1281,7 @@ private final class ABCReader
 
 		size_t len = readU30();
 		uint[] instructionAtOffset = new uint[len];
+		r.rawBytes = buf[pos..pos+len];
 
 		void translateLabel(ref ABCFile.Label label)
 		{
