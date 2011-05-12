@@ -558,7 +558,7 @@ final class RefBuilder : ASTraitsVisitor
 				if (c == '.')
 					result ~= '/';
 				else
-				if (c == ':' || c == '\\' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|' || c < 0x20 || c >= 0x7F)
+				if (c == ':' || c == '\\' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|' || c < 0x20 || c >= 0x7F || c == ' ')
 					result ~= format("%%%02X", c);
 				else
 					result ~= c;
