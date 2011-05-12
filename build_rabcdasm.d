@@ -1,5 +1,5 @@
 /*
- *  Copyright (C) 2010 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -16,8 +16,10 @@
  *  along with RABCDAsm.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-// A simple tool to build RABCDAsm in one command.
-// You can use the DC and DFLAGS environment variables to override the detected compiler and compilation flags.
+/// A simple tool to build RABCDAsm in one command.
+/// You can use the DC and DFLAGS environment variables to override the detected compiler and compilation flags.
+
+module build_rabcdasm;
 
 version(D_Version2)
 	{ /* All OK */ }
