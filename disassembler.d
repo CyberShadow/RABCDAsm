@@ -741,7 +741,7 @@ final class Disassembler
 			string s = format("%.18g", v);
 
 			static double forceDouble(double d) { static double n; n = d; return n; }
-			if (s != "nan" && s!="inf" && s!="-inf")
+			if (s != "nan" && s != "inf" && s != "-inf")
 				while (s.length>2 && s[$-1]!='.' && forceDouble(to!double(s[0..$-1]))==v)
 					s = s[0..$-1];
 			sb ~= s;

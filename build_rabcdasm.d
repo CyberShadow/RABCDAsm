@@ -17,7 +17,7 @@
  */
 
 /// A simple tool to build RABCDAsm in one command.
-/// You can use the DC and DFLAGS environment variables to override the detected compiler and compilation flags.
+/// You can use the DC and DCFLAGS environment variables to override the detected compiler and compilation flags.
 
 module build_rabcdasm;
 
