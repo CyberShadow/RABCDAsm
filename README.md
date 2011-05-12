@@ -50,20 +50,20 @@ Compiling from source
 
 RABCDAsm is written in the [D programming language, version 2][d2].
 
-Assuming you have [dmd][] and [git][] installed, compiling should be as
-straight-forward as:
+Assuming you have [git][] and a D2 compiler, such as [dmd][] or [gdc][]
+installed, compiling should be as straight-forward as:
 
     git clone git://github.com/CyberShadow/RABCDAsm.git
     cd RABCDAsm
-    dmd -O -inline rabcdasm abcfile asprogram disassembler autodata murmurhash2a
-    dmd -O -inline rabcasm  abcfile asprogram    assembler autodata murmurhash2a
-    dmd -O -inline abcexport     swffile zlibx
-    dmd -O -inline abcreplace    swffile zlibx
-    dmd -O -inline swfdecompress swffile zlibx
-    dmd -O -inline swf7zcompress swffile zlibx
+    dmd -run build_rabcdasm
+
+Substitute `dmd` with `gdmd` if you're using gdc. You can use the `DC` and
+`DCFLAGS` environment variables to override the detected compiler and default
+compilation flags (`-O -inline`).
 
   [d2]: http://www.digitalmars.com/d/2.0/
   [dmd]: http://www.digitalmars.com/d/download.html
+  [gdc]: http://bitbucket.org/goshawk/gdc/
   [git]: http://git-scm.com/
 
 Pre-compiled binaries

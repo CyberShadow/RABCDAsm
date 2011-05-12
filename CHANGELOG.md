@@ -24,6 +24,7 @@ RABCDAsm v1.6 (2011.05.??)
    input file
  * Failure to decode a method body is now not a fatal error
  * Aggressively try to shorten double literals to their shortest representation
+ * The package can now be built using a simple, dedicated build tool
  * Documentation updates
 
 RABCDAsm v1.5 (2011.04.14)
