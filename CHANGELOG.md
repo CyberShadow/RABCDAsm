@@ -24,6 +24,8 @@ RABCDAsm v1.6 (2011.05.??)
    input file
  * Failure to decode a method body is now not a fatal error
  * Aggressively try to shorten double literals to their shortest representation
+ * Added the `swfbinexport` and `swfbinreplace` utilities, to aid in manipulating
+   contents of `DefineBinaryData` tags
  * The package can now be built using a simple, dedicated build tool
  * Documentation updates
 

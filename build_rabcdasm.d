@@ -44,6 +44,8 @@ static this()
 	programs["rabcdasm"     ] = ["abcfile", "asprogram", "disassembler", "autodata", "murmurhash2a"];
 	programs["abcexport"    ] = ["swffile", "zlibx"];
 	programs["abcreplace"   ] = ["swffile", "zlibx"];
+	programs["swfbinexport" ] = ["swffile", "zlibx"];
+	programs["swfbinreplace"] = ["swffile", "zlibx"];
 	programs["swfdecompress"] = ["swffile", "zlibx"];
 	programs["swf7zcompress"] = ["swffile", "zlibx"];
 }

@@ -11,6 +11,8 @@ These are:
  * `abcreplace` - replaces ABC in SWF files
  * `swfdecompress` - decompresses zlib-compressed SWF files
  * `swf7zcompress` - (re-)compress the contents of a SWF using 7-Zip
+ * `swfbinexport` / `swfbinreplace` - extract/replace contents of binary
+   data tags from SWF files
 
 `abcexport` and `abcreplace` are reimplementations of similar utilities from
 my [swfutilsex][] Java package, however these work faster as they do not parse 
@@ -21,6 +23,9 @@ equivalent to [flasm][]'s `-x` option.
 `swf7zcompress` is an utility to further reduce the size of SWF files. It uses
 [7-Zip][] to compress the data better than the standard zlib library would. It
 requires that the `7z` command-line program be installed and in `PATH`.
+`swfbinexport` and `swfbinreplace` aid in the manipulation of
+`DefineBinaryData` tags in SWF files (some files may contain nested SWF files
+stored in these tags).
 
   [RABCDAsm]: http://github.com/CyberShadow/RABCDAsm
   [swfutilsex]: http://github.com/CyberShadow/swfutilsex
