@@ -1,7 +1,7 @@
 RABCDAsm Changelog
 ==================
 
-RABCDAsm v1.6 (2011.05.??)
+RABCDAsm v1.6 (2011.05.13)
 --------------------------
 
  * Overhaul of the structure of disassembler-generated files
