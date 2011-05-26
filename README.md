@@ -17,7 +17,7 @@ These are:
 `abcexport` and `abcreplace` are reimplementations of similar utilities from
 my [swfutilsex][] Java package, however these work faster as they do not parse 
 the SWF files as deeply.  
-`swfdecompress` is ancilliary and is only useful for debugging and studying of
+`swfdecompress` is ancillary and is only useful for debugging and studying of
 the SWF file format, and not required for ABC manipulation. It is functionally
 equivalent to [flasm][]'s `-x` option.  
 `swf7zcompress` is an utility to further reduce the size of SWF files. It uses
@@ -393,7 +393,7 @@ RABCDAsm users.
 
   [debug Flash Player]: http://www.adobe.com/support/flashplayer/downloads.html
 
-3. The [Fiddler][] Web Debugging Proxy can be very useful for analysing 
+3. The [Fiddler][] Web Debugging Proxy can be very useful for analyzing 
    websites with SWF content. The following script fragment (which is to be
    placed in the `OnBeforeResponse` function) will automatically save all SWF 
    files while preserving the directory structure.
