@@ -106,6 +106,9 @@ To assemble the `.asasm` files back, and update the SWF file:
 The second `abcreplace` argument represents the index of the ABC block in the
 SWF file, and corresponds to the number in the filename created by `abcexport`.
 
+`swfbinexport` and `swfbinreplace` are used in the same manner as `abcexport`
+and `abcreplace`.
+
 Syntax
 ======
 
