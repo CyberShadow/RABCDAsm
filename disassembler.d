@@ -569,7 +569,7 @@ final class RefBuilder : ASTraitsVisitor
 		foreach (i, ref s; segments)
 			strings[i] = (i>0 ? cast(string)[s.delim] : null) ~ escape(s.str);
 
-		return join(strings);
+		return arrayJoin(strings);
 	}
 
 	void addObject(T)(T obj) { objects.add(obj, context); }
@@ -1321,6 +1321,8 @@ final class Disassembler
 	}
 }
 
+private:
+
 bool[256] newLineAfter;
 
 static this()
@@ -1360,4 +1362,16 @@ static this()
 		Opcode.OP_setsuper
 	])
 		newLineAfter[o] = true;
+}
+
+/// Force a raw data join (workaround for issue 6064)
+T[] arrayJoin(T)(T[][] arrays, T[] sep)
+{
+	return cast(T[])join(cast(ubyte[][])arrays, cast(ubyte[])sep);
+}
+
+/// ditto
+T[] arrayJoin(T)(T[][] arrays)
+{
+	return cast(T[])join(cast(ubyte[][])arrays);
 }
