@@ -602,20 +602,25 @@ final class Disassembler
 	string name, dir;
 	RefBuilder refs;
 
-	void newInclude(StringBuilder mainsb, string filename, void delegate(StringBuilder) callback)
+	void newInclude(StringBuilder mainsb, string filename, void delegate(StringBuilder) callback, bool doInline = true)
 	{
-		string base = dirname(mainsb.filename);
-		string full = dir ~ "/" ~ filename;
-		assert(full.startsWith(base));
-		string rel  = full[base.length+1..$];
+		if (doInline)
+		{
+			string base = dirname(mainsb.filename);
+			string full = dir ~ "/" ~ filename;
+			assert(full.startsWith(base));
+			string rel  = full[base.length+1..$];
 
-		StringBuilder sb = new StringBuilder(full);
-		callback(sb);
-		sb.save();
+			StringBuilder sb = new StringBuilder(full);
+			callback(sb);
+			sb.save();
 
-		mainsb ~= "#include ";
-		dumpString(mainsb, rel);
-		mainsb.newLine();
+			mainsb ~= "#include ";
+			dumpString(mainsb, rel);
+			mainsb.newLine();
+		}
+		else
+			callback(mainsb);
 	}
 
 	this(ASProgram as, string dir, string name)
@@ -876,9 +881,9 @@ final class Disassembler
 		}
 	}
 
-	void dumpTraits(StringBuilder sb, ASProgram.Trait[] traits)
+	void dumpTraits(StringBuilder sb, ASProgram.Trait[] traits, bool inScript = false)
 	{
-		foreach (ref trait; traits)
+		foreach (/*ref*/ trait; traits)
 		{
 			sb ~= "trait ";
 			sb ~= TraitKindNames[trait.kind];
@@ -916,15 +921,9 @@ final class Disassembler
 					}
 					sb.indent++; sb.newLine();
 
-					// Workaround for issue 6141
-					static void dumpTheClass(Disassembler self, StringBuilder sb, ASProgram.Class vclass)
-					{
-						self.newInclude(sb, self.refs.objects.getFilename(vclass, "class"), (StringBuilder sb) {
-							self.dumpClass(sb, vclass);
-						});
-					}
-
-					dumpTheClass(this, sb, trait.vClass.vclass);
+					newInclude(sb, refs.objects.getFilename(trait.vClass.vclass, "class"), (StringBuilder sb) {
+						dumpClass(sb, trait.vClass.vclass);
+					});
 					break;
 				case TraitKind.Function:
 					if (trait.vFunction.slotId)
@@ -933,7 +932,9 @@ final class Disassembler
 						dumpUInt(sb, trait.vFunction.slotId);
 					}
 					sb.indent++; sb.newLine();
-					dumpMethod(sb, trait.vFunction.vfunction, "method");
+					newInclude(sb, refs.objects.getFilename(trait.vFunction.vfunction, "method"), (StringBuilder sb) {
+						dumpMethod(sb, trait.vFunction.vfunction, "method");
+					}, inScript);
 					break;
 				case TraitKind.Method:
 				case TraitKind.Getter:
@@ -944,7 +945,9 @@ final class Disassembler
 						dumpUInt(sb, trait.vMethod.dispId);
 					}
 					sb.indent++; sb.newLine();
-					dumpMethod(sb, trait.vMethod.vmethod, "method");
+					newInclude(sb, refs.objects.getFilename(trait.vMethod.vmethod, "method"), (StringBuilder sb) {
+						dumpMethod(sb, trait.vMethod.vmethod, "method");
+					}, inScript);
 					break;
 				default:
 					throw new Exception("Unknown trait kind");
@@ -1140,7 +1143,7 @@ final class Disassembler
 		sb ~= to!string(index);
 		sb.indent++; sb.newLine();
 		dumpMethod(sb, script.sinit, "sinit");
-		dumpTraits(sb, script.traits);
+		dumpTraits(sb, script.traits, true);
 		sb.indent--; sb ~= "end ; script"; sb.newLine();
 	}
 
