@@ -23,9 +23,12 @@ import std.string;
 import std.conv;
 import std.exception;
 import std.algorithm;
+import std.path;
 import abcfile;
 import asprogram;
 import autodata;
+
+alias std.array.join join;
 
 final class StringBuilder
 {
@@ -285,7 +288,7 @@ final class RefBuilder : ASTraitsVisitor
 		version (Windows)
 			static string[string] filenameMappings;
 
-		string getFilename(U)(U obj)
+		string getFilename(U)(U obj, string suffix)
 		{
 			auto pname = cast(T)obj in filenames;
 			assert(pname, format("Unscanned object: ", obj));
@@ -310,7 +313,7 @@ final class RefBuilder : ASTraitsVisitor
 				filename = join(dirSegments, "/");
 			}
 
-			return filename ~ ".asasm";
+			return filename ~ "." ~ suffix ~ ".asasm";
 		}
 	}
 
@@ -601,14 +604,17 @@ final class Disassembler
 
 	void newInclude(StringBuilder mainsb, string filename, void delegate(StringBuilder) callback)
 	{
-		if (mainsb.filename.split("/").length != 2)
-			throw new Exception("TODO");
-		StringBuilder sb = new StringBuilder(dir ~ "/" ~ filename);
+		string base = dirname(mainsb.filename);
+		string full = dir ~ "/" ~ filename;
+		assert(full.startsWith(base));
+		string rel  = full[base.length+1..$];
+
+		StringBuilder sb = new StringBuilder(full);
 		callback(sb);
 		sb.save();
 
 		mainsb ~= "#include ";
-		dumpString(mainsb, filename);
+		dumpString(mainsb, rel);
 		mainsb.newLine();
 	}
 
@@ -643,7 +649,7 @@ final class Disassembler
 
 		foreach (i, script; as.scripts)
 		{
-			newInclude(sb, refs.scripts.getFilename(script), (StringBuilder sb) {
+			newInclude(sb, refs.scripts.getFilename(script, "script"), (StringBuilder sb) {
 				dumpScript(sb, script, i);
 			});
 		}
@@ -656,7 +662,7 @@ final class Disassembler
 			sb.newLine();
 
 			foreach (i, vclass; as.orphanClasses)
-				newInclude(sb, refs.objects.getFilename(vclass), (StringBuilder sb) {
+				newInclude(sb, refs.objects.getFilename(vclass, "class"), (StringBuilder sb) {
 					dumpClass(sb, vclass);
 				});
 
@@ -670,7 +676,7 @@ final class Disassembler
 			sb.newLine();
 
 			foreach (i, method; as.orphanMethods)
-				newInclude(sb, refs.objects.getFilename(method), (StringBuilder sb) {
+				newInclude(sb, refs.objects.getFilename(method, "method"), (StringBuilder sb) {
 					dumpMethod(sb, method, "method");
 				});
 
@@ -909,7 +915,16 @@ final class Disassembler
 						dumpUInt(sb, trait.vClass.slotId);
 					}
 					sb.indent++; sb.newLine();
-					dumpClass(sb, trait.vClass.vclass);
+
+					// Workaround for issue 6141
+					static void dumpTheClass(Disassembler self, StringBuilder sb, ASProgram.Class vclass)
+					{
+						self.newInclude(sb, self.refs.objects.getFilename(vclass, "class"), (StringBuilder sb) {
+							self.dumpClass(sb, vclass);
+						});
+					}
+
+					dumpTheClass(this, sb, trait.vClass.vclass);
 					break;
 				case TraitKind.Function:
 					if (trait.vFunction.slotId)
