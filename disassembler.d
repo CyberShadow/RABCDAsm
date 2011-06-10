@@ -457,6 +457,7 @@ final class RefBuilder : ASTraitsVisitor
 
 	void visitNamespace(ASProgram.Namespace ns)
 	{
+		if (ns is null) return;
 		if (ns.kind == ASType.PrivateNamespace)
 		{
 			assert(context.length > 0, "No context");

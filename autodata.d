@@ -119,8 +119,11 @@ template RawDataHandlerWrapper()
 		static if (!hasAliasing!(T))
 			enum getMixinRecursive = getRawMixin!("&" ~ name, name ~ ".sizeof");
 		else
-		static if (is(typeof(this)==struct) || is(typeof(this)==class))
+		static if (is(T==struct))
 			enum getMixinRecursive = name ~ ".processData!(void, ``, ``)(handler);";
+		else
+		static if (is(T==class))
+			enum getMixinRecursive = "if ("~name~" !is null) " ~ name ~ ".processData!(void, ``, ``)(handler);";
 		else
 			static assert(0, "Don't know how to process type: " ~ T.stringof);
 	}
@@ -144,7 +147,7 @@ struct EqualsDataHandler(O)
 
 	template nullCheck(T, string name)
 	{
-		static if (is(T U : U[]))
+		static if (is(typeof(T.init is null)))
 			enum nullCheck = "if ((this." ~ name ~ " is null) != (_AutoDataOther." ~ name ~ " is null)) return false;";
 		else
 			enum nullCheck = "";
@@ -165,6 +168,23 @@ struct CmpDataHandler(O)
 		enum getMixin = getMixinComposite!(T, name, reverseSort).code;
 	}
 
+	template nullCheck(T, string name, string reverseStr)
+	{
+		static if (is(typeof(T.init is null)))
+			enum nullCheck = "
+				if (this."~name~" is null && _AutoDataOther."~name~" is null)
+					{ /* skip */ }
+				else
+				if (this."~name~" is null && _AutoDataOther."~name~" !is null)
+					return " ~ reverseStr ~ "(-1);
+				else
+				if (this."~name~" !is null && _AutoDataOther."~name~" is null)
+					return " ~ reverseStr ~ "( 1);
+				else";
+		else
+			enum nullCheck = "";
+	}
+
 	template getMixinComposite(T, string name, bool reverseSort)
 	{
 		enum reverseStr = reverseSort ? "-" : "";
@@ -180,7 +200,8 @@ struct CmpDataHandler(O)
 			enum dataCode = "{ int _AutoDataCmp = this." ~ name ~ " - _AutoDataOther." ~ name ~ "; if (_AutoDataCmp != 0) return " ~ reverseStr ~ "_AutoDataCmp; }"; // TODO: use long?
 		else
 		static if (is(typeof(T.opCmp)))
-			enum dataCode = "{ int _AutoDataCmp = this." ~ name ~ ".opCmp(_AutoDataOther." ~ name ~ "); if (_AutoDataCmp != 0) return " ~ reverseStr ~ "_AutoDataCmp; }";
+			enum dataCode = nullCheck!(T, name, reverseStr)
+			              ~ "{ int _AutoDataCmp = this." ~ name ~ ".opCmp(_AutoDataOther." ~ name ~ "); if (_AutoDataCmp != 0) return " ~ reverseStr ~ "_AutoDataCmp; }";
 		else
 			enum dataCode = "if (this." ~ name ~ " < _AutoDataOther." ~ name ~ ") return " ~ reverseStr ~ "(-1);" ~
 			                "if (this." ~ name ~ " > _AutoDataOther." ~ name ~ ") return " ~ reverseStr ~ "( 1);";
