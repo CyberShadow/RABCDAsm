@@ -449,6 +449,7 @@ private final class ABCtoAS
 				n.vTypeName.params.length = multiname.TypeName.params.length;
 				foreach (j, param; multiname.TypeName.params)
 					n.vTypeName.params[j] = multinames[param];
+				break;
 			default:
 				break;
 		}
