@@ -1377,7 +1377,8 @@ static this()
 		Opcode.OP_setproperty,
 		Opcode.OP_setpropertylate,
 		Opcode.OP_setslot,
-		Opcode.OP_setsuper
+		Opcode.OP_setsuper,
+		Opcode.OP_si32,
 	])
 		newLineAfter[o] = true;
 }
