@@ -486,6 +486,7 @@ final class RefBuilder : ASTraitsVisitor
 
 	void visitMultiname(ASProgram.Multiname m)
 	{
+		if (m is null) return;
 		with (m)
 			switch (kind)
 			{
