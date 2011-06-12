@@ -369,6 +369,13 @@ final class RefBuilder : ASTraitsVisitor
 				addMethod(method);
 				popContext();
 			}
+
+		// add private namespaces referenced only at script level
+		foreach (v; as.scripts)
+			foreach (trait; v.traits)
+				if (trait.name.kind == ASType.QName && trait.name.vQName.ns.kind == ASType.PrivateNamespace && !privateNamespaces.isAdded(trait.name.vQName.ns.privateIndex))
+					privateNamespaces.add(trait.name.vQName.ns.privateIndex, scripts.getContext(v));
+
 		foreach (privateIndex, b; possibleOrphanPrivateNamespaces)
 			if (!privateNamespaces.isAdded(privateIndex))
 			{
