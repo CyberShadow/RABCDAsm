@@ -754,8 +754,13 @@ final class Disassembler
 
 			static double forceDouble(double d) { static double n; n = d; return n; }
 			if (s != "nan" && s != "inf" && s != "-inf")
+			{
+				for (int i=s.length-1; i>0; i--)
+					if (s[i]>='0' && s[i]<='8' && forceDouble(to!double(s[0..i] ~ cast(char)(s[i]+1)))==v)
+						s = s[0..i] ~ cast(char)(s[i]+1);
 				while (s.length>2 && s[$-1]!='.' && forceDouble(to!double(s[0..$-1]))==v)
 					s = s[0..$-1];
+			}
 			sb ~= s;
 		}
 	}
