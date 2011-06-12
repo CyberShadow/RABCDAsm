@@ -1315,7 +1315,6 @@ private final class ABCReader
 		size_t end = pos + len;
 
 		uint offset() { return pos - start; }
-		uint validateIndex(uint index, uint length) { enforce(index < length, "Out-of-bounds constant index"); return index; }
 
 		try
 		{
@@ -1346,28 +1345,14 @@ private final class ABCReader
 							break;
 
 						case OpcodeArgumentType.Int:
-							instruction.arguments[i].index = validateIndex(readU30(), abc.ints.length);
-							break;
 						case OpcodeArgumentType.UInt:
-							instruction.arguments[i].index = validateIndex(readU30(), abc.uints.length);
-							break;
 						case OpcodeArgumentType.Double:
-							instruction.arguments[i].index = validateIndex(readU30(), abc.doubles.length);
-							break;
 						case OpcodeArgumentType.String:
-							instruction.arguments[i].index = validateIndex(readU30(), abc.strings.length);
-							break;
 						case OpcodeArgumentType.Namespace:
-							instruction.arguments[i].index = validateIndex(readU30(), abc.namespaces.length);
-							break;
 						case OpcodeArgumentType.Multiname:
-							instruction.arguments[i].index = validateIndex(readU30(), abc.multinames.length);
-							break;
 						case OpcodeArgumentType.Class:
-							instruction.arguments[i].index = validateIndex(readU30(), abc.classes.length);
-							break;
 						case OpcodeArgumentType.Method:
-							instruction.arguments[i].index = validateIndex(readU30(), abc.methods.length);
+							instruction.arguments[i].index = readU30();
 							break;
 
 						case OpcodeArgumentType.JumpTarget:
