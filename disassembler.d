@@ -130,10 +130,9 @@ final class RefBuilder : ASTraitsVisitor
 			{
 			case Type.Multiname:
 				assert(multiname.kind == ASType.QName);
-				if (multiname.vQName.ns.kind == ASType.PrivateNamespace)
-					throw new Exception("Stringifying unexpanded context");
-
 				auto nsName = multiname.vQName.ns.name;
+				if (multiname.vQName.ns.kind == ASType.PrivateNamespace) // unexpanded private namespace
+					nsName ~= '#' ~ to!string(multiname.vQName.ns.privateIndex);
 				if (nsName.length)
 					if (multiname.vQName.name.length)
 						return [Segment('/', nsName), Segment(filename ? '/' : ':', multiname.vQName.name)];
@@ -149,29 +148,29 @@ final class RefBuilder : ASTraitsVisitor
 			}
 		}
 
-		static ContextItem[] expand(RefBuilder refs, ContextItem[] context, bool noThrow) /// recursively expand all private namespaces
+		static ContextItem[] expand(RefBuilder refs, ContextItem[] context, bool abortOnUnknown) /// recursively expand all private namespaces
 		{
 			ContextItem[] newContext;
 			foreach (ref c; context)
 			{
-				auto cEx = c.expand(refs, noThrow);
+				auto cEx = c.expand(refs, abortOnUnknown);
 				if (cEx is null) return null;
 				newContext ~= cEx;
 			}
 			return newContext;
 		}
 
-		ContextItem[] expand(RefBuilder refs, bool noThrow)
+		ContextItem[] expand(RefBuilder refs, bool abortOnUnknown)
 		{
 			if (type==Type.Multiname && multiname.vQName.ns.kind == ASType.PrivateNamespace)
 			{
 				auto pcontext = multiname.vQName.ns.privateIndex in refs.privateNamespaces.contexts;
 				if (pcontext is null)
-					if (noThrow)
+					if (abortOnUnknown)
 						return null;
 					else
-						throw new Exception("Expanding unknown private namespace " ~ to!string(multiname.vQName.ns.privateIndex));
-				auto expanded = expand(refs, *pcontext, noThrow);
+						return (&this)[0..1];
+				auto expanded = expand(refs, *pcontext, abortOnUnknown);
 				if (expanded is null) return null;
 				return expanded ~ (multiname.vQName.name.length ? [ContextItem(multiname.vQName.name)] : null); // hack
 			}
@@ -232,7 +231,6 @@ final class RefBuilder : ASTraitsVisitor
 				if (pexisting)
 				{
 					auto rootContext = contextRoot(*pexisting, context);
-					enforce(rootContext.length, format("Can't find common private namespace root between ", *pexisting, " and ", context));
 					contexts[p] = rootContext;
 				}
 				else
@@ -346,7 +344,10 @@ final class RefBuilder : ASTraitsVisitor
 				if (c)
 					classContexts ~= c;
 			}
-			context = reduce!contextRoot(new ContextItem[0], classContexts);
+			if (classContexts.length)
+				context = reduce!contextRoot(classContexts);
+			else
+				context = null;
 			if (context.length==0)
 				pushContext("script_" ~ to!string(i));
 			scripts.add(v, context);
@@ -366,6 +367,13 @@ final class RefBuilder : ASTraitsVisitor
 			{
 				pushContext("orphan_method_" ~ to!string(i));
 				addMethod(method);
+				popContext();
+			}
+		foreach (privateIndex, b; possibleOrphanPrivateNamespaces)
+			if (!privateNamespaces.isAdded(privateIndex))
+			{
+				pushContext("private_namespace_" ~ to!string(privateIndex));
+				privateNamespaces.add(privateIndex, context);
 				popContext();
 			}
 
@@ -416,7 +424,6 @@ final class RefBuilder : ASTraitsVisitor
 		static bool uninteresting(ContextItem[] c)
 		{
 			return
-				(c.length==0) ||
 				(c.length==1 && c[0].type==ContextItem.Type.String && c[0].str.startsWith("script_") && c[0].str.endsWith("_sinit")) ||
 				(c.length==1 && c[0].type==ContextItem.Type.String && c[0].str.startsWith("orphan_method_")) ||
 				false;
@@ -455,6 +462,8 @@ final class RefBuilder : ASTraitsVisitor
 		return c;
 	}
 
+	bool[uint] possibleOrphanPrivateNamespaces;
+
 	void visitNamespace(ASProgram.Namespace ns)
 	{
 		if (ns is null) return;
@@ -471,7 +480,10 @@ final class RefBuilder : ASTraitsVisitor
 					break;
 				}
 			if (myPos == 0)
+			{
+				possibleOrphanPrivateNamespaces[ns.privateIndex] = true;
 				return;
+			}
 			auto myContext = context[0..myPos].dup;
 
 			privateNamespaces.add(ns.privateIndex, myContext);
@@ -610,8 +622,10 @@ final class Disassembler
 		{
 			string base = dirname(mainsb.filename);
 			string full = dir ~ "/" ~ filename;
-			assert(full.startsWith(base));
-			string rel  = full[base.length+1..$];
+			uint up = 0;
+			while (!full.startsWith(base))
+				base = dirname(base), up++;
+			string rel  = repeat("../", up) ~ full[base.length+1..$];
 
 			StringBuilder sb = new StringBuilder(full);
 			callback(sb);
