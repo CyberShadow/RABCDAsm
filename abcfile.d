@@ -1413,6 +1413,7 @@ private final class ABCReader
 		{
 			r.instructions = null;
 			r.error = e.msg;
+			instructionAtOffset[] = 0;
 		}
 		pos = end;
 
