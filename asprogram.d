@@ -628,10 +628,10 @@ private final class ABCtoAS
 					r.arguments[i].multinamev = multinames[instruction.arguments[i].index];
 					break;
 				case OpcodeArgumentType.Class:
-					r.arguments[i].classv = classes[instruction.arguments[i].index];
+					r.arguments[i].classv = classes.checkedGet(instruction.arguments[i].index);
 					break;
 				case OpcodeArgumentType.Method:
-					r.arguments[i].methodv = methods[instruction.arguments[i].index];
+					r.arguments[i].methodv = methods.checkedGet(instruction.arguments[i].index);
 					break;
 
 				case OpcodeArgumentType.JumpTarget:
@@ -1066,15 +1066,12 @@ private final class AStoABC
 
 	void visitClass(ASProgram.Class vclass)
 	{
-		if (classes.notAdded(vclass))
+		if (classes.add(vclass))
 		{
 			visitMethod(vclass.cinit);
 			visitTraits(vclass.traits);
 
 			visitInstance(vclass.instance);
-
-			bool r = classes.add(vclass);
-			assert(r, "Recursive class reference");
 		}
 	}
 
@@ -1484,10 +1481,16 @@ private final class AStoABC
 					r.arguments[i].index = multinames.get(instruction.arguments[i].multinamev);
 					break;
 				case OpcodeArgumentType.Class:
-					r.arguments[i].index = classes.get(instruction.arguments[i].classv);
+					if (instruction.arguments[i].classv is null)
+						r.arguments[i].index = abc.classes.length;
+					else
+						r.arguments[i].index = classes.get(instruction.arguments[i].classv);
 					break;
 				case OpcodeArgumentType.Method:
-					r.arguments[i].index = methods.get(instruction.arguments[i].methodv);
+					if (instruction.arguments[i].methodv is null)
+						r.arguments[i].index = abc.methods.length;
+					else
+						r.arguments[i].index = methods.get(instruction.arguments[i].methodv);
 					break;
 
 				case OpcodeArgumentType.JumpTarget:
@@ -1557,4 +1560,9 @@ private bool contains(T)(T[] arr, T val)
 		if (v == val)
 			return true;
 	return false;
+}
+
+private T checkedGet(T)(T[] array, uint index, T def = null)
+{
+	return index < array.length ? array[index] : def;
 }

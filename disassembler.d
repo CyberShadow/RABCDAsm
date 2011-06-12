@@ -1334,10 +1334,16 @@ final class Disassembler
 							dumpMultiname(sb, instruction.arguments[i].multinamev);
 							break;
 						case OpcodeArgumentType.Class:
-							dumpString(sb, refs.objects.getName(instruction.arguments[i].classv));
+							if (instruction.arguments[i].classv is null)
+								sb ~= "null";
+							else
+								dumpString(sb, refs.objects.getName(instruction.arguments[i].classv));
 							break;
 						case OpcodeArgumentType.Method:
-							dumpString(sb, refs.objects.getName(instruction.arguments[i].methodv));
+							if (instruction.arguments[i].methodv is null)
+								sb ~= "null";
+							else
+								dumpString(sb, refs.objects.getName(instruction.arguments[i].methodv));
 							break;
 
 						case OpcodeArgumentType.JumpTarget:
