@@ -20,6 +20,7 @@ module autodata;
 
 import murmurhash2a;
 import std.traits;
+public import std.conv;
 
 string addAutoField(string name, bool reverseSort = false)
 {
@@ -75,7 +76,7 @@ template AutoCompare()
 template AutoToString()
 {
 	static if (is(typeof(this)==class))
-		override string toString() { return _AutoDataToString(); }
+		override string toString() const { return _AutoDataToString(); }
 	else // struct
 		string toString() { return _AutoDataToString(); }
 
@@ -213,6 +214,6 @@ struct ToStringDataHandler
 {
 	template getMixin(T, string name, bool reverseSort)
 	{
-		enum getMixin = "_AutoDataResult ~= format(`%s = %s `, `" ~ name ~ "`, this." ~ name ~ ");";
+		enum getMixin = "_AutoDataResult ~= `" ~ name ~ " = ` ~ to!string(this." ~ name ~ ") ~ ` `;";
 	}
 }
