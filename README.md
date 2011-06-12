@@ -87,21 +87,22 @@ To begin hacking on a SWF file:
 
     abcexport file.swf
 
-This will create `file0.abc` ... `fileN.abc` (often just `file0.abc`). Each 
+This will create `file-0.abc` ... `file-N.abc` (often just `file-0.abc`). Each
 file corresponds to an ABC block inside the SWF file.
 
 To disassemble one of the `.abc` files:
 
-    rabcdasm file0.abc
+    rabcdasm file-0.abc
 
-This will create a `file0` directory, which will contain `file0.main.asasm`
-(the main program file), `file0.privatens.asasm` (private namespace alias
-definitions) and a file per ActionScript class.
+This will create a `file-0` directory, which will contain `file-0.main.asasm`
+(the main program file), `file-0.privatens.asasm` (private namespace alias
+definitions), and files for ActionScript scripts, classes, and orphan and
+script-level methods.
 
 To assemble the `.asasm` files back, and update the SWF file:
 
-    rabcasm file0/file0.main.asasm
-    abcreplace file0.swf 0 file0/file0.main.abc
+    rabcasm file-0/file-0.main.asasm
+    abcreplace file-0.swf 0 file-0/file-0.main.abc
 
 The second `abcreplace` argument represents the index of the ABC block in the
 SWF file, and corresponds to the number in the filename created by `abcexport`.
@@ -250,7 +251,7 @@ namespace. Internally (the ABC file format), private namespaces are
 distinguished by a numerical index - `rabcdasm` will attempt to give them
 descriptive names based on their context. Aliases can be defined using the 
 `#privatens` directive. `rabcdasm` will create a separate file containing the
-aliases (`file0.privatens.asasm`).
+aliases (`file-0.privatens.asasm`).
 
 Strings have a syntax similar to C string literals. Strings start and end with
 a `"`. Supported escape sequences (a backslash followed by a letter) are `\n`
