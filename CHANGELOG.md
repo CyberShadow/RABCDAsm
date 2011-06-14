@@ -1,6 +1,20 @@
 RABCDAsm Changelog
 ==================
 
+RABCDAsm v1.7 (2011.06.14)
+--------------------------
+
+ * Fixed handling of invalid UTF-8 in strings
+ * Fixed handling of null namespaces and multinames
+ * Fixed handling of exception info in corrupted method bodies
+ * Fixed handling of orphan private namespaces
+ * Fixed handling of out-of-bounds class/method indices
+ * Disassembler now creates one file per class and script-level method
+ * Disassembler now outputs newlines after `si32` instructions as well
+ * `abcexport` now delimits the index with a dash in output filenames
+ * Improved shortening of `double` literals
+ * Documentation updates
+
 RABCDAsm v1.6 (2011.05.13)
 --------------------------
 
