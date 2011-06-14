@@ -1412,7 +1412,11 @@ static this()
 		Opcode.OP_setpropertylate,
 		Opcode.OP_setslot,
 		Opcode.OP_setsuper,
+		Opcode.OP_si8,
+		Opcode.OP_si16,
 		Opcode.OP_si32,
+		Opcode.OP_sf32,
+		Opcode.OP_sf64,
 	])
 		newLineAfter[o] = true;
 }

@@ -10,7 +10,7 @@ RABCDAsm v1.7 (2011.06.14)
  * Fixed handling of orphan private namespaces
  * Fixed handling of out-of-bounds class/method indices
  * Disassembler now creates one file per class and script-level method
- * Disassembler now outputs newlines after `si32` instructions as well
+ * Disassembler now outputs blank lines after `si32` etc. instructions as well
  * `abcexport` now delimits the index with a dash in output filenames
  * Improved shortening of `double` literals
  * Documentation updates
