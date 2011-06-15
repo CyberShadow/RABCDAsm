@@ -1,6 +1,11 @@
 RABCDAsm Changelog
 ==================
 
+RABCDAsm v1.8 (2011.06.??)
+--------------------------
+
+ * Treat out-of-bounds namespace/multiname indices as null
+
 RABCDAsm v1.7 (2011.06.14)
 --------------------------
 

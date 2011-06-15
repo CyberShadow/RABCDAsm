@@ -622,10 +622,10 @@ private final class ABCtoAS
 					r.arguments[i].stringv = abc.strings[instruction.arguments[i].index];
 					break;
 				case OpcodeArgumentType.Namespace:
-					r.arguments[i].namespacev = namespaces[instruction.arguments[i].index];
+					r.arguments[i].namespacev = namespaces.checkedGet(instruction.arguments[i].index);
 					break;
 				case OpcodeArgumentType.Multiname:
-					r.arguments[i].multinamev = multinames[instruction.arguments[i].index];
+					r.arguments[i].multinamev = multinames.checkedGet(instruction.arguments[i].index);
 					break;
 				case OpcodeArgumentType.Class:
 					r.arguments[i].classv = classes.checkedGet(instruction.arguments[i].index);
@@ -1562,7 +1562,7 @@ private bool contains(T)(T[] arr, T val)
 	return false;
 }
 
-private T checkedGet(T)(T[] array, uint index, T def = null)
+private T checkedGet(T)(T[] array, uint index, T def = T.init)
 {
 	return index < array.length ? array[index] : def;
 }
