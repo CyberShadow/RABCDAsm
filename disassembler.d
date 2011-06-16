@@ -238,8 +238,10 @@ final class RefBuilder : ASTraitsVisitor
 			}
 			else
 			{
-				enforce(p !in contexts, format("Duplicate object reference: ", contexts[p], " and ", context));
-				contexts[p] = context.dup;
+				if (p in contexts)
+					contexts[p] = [ContextItem("multireferenced")];
+				else
+					contexts[p] = context.dup;
 			}
 		}
 
