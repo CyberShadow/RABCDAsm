@@ -416,11 +416,15 @@ RABCDAsm users.
             oSession.SaveResponseBody(path);
         }
 
+   A more robust version of the above snippet is available as a Fiddler plugin
+   [here][FiddlerAutoCapture].
+
    Once you have edited a SWF file, you can use Fiddler's [AutoResponder][] to
    replace the original file with your modified version.
 
   [Fiddler]: http://www.fiddler2.com/fiddler2/
   [AutoResponder]: http://www.fiddler2.com/fiddler2/help/AutoResponder.asp
+  [FiddlerAutoCapture]: https://github.com/CyberShadow/FiddlerAutoCapture
 
 Limitations
 ===========
