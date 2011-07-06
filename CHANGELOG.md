@@ -1,11 +1,12 @@
 RABCDAsm Changelog
 ==================
 
-RABCDAsm v1.8 (2011.06.??)
+RABCDAsm v1.8 (2011.07.06)
 --------------------------
 
  * Fixed handling of orphan methods with multiple references
  * Treat out-of-bounds namespace/multiname indices as null
+ * Documentation updates
 
 RABCDAsm v1.7 (2011.06.14)
 --------------------------
