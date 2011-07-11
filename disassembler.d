@@ -20,6 +20,7 @@ module disassembler;
 
 import std.file;
 import std.string;
+import std.array;
 import std.conv;
 import std.exception;
 import std.algorithm;
@@ -301,7 +302,7 @@ final class RefBuilder : ASTraitsVisitor
 				{
 				again:
 					string subpath = join(dirSegments[0..l+1], "/");
-					string subpathl = tolower(subpath);
+					string subpathl = toLower(subpath);
 					string* canonicalp = subpathl in filenameMappings;
 					if (canonicalp && *canonicalp != subpath)
 					{
@@ -634,7 +635,7 @@ final class Disassembler
 			uint up = 0;
 			while (!full.startsWith(base))
 				base = dirname(base), up++;
-			string rel  = repeat("../", up) ~ full[base.length+1..$];
+			string rel  = replicate("../", up) ~ full[base.length+1..$];
 
 			StringBuilder sb = new StringBuilder(full);
 			callback(sb);

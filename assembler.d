@@ -76,7 +76,7 @@ final class Assembler
 
 		string positionStr()
 		{
-			auto lines = splitlines(buf);
+			auto lines = splitLines(buf);
 			foreach (i, line; lines)
 				if (pos <= line.ptr + line.length)
 					return format("%s(%d,%d)", filename, i+1, pos-line.ptr+1);
