@@ -19,6 +19,7 @@
 module swffile;
 
 import std.zlib;
+import std.conv;
 import zlibx;
 
 /**
@@ -243,13 +244,13 @@ private final class SWFWriter
 			{
 				u |= 0x3F;
 				buf ~= toArray(u);
-				uint l = tag.data.length;
+				uint l = to!uint(tag.data.length);
 				buf ~= toArray(l);
 			}
 			buf ~= tag.data;
 		}
 
-		swf.header.fileLength = 8 + buf.length;
+		swf.header.fileLength = to!uint(8 + buf.length);
 		if (swf.header.signature[0] == 'C')
 			buf = cast(ubyte[])compress(buf, 9);
 		buf = toArray(swf.header) ~ buf;

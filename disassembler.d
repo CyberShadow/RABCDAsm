@@ -482,7 +482,7 @@ final class RefBuilder : ASTraitsVisitor
 			assert(context.length > 0, "No context");
 			//assert(ns.name is null, "Named private namespace");
 
-			int myPos = context.length;
+			auto myPos = context.length;
 			foreach (i, ref item; context)
 				if (item.type == ContextItem.Type.Multiname && item.multiname.vQName.ns == ns)
 				{
@@ -678,7 +678,7 @@ final class Disassembler
 		sb.newLine();
 		sb.newLine();
 
-		foreach (i, script; as.scripts)
+		foreach (uint i, script; as.scripts)
 		{
 			newInclude(sb, refs.scripts.getFilename(script, "script"), (StringBuilder sb) {
 				dumpScript(sb, script, i);
@@ -780,7 +780,7 @@ final class Disassembler
 			static double forceDouble(double d) { static double n; n = d; return n; }
 			if (s != "nan" && s != "inf" && s != "-inf")
 			{
-				for (int i=s.length-1; i>0; i--)
+				foreach_reverse (i; 1..s.length)
 					if (s[i]>='0' && s[i]<='8' && forceDouble(to!double(s[0..i] ~ cast(char)(s[i]+1)))==v)
 						s = s[0..i] ~ cast(char)(s[i]+1);
 				while (s.length>2 && s[$-1]!='.' && forceDouble(to!double(s[0..$-1]))==v)
@@ -1288,7 +1288,7 @@ final class Disassembler
 		}
 
 		bool extraNewLine = false;
-		foreach (ii, ref instruction; instructions)
+		foreach (uint ii, ref instruction; instructions)
 		{
 			if (extraNewLine)
 				sb.newLine();
@@ -1299,7 +1299,7 @@ final class Disassembler
 			auto argTypes = opcodeInfo[instruction.opcode].argumentTypes;
 			if (argTypes.length)
 			{
-				for (int i=opcodeInfo[instruction.opcode].name.length; i<20; i++)
+				foreach (i; opcodeInfo[instruction.opcode].name.length..20)
 					sb ~= ' ';
 				foreach (i, type; argTypes)
 				{
@@ -1372,7 +1372,7 @@ final class Disassembler
 			}
 			sb.newLine();
 		}
-		checkLabel(instructions.length);
+		checkLabel(to!uint(instructions.length));
 	}
 }
 

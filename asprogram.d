@@ -655,7 +655,7 @@ private final class ABCtoAS
 		as.majorVersion = abc.majorVersion;
 
 		namespaces.length = abc.namespaces.length;
-		foreach (i, ref namespace; abc.namespaces)
+		foreach (uint i, ref namespace; abc.namespaces)
 			if (i)
 				namespaces[i] = convertNamespace(namespace, i);
 
@@ -685,7 +685,7 @@ private final class ABCtoAS
 			instances[i] = convertInstance(instance);
 
 		classes.length = abc.classes.length;
-		foreach (i, ref vclass; abc.classes)
+		foreach (uint i, ref vclass; abc.classes)
 			classes[i] = convertClass(vclass, i);
 
 		as.scripts.length = abc.scripts.length;
@@ -798,7 +798,7 @@ private final class AStoABC
 			all.sort;
 			enum { NullOffset = haveNull ? 1 : 0 }
 			values.length = all.length + NullOffset;
-			foreach (i, ref c; all)
+			foreach (uint i, ref c; all)
 			{
 				pool[cast(I)c.value].index = i + NullOffset;
 				values[i + NullOffset] = c.value;
@@ -838,7 +838,7 @@ private final class AStoABC
 			auto rp = p in pool;
 			if (rp is null)
 			{
-				pool[p] = Entry(1, p, pool.length);
+				pool[p] = Entry(1, p, to!uint(pool.length));
 				return true;
 			}
 			else
@@ -887,7 +887,7 @@ private final class AStoABC
 			topSort:
 
 			// update indices
-			foreach (j, e; all)
+			foreach (uint j, e; all)
 				e.index = j;
 
 			foreach (ref a; pool)
@@ -1482,13 +1482,13 @@ private final class AStoABC
 					break;
 				case OpcodeArgumentType.Class:
 					if (instruction.arguments[i].classv is null)
-						r.arguments[i].index = abc.classes.length;
+						r.arguments[i].index = to!uint(abc.classes.length);
 					else
 						r.arguments[i].index = classes.get(instruction.arguments[i].classv);
 					break;
 				case OpcodeArgumentType.Method:
 					if (instruction.arguments[i].methodv is null)
-						r.arguments[i].index = abc.methods.length;
+						r.arguments[i].index = to!uint(abc.methods.length);
 					else
 						r.arguments[i].index = methods.get(instruction.arguments[i].methodv);
 					break;

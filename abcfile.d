@@ -19,6 +19,7 @@
 module abcfile;
 
 import std.string : format; // exception formatting
+import std.conv;
 import std.exception;
 
 /**
@@ -222,7 +223,7 @@ class ABCFile
 				uint index; /// instruction index
 				int offset; /// signed offset relative to said instruction
 			}
-			private int absoluteOffset; /// internal temporary value used during reading and writing
+			private ptrdiff_t absoluteOffset; /// internal temporary value used during reading and writing
 		}
 	}
 
@@ -1280,18 +1281,18 @@ private final class ABCReader
 		r.instructions = null;
 
 		size_t len = readU30();
-		uint[] instructionAtOffset = new uint[len];
+		auto instructionAtOffset = new uint[len];
 		r.rawBytes = buf[pos..pos+len];
 
 		void translateLabel(ref ABCFile.Label label)
 		{
-			int absoluteOffset = label.absoluteOffset;
-			int instructionOffset = absoluteOffset;
+			auto absoluteOffset = label.absoluteOffset;
+			auto instructionOffset = absoluteOffset;
 			while (true)
 			{
-				if (instructionOffset >= cast(int)len)
+				if (instructionOffset >= len)
 				{
-					label.index = r.instructions.length;
+					label.index = to!uint(r.instructions.length);
 					instructionOffset = len;
 					break;
 				}
@@ -1308,23 +1309,23 @@ private final class ABCReader
 				}
 				instructionOffset--;
 			}
-			label.offset = absoluteOffset-instructionOffset;
+			label.offset = to!int(absoluteOffset-instructionOffset);
 		}
 
 		size_t start = pos;
 		size_t end = pos + len;
 
-		uint offset() { return pos - start; }
+		size_t offset() { return pos - start; }
 
 		try
 		{
 			instructionAtOffset[] = uint.max;
-			uint[] instructionOffsets;
+			size_t[] instructionOffsets;
 			while (pos < end)
 			{
-				uint instructionOffset = offset;
+				auto instructionOffset = offset;
 				scope(failure) pos = start + instructionOffset;
-				instructionAtOffset[instructionOffset] = r.instructions.length;
+				instructionAtOffset[instructionOffset] = to!uint(r.instructions.length);
 				ABCFile.Instruction instruction;
 				instruction.opcode = cast(Opcode)readU8();
 				instruction.arguments.length = opcodeInfo[instruction.opcode].argumentTypes.length;
@@ -1517,7 +1518,6 @@ private final class ABCWriter
 		writeU8(cast(ubyte)(v>>16));
 	}
 
-	/// Note: may return values larger than 0xFFFFFFFF.
 	void writeU32(ulong v)
 	{
 		if ( v < 128)
@@ -1557,8 +1557,9 @@ private final class ABCWriter
 		writeU32(cast(ulong)v);
 	}
 
-	void writeU30(uint v)
+	void writeU30(ulong v)
 	{
+		enforce(v < (1<<30));
 		writeU32(v);
 	}
 
@@ -1756,9 +1757,9 @@ private final class ABCWriter
 		writeU30(v.initScopeDepth);
 		writeU30(v.maxScopeDepth);
 
-		uint[] instructionOffsets = new uint[v.instructions.length+1];
+		auto instructionOffsets = new size_t[v.instructions.length+1];
 
-		uint resolveLabel(ref ABCFile.Label label) { return instructionOffsets[label.index]+label.offset; }
+		ptrdiff_t resolveLabel(ref ABCFile.Label label) { return instructionOffsets[label.index]+label.offset; }
 
 		{
 			// we don't know the length before writing all the instructions - swap buffer with a temporary one
@@ -1768,12 +1769,12 @@ private final class ABCWriter
 			buf = methodBuf[];
 			pos = 0;
 
-			struct Fixup { ABCFile.Label target; uint pos, base; }
+			struct Fixup { ABCFile.Label target; size_t pos, base; }
 			Fixup[] fixups;
 
 			foreach (ii, ref instruction; v.instructions)
 			{
-				uint instructionOffset = pos;
+				auto instructionOffset = pos;
 				instructionOffsets[ii] = instructionOffset;
 
 				writeU8(instruction.opcode);
@@ -1837,7 +1838,7 @@ private final class ABCWriter
 			foreach (ref fixup; fixups)
 			{
 				pos = fixup.pos;
-				writeS24(resolveLabel(fixup.target)-fixup.base);
+				writeS24(to!int(cast(ptrdiff_t)(resolveLabel(fixup.target)-fixup.base)));
 			}
 
 			auto code = buf;

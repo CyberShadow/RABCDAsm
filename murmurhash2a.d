@@ -16,6 +16,8 @@
 
 module murmurhash2a;
 
+import std.conv;
+
 struct MurmurHash2A
 {
 	private static string mmix(string h, string k) { return "{ "~k~" *= m; "~k~" ^= "~k~" >> r; "~k~" *= m; "~h~" *= m; "~h~" ^= "~k~"; }"; }
@@ -67,8 +69,8 @@ public:
 	void Add(ref ubyte v) { Add(&v, v.sizeof); }
 	void Add(ref int v) { Add(&v, v.sizeof); }
 	void Add(ref uint v) { Add(&v, v.sizeof); }
-	void Add(string s) { Add(s.ptr, s.length); }
-	void Add(ubyte[] s) { Add(s.ptr, s.length); }
+	void Add(string s) { Add(s.ptr, to!uint(s.length)); }
+	void Add(ubyte[] s) { Add(s.ptr, to!uint(s.length)); }
 
 private:
 

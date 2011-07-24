@@ -138,7 +138,7 @@ struct HashDataHandler
 
 	template getRawMixin(string ptr, string len)
 	{
-		enum getRawMixin = "handler.hasher.Add(" ~ ptr ~ ", " ~ len ~ ");";
+		enum getRawMixin = "handler.hasher.Add(" ~ ptr ~ ", to!int(" ~ len ~ "));";
 	}
 }
 

@@ -2,7 +2,7 @@
 
 module zlibx;
 
-import std.zlib, etc.c.zlib;
+import std.zlib, etc.c.zlib, std.conv;
 static import etc.c.zlib;
 alias std.zlib.Z_SYNC_FLUSH Z_SYNC_FLUSH;
 
@@ -15,10 +15,10 @@ ubyte[] exactUncompress(ubyte[] srcbuf, size_t destlen)
 	uint err;
 
 	zs.next_in = srcbuf.ptr;
-	zs.avail_in = srcbuf.length;
+	zs.avail_in = to!uint(srcbuf.length);
 
 	zs.next_out = destbuf.ptr;
-	zs.avail_out = destbuf.length;
+	zs.avail_out = to!uint(destbuf.length);
 
 	err = etc.c.zlib.inflateInit2(&zs, 15);
 	if (err)

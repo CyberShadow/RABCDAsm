@@ -992,7 +992,7 @@ final class Assembler
 				break;
 			if (peekChar() == ':')
 			{
-				addUnique!("label")(labels, word, instructions.length);
+				addUnique!("label")(labels, word, to!uint(instructions.length));
 				skipChar(); // :
 				continue;
 			}
@@ -1008,7 +1008,7 @@ final class Assembler
 			instruction.opcode = *popcode;
 			auto argTypes = opcodeInfo[instruction.opcode].argumentTypes;
 			instruction.arguments.length = argTypes.length;
-			foreach (i, type; argTypes)
+			foreach (uint i, type; argTypes)
 			{
 				final switch (type)
 				{
@@ -1044,22 +1044,22 @@ final class Assembler
 						instruction.arguments[i].multinamev = readMultiname();
 						break;
 					case OpcodeArgumentType.Class:
-						localClassFixups ~= LocalFixup(files[0].position, instructions.length, i, readString());
+						localClassFixups ~= LocalFixup(files[0].position, to!uint(instructions.length), i, readString());
 						break;
 					case OpcodeArgumentType.Method:
-						localMethodFixups ~= LocalFixup(files[0].position, instructions.length, i, readString());
+						localMethodFixups ~= LocalFixup(files[0].position, to!uint(instructions.length), i, readString());
 						break;
 
 					case OpcodeArgumentType.JumpTarget:
 					case OpcodeArgumentType.SwitchDefaultTarget:
-						jumpFixups ~= LocalFixup(files[0].position, instructions.length, i, readWord());
+						jumpFixups ~= LocalFixup(files[0].position, to!uint(instructions.length), i, readWord());
 						break;
 
 					case OpcodeArgumentType.SwitchTargets:
 						string[] switchTargetLabels = readList!('[', ']', readWord, false)();
 						instruction.arguments[i].switchTargets.length = switchTargetLabels.length;
-						foreach (li, s; switchTargetLabels)
-							switchFixups ~= LocalFixup(files[0].position, instructions.length, i, s, li);
+						foreach (uint li, s; switchTargetLabels)
+							switchFixups ~= LocalFixup(files[0].position, to!uint(instructions.length), i, s, li);
 						break;
 				}
 				if (i < argTypes.length-1)
