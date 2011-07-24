@@ -31,7 +31,7 @@ version(DigitalMars)
 else
 	const DEFAULT_COMPILER = "gdmd";
 
-const DEFAULT_FLAGS = "-O -inline";
+const DEFAULT_FLAGS = "-w -O -inline";
 
 import std.process;
 import std.string;
