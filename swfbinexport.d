@@ -41,7 +41,7 @@ void main(string[] args)
 					enforce(tag.data.length >= 6);
 					ushort id = *cast(short*)tag.data.ptr;
 					ubyte[] bin = tag.data[6..$];
-					std.file.write(format("%s-%d.bin", getName(arg), id), bin);
+					std.file.write(format("%s-%d.bin", stripExtension(arg), id), bin);
 				}
 			enforce(found, "No DefineBinaryData tags found");
 		}

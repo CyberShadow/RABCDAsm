@@ -167,10 +167,12 @@ final class RefBuilder : ASTraitsVisitor
 			{
 				auto pcontext = multiname.vQName.ns.privateIndex in refs.privateNamespaces.contexts;
 				if (pcontext is null)
+				{
 					if (abortOnUnknown)
 						return null;
 					else
 						return (&this)[0..1];
+				}
 				auto expanded = expand(refs, *pcontext, abortOnUnknown);
 				if (expanded is null) return null;
 				return expanded ~ (multiname.vQName.name.length ? [ContextItem(multiname.vQName.name)] : null); // hack
@@ -630,11 +632,11 @@ final class Disassembler
 	{
 		if (doInline)
 		{
-			string base = dirname(mainsb.filename);
+			string base = dirName(mainsb.filename);
 			string full = dir ~ "/" ~ filename;
 			uint up = 0;
 			while (!full.startsWith(base))
-				base = dirname(base), up++;
+				base = dirName(base), up++;
 			string rel  = replicate("../", up) ~ full[base.length+1..$];
 
 			StringBuilder sb = new StringBuilder(full);

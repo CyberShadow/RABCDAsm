@@ -57,7 +57,7 @@ final class Assembler
 
 		static File fromFile(string filename, string data, string[] arguments = null)
 		{
-			return fromData(filename, data, arguments, getDirName(filename));
+			return fromData(filename, data, arguments, dirName(filename));
 		}
 
 		static File fromData(string name, string data, string[] arguments = null, string basePath = null)
@@ -103,7 +103,7 @@ final class Assembler
 		foreach (ref c; buf)
 			if (c == '\\')
 				c = '/';
-		return std.path.join(getBasePath, assumeUnique(buf));
+		return buildPath(getBasePath, buf);
 	}
 
 	void skipWhitespace()

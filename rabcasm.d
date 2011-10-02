@@ -35,5 +35,5 @@ void main(string[] args)
 		assembler.assemble(arg);
 	}
 	auto abc = as.toABC();
-	write(getName(args[1]) ~ ".abc", abc.write());
+	write(setExtension(args[1], "abc"), abc.write());
 }

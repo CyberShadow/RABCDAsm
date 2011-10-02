@@ -45,7 +45,7 @@ void main(string[] args)
 						while (*p++) {} // skip name
 						abc = tag.data[p-tag.data.ptr..$];
 					}
-					std.file.write(getName(arg) ~ "-" ~ to!string(count++) ~ ".abc", abc);
+					std.file.write(stripExtension(arg) ~ "-" ~ to!string(count++) ~ ".abc", abc);
 				}
 			if (count == 0)
 				throw new Exception("No DoABC tags found");
