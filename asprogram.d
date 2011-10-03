@@ -705,10 +705,9 @@ private final class ABCtoAS
 	}
 }
 
-private final class AStoABC
+private final class AStoABC : ASVisitor
 {
 	ABCFile abc;
-	ASProgram as;
 
 	static bool isNull(T)(T value)
 	{
@@ -925,239 +924,49 @@ private final class AStoABC
 	ReferencePool!(ASProgram.Class) classes;
 	ReferencePool!(ASProgram.Method) methods;
 
-	void visitNamespace(ASProgram.Namespace ns)
+	override void visitInt(long v) { ints.add(v); }
+	override void visitUint(ulong v) { uints.add(v); }
+	override void visitDouble(double v) { doubles.add(v); }
+	override void visitString(string v) { strings.add(v); }
+
+	override void visitNamespace(ASProgram.Namespace ns)
 	{
 		if (namespaces.add(ns))
-			strings.add(ns.name);
+			super.visitNamespace(ns);
 	}
 
-	void visitNamespaceSet(ASProgram.Namespace[] nsSet)
+	override void visitNamespaceSet(ASProgram.Namespace[] nsSet)
 	{
 		if (namespaceSets.add(nsSet))
-			foreach (ns; nsSet)
-				visitNamespace(ns);
+			super.visitNamespaceSet(nsSet);
 	}
 
-	void visitMultiname(ASProgram.Multiname multiname)
+	override void visitMultiname(ASProgram.Multiname multiname)
 	{
 		if (multinames.notAdded(multiname))
 		{
-			with (multiname)
-				switch (kind)
-				{
-					case ASType.QName:
-					case ASType.QNameA:
-						visitNamespace(vQName.ns);
-						strings.add(vQName.name);
-						break;
-					case ASType.RTQName:
-					case ASType.RTQNameA:
-						strings.add(vRTQName.name);
-						break;
-					case ASType.RTQNameL:
-					case ASType.RTQNameLA:
-						break;
-					case ASType.Multiname:
-					case ASType.MultinameA:
-						strings.add(vMultiname.name);
-						visitNamespaceSet(vMultiname.nsSet);
-						break;
-					case ASType.MultinameL:
-					case ASType.MultinameLA:
-						visitNamespaceSet(vMultinameL.nsSet);
-						break;
-					case ASType.TypeName:
-						visitMultiname(vTypeName.name);
-						foreach (param; vTypeName.params)
-							visitMultiname(param);
-						break;
-					default:
-						throw new .Exception("Unknown Multiname kind");
-				}
+			super.visitMultiname(multiname);
 			bool r = multinames.add(multiname);
 			assert(r, "Recursive multiname reference");
 		}
 	}
 
-	void visitScript(ASProgram.Script script)
-	{
-		visitTraits(script.traits);
-		visitMethod(script.sinit);
-	}
-
-	void visitTraits(ASProgram.Trait[] traits)
-	{
-		foreach (ref trait; traits)
-		{
-			visitMultiname(trait.name);
-			switch (trait.kind)
-			{
-				case TraitKind.Slot:
-				case TraitKind.Const:
-					visitMultiname(trait.vSlot.typeName);
-					visitValue(trait.vSlot.value);
-					break;
-				case TraitKind.Class:
-					visitClass(trait.vClass.vclass);
-					break;
-				case TraitKind.Function:
-					visitMethod(trait.vFunction.vfunction);
-					break;
-				case TraitKind.Method:
-				case TraitKind.Getter:
-				case TraitKind.Setter:
-					visitMethod(trait.vMethod.vmethod);
-					break;
-				default:
-					throw new Exception("Unknown trait kind");
-			}
-			foreach (metadata; trait.metadata)
-				visitMetadata(metadata);
-		}
-	}
-
-	void visitMetadata(ASProgram.Metadata metadata)
+	override void visitMetadata(ASProgram.Metadata metadata)
 	{
 		if (metadatas.add(metadata))
-		{
-			strings.add(metadata.name);
-			foreach (ref item; metadata.items)
-			{
-				strings.add(item.key);
-				strings.add(item.value);
-			}
-		}
+			super.visitMetadata(metadata);
 	}
 
-	void visitValue(ref ASProgram.Value value)
-	{
-		switch (value.vkind)
-		{
-			case ASType.Integer:
-				ints.add(value.vint);
-				break;
-			case ASType.UInteger:
-				uints.add(value.vuint);
-				break;
-			case ASType.Double:
-				doubles.add(value.vdouble);
-				break;
-			case ASType.Utf8:
-				strings.add(value.vstring);
-				break;
-			case ASType.Namespace:
-			case ASType.PackageNamespace:
-			case ASType.PackageInternalNs:
-			case ASType.ProtectedNamespace:
-			case ASType.ExplicitNamespace:
-			case ASType.StaticProtectedNs:
-			case ASType.PrivateNamespace:
-				visitNamespace(value.vnamespace);
-				break;
-			case ASType.True:
-			case ASType.False:
-			case ASType.Null:
-			case ASType.Undefined:
-				break;
-			default:
-				throw new Exception("Unknown type");
-		}
-	}
-
-	void visitClass(ASProgram.Class vclass)
+	override void visitClass(ASProgram.Class vclass)
 	{
 		if (classes.add(vclass))
-		{
-			visitMethod(vclass.cinit);
-			visitTraits(vclass.traits);
-
-			visitInstance(vclass.instance);
-		}
+			super.visitClass(vclass);
 	}
 
-	void visitMethod(ASProgram.Method method)
+	override void visitMethod(ASProgram.Method method)
 	{
 		if (methods.add(method))
-			with (method)
-			{
-				foreach (type; paramTypes)
-					visitMultiname(type);
-				visitMultiname(returnType);
-				strings.add(name);
-				foreach (ref value; options)
-					visitValue(value);
-				foreach (name; paramNames)
-					strings.add(name);
-
-				if (vbody)
-					visitMethodBody(vbody);
-			}
-	}
-
-	void visitMethodBody(ASProgram.MethodBody vbody)
-	{
-		foreach (ref instruction; vbody.instructions)
-			foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
-				final switch (type)
-				{
-					case OpcodeArgumentType.Unknown:
-						throw new Exception("Don't know how to visit OP_" ~ opcodeInfo[instruction.opcode].name);
-
-					case OpcodeArgumentType.UByteLiteral:
-					case OpcodeArgumentType.IntLiteral:
-					case OpcodeArgumentType.UIntLiteral:
-						break;
-
-					case OpcodeArgumentType.Int:
-						ints.add(instruction.arguments[i].intv);
-						break;
-					case OpcodeArgumentType.UInt:
-						uints.add(instruction.arguments[i].uintv);
-						break;
-					case OpcodeArgumentType.Double:
-						doubles.add(instruction.arguments[i].doublev);
-						break;
-					case OpcodeArgumentType.String:
-						strings.add(instruction.arguments[i].stringv);
-						break;
-					case OpcodeArgumentType.Namespace:
-						visitNamespace(instruction.arguments[i].namespacev);
-						break;
-					case OpcodeArgumentType.Multiname:
-						visitMultiname(instruction.arguments[i].multinamev);
-						break;
-					case OpcodeArgumentType.Class:
-						visitClass(instruction.arguments[i].classv);
-						break;
-					case OpcodeArgumentType.Method:
-						visitMethod(instruction.arguments[i].methodv);
-						break;
-
-					case OpcodeArgumentType.JumpTarget:
-					case OpcodeArgumentType.SwitchDefaultTarget:
-					case OpcodeArgumentType.SwitchTargets:
-						break;
-				}
-
-		foreach (ref exception; vbody.exceptions)
-		{
-			visitMultiname(exception.excType);
-			visitMultiname(exception.varName);
-		}
-
-		visitMethod(vbody.method);
-		visitTraits(vbody.traits);
-	}
-
-	void visitInstance(ASProgram.Instance instance)
-	{
-		visitMultiname(instance.name);
-		visitMultiname(instance.superName);
-		visitNamespace(instance.protectedNs);
-		foreach (intf; instance.interfaces)
-			visitMultiname(intf);
-		visitMethod(instance.iinit);
-		visitTraits(instance.traits);
+			super.visitMethod(method);
 	}
 
 	uint getValueIndex(ref ASProgram.Value value)
@@ -1214,18 +1023,13 @@ private final class AStoABC
 
 	this(ASProgram as)
 	{
+		super(as);
 		this.abc = new ABCFile();
-		this.as = as;
 
 		abc.minorVersion = as.minorVersion;
 		abc.majorVersion = as.majorVersion;
 
-		foreach (script; as.scripts)
-			visitScript(script);
-		foreach (vclass; as.orphanClasses)
-			visitClass(vclass);
-		foreach (method; as.orphanMethods)
-			visitMethod(method);
+		super.run();
 
 		registerClassDependencies();
 
@@ -1551,6 +1355,262 @@ class ASTraitsVisitor
 			default:
 				throw new Exception("Unknown trait kind");
 		}
+	}
+}
+
+class ASVisitor : ASTraitsVisitor
+{
+	this(ASProgram as) { super(as); }
+
+	void visitInt(long) {}
+	void visitUint(ulong) {}
+	void visitDouble(double) {}
+	void visitString(string) {}
+
+	void visitNamespace(ASProgram.Namespace ns)
+	{
+		if (ns)
+			visitString(ns.name);
+	}
+
+	void visitNamespaceSet(ASProgram.Namespace[] nsSet)
+	{
+		foreach (ns; nsSet)
+			visitNamespace(ns);
+	}
+
+	void visitMultiname(ASProgram.Multiname multiname)
+	{
+		if (multiname)
+			with (multiname)
+				switch (kind)
+				{
+					case ASType.QName:
+					case ASType.QNameA:
+						visitNamespace(vQName.ns);
+						visitString(vQName.name);
+						break;
+					case ASType.RTQName:
+					case ASType.RTQNameA:
+						visitString(vRTQName.name);
+						break;
+					case ASType.RTQNameL:
+					case ASType.RTQNameLA:
+						break;
+					case ASType.Multiname:
+					case ASType.MultinameA:
+						visitString(vMultiname.name);
+						visitNamespaceSet(vMultiname.nsSet);
+						break;
+					case ASType.MultinameL:
+					case ASType.MultinameLA:
+						visitNamespaceSet(vMultinameL.nsSet);
+						break;
+					case ASType.TypeName:
+						visitMultiname(vTypeName.name);
+						foreach (param; vTypeName.params)
+							visitMultiname(param);
+						break;
+					default:
+						throw new .Exception("Unknown Multiname kind");
+				}
+	}
+
+	void visitScript(ASProgram.Script script)
+	{
+		if (script)
+		{
+			visitTraits(script.traits);
+			visitMethod(script.sinit);
+		}
+	}
+
+	override void visitTrait(ref ASProgram.Trait trait)
+	{
+		visitMultiname(trait.name);
+		switch (trait.kind)
+		{
+			case TraitKind.Slot:
+			case TraitKind.Const:
+				visitMultiname(trait.vSlot.typeName);
+				visitValue(trait.vSlot.value);
+				break;
+			case TraitKind.Class:
+				visitClass(trait.vClass.vclass);
+				break;
+			case TraitKind.Function:
+				visitMethod(trait.vFunction.vfunction);
+				break;
+			case TraitKind.Method:
+			case TraitKind.Getter:
+			case TraitKind.Setter:
+				visitMethod(trait.vMethod.vmethod);
+				break;
+			default:
+				throw new Exception("Unknown trait kind");
+		}
+		foreach (metadata; trait.metadata)
+			visitMetadata(metadata);
+	}
+
+	void visitMetadata(ASProgram.Metadata metadata)
+	{
+		if (metadata)
+		{
+			visitString(metadata.name);
+			foreach (ref item; metadata.items)
+			{
+				visitString(item.key);
+				visitString(item.value);
+			}
+		}
+	}
+
+	void visitValue(ref ASProgram.Value value)
+	{
+		switch (value.vkind)
+		{
+			case ASType.Integer:
+				visitInt(value.vint);
+				break;
+			case ASType.UInteger:
+				visitUint(value.vuint);
+				break;
+			case ASType.Double:
+				visitDouble(value.vdouble);
+				break;
+			case ASType.Utf8:
+				visitString(value.vstring);
+				break;
+			case ASType.Namespace:
+			case ASType.PackageNamespace:
+			case ASType.PackageInternalNs:
+			case ASType.ProtectedNamespace:
+			case ASType.ExplicitNamespace:
+			case ASType.StaticProtectedNs:
+			case ASType.PrivateNamespace:
+				visitNamespace(value.vnamespace);
+				break;
+			case ASType.True:
+			case ASType.False:
+			case ASType.Null:
+			case ASType.Undefined:
+				break;
+			default:
+				throw new Exception("Unknown type");
+		}
+	}
+
+	void visitClass(ASProgram.Class vclass)
+	{
+		if (vclass)
+		{
+			visitMethod(vclass.cinit);
+			visitTraits(vclass.traits);
+
+			visitInstance(vclass.instance);
+		}
+	}
+
+	void visitMethod(ASProgram.Method method)
+	{
+		if (method)
+			with (method)
+			{
+				foreach (type; paramTypes)
+					visitMultiname(type);
+				visitMultiname(returnType);
+				visitString(name);
+				foreach (ref value; options)
+					visitValue(value);
+				foreach (name; paramNames)
+					visitString(name);
+
+				if (vbody)
+					visitMethodBody(vbody);
+			}
+	}
+
+	void visitMethodBody(ASProgram.MethodBody vbody)
+	{
+		if (vbody)
+		{
+			foreach (ref instruction; vbody.instructions)
+				foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
+					final switch (type)
+					{
+						case OpcodeArgumentType.Unknown:
+							throw new Exception("Don't know how to visit OP_" ~ opcodeInfo[instruction.opcode].name);
+
+						case OpcodeArgumentType.UByteLiteral:
+						case OpcodeArgumentType.IntLiteral:
+						case OpcodeArgumentType.UIntLiteral:
+							break;
+
+						case OpcodeArgumentType.Int:
+							visitInt(instruction.arguments[i].intv);
+							break;
+						case OpcodeArgumentType.UInt:
+							visitUint(instruction.arguments[i].uintv);
+							break;
+						case OpcodeArgumentType.Double:
+							visitDouble(instruction.arguments[i].doublev);
+							break;
+						case OpcodeArgumentType.String:
+							visitString(instruction.arguments[i].stringv);
+							break;
+						case OpcodeArgumentType.Namespace:
+							visitNamespace(instruction.arguments[i].namespacev);
+							break;
+						case OpcodeArgumentType.Multiname:
+							visitMultiname(instruction.arguments[i].multinamev);
+							break;
+						case OpcodeArgumentType.Class:
+							visitClass(instruction.arguments[i].classv);
+							break;
+						case OpcodeArgumentType.Method:
+							visitMethod(instruction.arguments[i].methodv);
+							break;
+
+						case OpcodeArgumentType.JumpTarget:
+						case OpcodeArgumentType.SwitchDefaultTarget:
+						case OpcodeArgumentType.SwitchTargets:
+							break;
+					}
+
+			foreach (ref exception; vbody.exceptions)
+			{
+				visitMultiname(exception.excType);
+				visitMultiname(exception.varName);
+			}
+
+			visitMethod(vbody.method);
+			visitTraits(vbody.traits);
+		}
+	}
+
+	void visitInstance(ASProgram.Instance instance)
+	{
+		if (instance)
+		{
+			visitMultiname(instance.name);
+			visitMultiname(instance.superName);
+			visitNamespace(instance.protectedNs);
+			foreach (intf; instance.interfaces)
+				visitMultiname(intf);
+			visitMethod(instance.iinit);
+			visitTraits(instance.traits);
+		}
+	}
+
+	override void run()
+	{
+		foreach (script; as.scripts)
+			visitScript(script);
+		foreach (vclass; as.orphanClasses)
+			visitClass(vclass);
+		foreach (method; as.orphanMethods)
+			visitMethod(method);
 	}
 }
 
