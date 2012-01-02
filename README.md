@@ -60,7 +60,7 @@ installed, compiling should be as straight-forward as:
 
     git clone git://github.com/CyberShadow/RABCDAsm.git
     cd RABCDAsm
-    dmd -run build_rabcdasm
+    dmd -run build_rabcdasm.d
 
 Substitute `dmd` with `gdmd` if you're using gdc. You can use the `DC` and
 `DCFLAGS` environment variables to override the detected compiler and default
