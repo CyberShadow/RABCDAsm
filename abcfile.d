@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -47,9 +47,13 @@ class ABCFile
 	Script[] scripts;
 	MethodBody[] bodies;
 
-	static const long NULL_INT = long.max;
-	static const ulong NULL_UINT = ulong.max;
-	static const double NULL_DOUBLE = double.init; // NaN
+	enum long NULL_INT = long.max;
+	enum ulong NULL_UINT = ulong.max;
+	enum double NULL_DOUBLE = double.init; // NaN
+
+	enum ulong MAX_UINT = (1L << 36) - 1;
+	enum long MAX_INT = MAX_UINT / 2;
+	enum long MIN_INT = -MAX_INT - 1;
 
 	this()
 	{
@@ -1020,19 +1024,21 @@ private final class ABCReader
 	/// Note: may return values larger than 0xFFFFFFFF.
 	ulong readU32()
 	{
-		ulong result = readU8();
+		ulong next() { return readU8(); } // force ulong
+
+		ulong result = next();
 		if (0==(result & 0x00000080))
 			return result;
-		result = result & 0x0000007f | readU8()<<7;
+		result = result & 0x0000007f | next()<<7;
 		if (0==(result & 0x00004000))
 			return result;
-		result = result & 0x00003fff | readU8()<<14;
+		result = result & 0x00003fff | next()<<14;
 		if (0==(result & 0x00200000))
 			return result;
-		result = result & 0x001fffff | readU8()<<21;
+		result = result & 0x001fffff | next()<<21;
 		if (0==(result & 0x10000000))
 			return result;
-		return   result & 0x0fffffff | readU8()<<28;
+		return   result & 0x0fffffff | next()<<28;
 	}
 
 	long readS32()

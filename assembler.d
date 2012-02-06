@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -491,7 +491,9 @@ final class Assembler
 		string w = readWord();
 		if (w == "null")
 			return ABCFile.NULL_INT;
-		return to!int(w);
+		auto v = to!long(w);
+		enforce(v >= ABCFile.MIN_INT && v <= ABCFile.MAX_INT, "Int out of bounds");
+		return v;
 	}
 
 	ulong readUInt()
@@ -499,7 +501,9 @@ final class Assembler
 		string w = readWord();
 		if (w == "null")
 			return ABCFile.NULL_UINT;
-		return to!uint(w);
+		auto v = to!ulong(w);
+		enforce(v <= ABCFile.MAX_UINT, "UInt out of bounds");
+		return v;
 	}
 
 	double readDouble()
