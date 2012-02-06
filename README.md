@@ -11,6 +11,7 @@ These are:
  * `abcreplace` - replaces ABC in SWF files
  * `swfdecompress` - decompresses zlib-compressed SWF files
  * `swf7zcompress` - (re-)compress the contents of a SWF using 7-Zip
+ * `swflzmacompress` - compress the contents of a SWF using LZMA
  * `swfbinexport` / `swfbinreplace` - extract/replace contents of binary
    data tags from SWF files
 
@@ -22,7 +23,10 @@ the SWF file format, and not required for ABC manipulation. It is functionally
 equivalent to [flasm][]'s `-x` option.  
 `swf7zcompress` is an utility to further reduce the size of SWF files. It uses
 [7-Zip][] to compress the data better than the standard zlib library would. It
-requires that the `7z` command-line program be installed and in `PATH`.
+requires that the `7z` command-line program be installed and in `PATH`.  
+`swflzmacompress` compresses SWF files using the [LZMA][] algorithm, support 
+for which was introduced in Flash 11. It will only work with SWF files with 
+version 13 or higher.  
 `swfbinexport` and `swfbinreplace` aid in the manipulation of
 `DefineBinaryData` tags in SWF files (some files may contain nested SWF files
 stored in these tags).
@@ -31,6 +35,7 @@ stored in these tags).
   [swfutilsex]: http://github.com/CyberShadow/swfutilsex
   [flasm]: http://flasm.sourceforge.net/
   [7-Zip]: http://www.7-zip.org/
+  [LZMA]: http://en.wikipedia.org/wiki/Lempel-Ziv-Markov_chain_algorithm
 
 Motivation and goals
 --------------------
