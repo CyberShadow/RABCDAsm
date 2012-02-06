@@ -271,9 +271,22 @@ private final class SWFWriter
 			buf ~= tag.data;
 		}
 
-		swf.header.fileLength = to!uint(8 + buf.length);
+		swf.header.fileLength = to!uint(swf.header.sizeof + buf.length);
 		if (swf.header.signature[0] == 'C')
 			buf = cast(ubyte[])compress(buf, 9);
+		else
+		if (swf.header.signature[0] == 'Z')
+		{
+			lzma.LZMAHeader lzInfo;
+			buf = lzmaCompress(buf, &lzInfo);
+
+			SWFFile.LZMAHeader lzHeader;
+			lzHeader.compressionParameters = lzInfo.compressionParameters;
+			lzHeader.dictionarySize = lzInfo.dictionarySize;
+			lzHeader.compressedLength = buf.length;
+
+			buf = cast(ubyte[])(&lzHeader)[0..1] ~ buf;
+		}
 		buf = toArray(swf.header) ~ buf;
 
 		return buf;

@@ -64,6 +64,29 @@ ubyte[] lzmaDecompress(LZMAHeader header, in ubyte[] compressedData)
 	return outBuf;
 }
 
+ubyte[] lzmaCompress(in ubyte[] decompressedData, LZMAHeader* header)
+{
+    lzma_options_lzma opts;
+    enforce(lzma_lzma_preset(&opts, 9 | LZMA_PRESET_EXTREME) == false, "lzma_lzma_preset error");
+
+    lzma_stream strm;
+	lzmaEnforce(lzma_alone_encoder(&strm, &opts), "lzma_alone_encoder");
+	scope(exit) lzma_end(&strm);
+
+	auto outBuf = new ubyte[decompressedData.length];
+	strm.next_out  = outBuf.ptr;
+	strm.avail_out = outBuf.length;
+	strm.next_in   = decompressedData.ptr;
+	strm.avail_in  = decompressedData.length;
+	lzmaEnforce(lzma_code(&strm, lzma_action.LZMA_RUN), "lzma_code");
+	enforce(strm.avail_in == 0, "Not all data was read");
+
+	lzmaEnforce(lzma_code(&strm, lzma_action.LZMA_FINISH), "lzma_code");
+
+	*header = *cast(LZMAHeader*)outBuf.ptr;
+	return outBuf[LZMAHeader.sizeof..to!size_t(strm.total_out)];
+}
+
 private void lzmaEnforce(lzma_ret v, string f)
 {
     if (v != lzma_ret.LZMA_OK && v != lzma_ret.LZMA_STREAM_END)
