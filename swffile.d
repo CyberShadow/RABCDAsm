@@ -290,7 +290,7 @@ private final class SWFWriter
 				SWFFile.LZMAHeader lzHeader;
 				lzHeader.compressionParameters = lzInfo.compressionParameters;
 				lzHeader.dictionarySize = lzInfo.dictionarySize;
-				lzHeader.compressedLength = buf.length;
+				lzHeader.compressedLength = to!uint(buf.length);
 
 				buf = cast(ubyte[])(&lzHeader)[0..1] ~ buf;
 			}
