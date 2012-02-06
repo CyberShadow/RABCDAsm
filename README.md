@@ -71,6 +71,9 @@ Substitute `dmd` with `gdmd` if you're using gdc. You can use the `DC` and
 `DCFLAGS` environment variables to override the detected compiler and default
 compilation flags (`-O -inline`).
 
+To be able to manipulate SWF files packed with LZMA compression, you'll need to 
+have the liblzma library and development files installed on your system.
+
   [d2]: http://www.digitalmars.com/d/2.0/
   [dmd]: http://www.digitalmars.com/d/download.html
   [gdc]: http://bitbucket.org/goshawk/gdc/
