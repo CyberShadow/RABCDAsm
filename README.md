@@ -20,7 +20,8 @@ my [swfutilsex][] Java package, however these work faster as they do not parse
 the SWF files as deeply.  
 `swfdecompress` is ancillary and is only useful for debugging and studying of
 the SWF file format, and not required for ABC manipulation. It is functionally
-equivalent to [flasm][]'s `-x` option.  
+equivalent to [flasm][]'s `-x` option. If you frequently work on compressed
+SWF files, you may want to decompress them to speed processing up.  
 `swf7zcompress` is an utility to further reduce the size of SWF files. It uses
 [7-Zip][] to compress the data better than the standard zlib library would. It
 requires that the `7z` command-line program be installed and in `PATH`.  
@@ -69,12 +70,12 @@ installed, compiling should be as straight-forward as:
 
 Substitute `dmd` with `gdmd` if you're using gdc. You can use the `DC` and
 `DCFLAGS` environment variables to override the detected compiler and default
-compilation flags (`-O -inline`).
+compilation flags (`-w -O -inline`).
 
 To be able to manipulate SWF files packed with LZMA compression, you'll need to 
 have the liblzma library and development files installed on your system.
 
-  [d2]: http://www.digitalmars.com/d/2.0/
+  [d2]: http://dlang.org/
   [dmd]: http://www.digitalmars.com/d/download.html
   [gdc]: http://bitbucket.org/goshawk/gdc/
   [git]: http://git-scm.com/
@@ -443,6 +444,7 @@ License
 =======
 
 RABCDAsm is distributed under the terms of the GPL v3 or later, with the
-exception of `murmurhash2a.d` and `zlibx.d`, which are in the public domain, 
-and `asasm.hrc`, which is tri-licensed under the MPL 1.1/GPL 2.0/LGPL 2.1. The 
-full text of the GNU General Public License can be found in the file `COPYING`.
+exception of `murmurhash2a.d`, `zlibx.d` and LZMA components, which are in the 
+public domain, and `asasm.hrc`, which is tri-licensed under the MPL 1.1/GPL 
+2.0/LGPL 2.1. The full text of the GNU General Public License can be found in 
+the file `COPYING`.
