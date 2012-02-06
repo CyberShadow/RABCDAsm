@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -18,9 +18,11 @@
 
 module swffile;
 
-import std.zlib;
 import std.conv;
+import std.exception;
+import std.zlib;
 import zlibx;
+import lzma;
 
 /**
  * Implements a shallow representation of a .swf file.
@@ -41,6 +43,14 @@ final class SWFFile
 		ubyte ver;
 		uint fileLength;
 		static assert(Header.sizeof == 8);
+	}
+
+	align(1) struct LZMAHeader
+	{
+		uint compressedLength;
+		ubyte compressionParameters;
+		uint dictionarySize;
+		static assert(LZMAHeader.sizeof == 9);
 	}
 
 	struct Rect
@@ -79,14 +89,25 @@ private final class SWFReader
 		swf = new SWFFile();
 
 		readRaw((&swf.header)[0..1]);
-		if ((swf.header.signature[0] != 'F' && swf.header.signature[0] != 'C') || swf.header.signature[1] != 'W' || swf.header.signature[2] != 'S')
-			throw new Exception("Invalid file signature");
+		enforce(swf.header.signature == "FWS" || swf.header.signature == "CWS" || swf.header.signature == "ZWS", "Invalid file signature");
 		if (swf.header.signature[0] == 'C')
+			buf = buf[0..swf.header.sizeof] ~ exactUncompress(buf[swf.header.sizeof..$], swf.header.fileLength-swf.header.sizeof);
+		else
+		if (swf.header.signature[0] == 'Z')
 		{
-			buf = buf[0..8] ~ exactUncompress(buf[8..$], swf.header.fileLength-8);
-			if (swf.header.fileLength != buf.length)
-				throw new Exception("Incorrect file length in file header");
+			SWFFile.LZMAHeader lzHeader;
+			readRaw((&lzHeader)[0..1]);
+
+			lzma.LZMAHeader lzInfo;
+			lzInfo.compressionParameters = lzHeader.compressionParameters;
+			lzInfo.dictionarySize = lzHeader.dictionarySize;
+			lzInfo.decompressedSize = swf.header.fileLength - swf.header.sizeof;
+
+			enforce(swf.header.sizeof + lzHeader.sizeof + lzHeader.compressedLength == buf.length, "Trailing data in LZMA-compressed SWF file");
+			buf = buf[0..swf.header.sizeof] ~ lzmaDecompress(lzInfo, buf[swf.header.sizeof + lzHeader.sizeof .. $]);
+			pos = swf.header.sizeof;
 		}
+		enforce(swf.header.fileLength == buf.length, "Incorrect file length in file header");
 		swf.frameSize = readRect();
 		swf.frameRate = readU16();
 		swf.frameCount = readU16();

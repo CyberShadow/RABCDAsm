@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -19,8 +19,6 @@
 module swfdecompress;
 
 import std.file;
-import std.zlib;
-import zlibx;
 import swffile;
 
 void main(string[] args)
@@ -29,13 +27,10 @@ void main(string[] args)
 		throw new Exception("No file specified");
 	foreach (arg; args[1..$])
 	{
-		auto swf = cast(ubyte[])read(arg);
-		auto header = cast(SWFFile.Header*)swf.ptr;
-		if (header.signature[0] == cast(ubyte)'F')
+		auto swf = SWFFile.read(cast(ubyte[])read(arg));
+		if (swf.header.signature[0] == cast(ubyte)'F')
 			throw new Exception("Already uncompressed");
-		if (header.signature[0] != cast(ubyte)'C')
-			throw new Exception("Unknown format");
-		header.signature[0] = cast(ubyte)'F'; // uncompressed
-		write(arg, swf[0..8] ~ exactUncompress(swf[8..$], header.fileLength-8));
+		swf.header.signature[0] = cast(ubyte)'F'; // uncompressed
+		write(arg, swf.write());
 	}
 }
