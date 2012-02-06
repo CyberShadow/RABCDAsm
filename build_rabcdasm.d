@@ -98,7 +98,7 @@ int main()
 			haveLZMA = true;
 		}
 		catch (Exception e)
-			stderr.writeln("LZMA not found, building without LZMA support.");
+			stderr.writeln(" >>> LZMA not found, building without LZMA support.");
 
 		if (haveLZMA)
 			flags ~= " " ~ LZMA_FLAGS;
