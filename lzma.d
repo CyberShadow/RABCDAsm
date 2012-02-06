@@ -18,11 +18,16 @@
 
 module lzma;
 
+version(HAVE_LZMA) {} else static assert(0, "LZMA is not available (HAVE_LZMA version is not defined)");
+
 import deimos.lzma;
 import std.conv;
 import std.exception;
 
-pragma(lib, "liblzma");
+version (Windows)
+	{ pragma(lib, "liblzma"); }
+else
+	{ pragma(lib, "lzma"); }
 
 align(1)
 struct LZMAHeader
@@ -79,6 +84,7 @@ ubyte[] lzmaCompress(in ubyte[] decompressedData, LZMAHeader* header)
 	strm.next_in   = decompressedData.ptr;
 	strm.avail_in  = decompressedData.length;
 	lzmaEnforce(lzma_code(&strm, lzma_action.LZMA_RUN), "lzma_code");
+	scope(failure) { import std.stdio; writeln("avail_in=", strm.avail_in); }
 	enforce(strm.avail_in == 0, "Not all data was read");
 
 	lzmaEnforce(lzma_code(&strm, lzma_action.LZMA_FINISH), "lzma_code");

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -24,7 +24,9 @@ module build_rabcdasm;
 version(D_Version2)
 	{ /* All OK */ }
 else
-	static assert(false, "Unsupported D version.\nThis software requires a D2 ( http://www.digitalmars.com/d/2.0/ ) compiler to build.");
+	static assert(false, "Unsupported D version.\nThis software requires a D2 ( http://dlang.org/ ) compiler to build.");
+
+version(D_Version2):
 
 version(DigitalMars)
 	const DEFAULT_COMPILER = "dmd";
@@ -32,40 +34,86 @@ else
 	const DEFAULT_COMPILER = "gdmd";
 
 const DEFAULT_FLAGS = "-w -O -inline";
+const LZMA_FLAGS = "-version=HAVE_LZMA";
 
+import std.exception;
+import std.file;
 import std.process;
+import std.stdio;
 import std.string;
 
-string[][string] programs;
+string compiler, flags;
 
-static this()
+void compile(string program)
 {
-	programs["rabcasm"      ] = ["abcfile", "asprogram",    "assembler", "autodata", "murmurhash2a"];
-	programs["rabcdasm"     ] = ["abcfile", "asprogram", "disassembler", "autodata", "murmurhash2a"];
-	programs["abcexport"    ] = ["swffile", "zlibx"];
-	programs["abcreplace"   ] = ["swffile", "zlibx"];
-	programs["swfbinexport" ] = ["swffile", "zlibx"];
-	programs["swfbinreplace"] = ["swffile", "zlibx"];
-	programs["swfdecompress"] = ["swffile", "zlibx"];
-	programs["swf7zcompress"] = ["swffile", "zlibx"];
+	stderr.writeln("* Building ", program);
+	enforce(system(format("rdmd --build-only --compiler=%s %s %s", compiler, flags, program)) == 0, "Compilation of " ~ program ~ " failed");
+}
+
+void test(string code, string extraFlags=null)
+{
+	const FN = "test.d";
+	std.file.write(FN, code);
+	scope(exit) remove(FN);
+	enforce(system(format("rdmd --compiler=%s %s %s %s", compiler, flags, extraFlags, FN)) == 0, "Test failed");
+	stderr.writeln(" >>> OK");
 }
 
 int main()
 {
-	string compiler = getenv("DC");
-	if (compiler is null)
-		compiler = DEFAULT_COMPILER;
-
-	string flags = getenv("DCFLAGS");
-	if (flags is null)
-		flags = DEFAULT_FLAGS;
-
-	foreach (program, modules; programs)
+	try
 	{
-		int ret = system(format("%s %s %s %s", compiler, flags, program, join(modules, " ")));
-		if (ret)
-			return ret;
-	}
+		compiler = getenv("DC");
+		if (compiler is null)
+			compiler = DEFAULT_COMPILER;
 
-	return 0;
+		flags = getenv("DCFLAGS");
+		if (flags is null)
+			flags = DEFAULT_FLAGS;
+
+		stderr.writeln("* Checking for working compiler...");
+		test(`
+			void main() {}
+		`);
+
+		bool haveLZMA;
+
+		stderr.writeln("* Checking for LZMA...");
+		try
+		{
+			test(`
+				import lzma, std.exception;
+				void main()
+				{
+					LZMAHeader header;
+					auto data = cast(immutable(ubyte)[])"Lorem ipsum dolor sit amet, consectetur adipisicing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.";
+					auto cdata = lzmaCompress(data, &header);
+					header.decompressedSize = data.length;
+					auto ddata = lzmaDecompress(header, cdata);
+					enforce(data == ddata);
+				}
+			`, LZMA_FLAGS);
+
+			// Test succeeded
+			haveLZMA = true;
+		}
+		catch (Exception e)
+			stderr.writeln("LZMA not found, building without LZMA support.");
+
+		if (haveLZMA)
+			flags ~= " " ~ LZMA_FLAGS;
+
+		foreach (program; ["rabcasm", "rabcdasm", "abcexport", "abcreplace", "swfbinexport", "swfbinreplace", "swfdecompress", "swf7zcompress"])
+			compile(program);
+
+		if (haveLZMA)
+			compile("swflzmacompress");
+
+		return 0;
+	}
+	catch (Exception e)
+	{
+		stderr.writeln("Error: ", e.msg);
+		return 1;
+	}
 }

@@ -22,7 +22,7 @@ import std.conv;
 import std.exception;
 import std.zlib;
 import zlibx;
-import lzma;
+version (HAVE_LZMA) import lzma;
 
 /**
  * Implements a shallow representation of a .swf file.
@@ -95,17 +95,22 @@ private final class SWFReader
 		else
 		if (swf.header.signature[0] == 'Z')
 		{
-			SWFFile.LZMAHeader lzHeader;
-			readRaw((&lzHeader)[0..1]);
+			version (HAVE_LZMA)
+			{
+				SWFFile.LZMAHeader lzHeader;
+				readRaw((&lzHeader)[0..1]);
 
-			lzma.LZMAHeader lzInfo;
-			lzInfo.compressionParameters = lzHeader.compressionParameters;
-			lzInfo.dictionarySize = lzHeader.dictionarySize;
-			lzInfo.decompressedSize = swf.header.fileLength - swf.header.sizeof;
+				lzma.LZMAHeader lzInfo;
+				lzInfo.compressionParameters = lzHeader.compressionParameters;
+				lzInfo.dictionarySize = lzHeader.dictionarySize;
+				lzInfo.decompressedSize = swf.header.fileLength - swf.header.sizeof;
 
-			enforce(swf.header.sizeof + lzHeader.sizeof + lzHeader.compressedLength == buf.length, "Trailing data in LZMA-compressed SWF file");
-			buf = buf[0..swf.header.sizeof] ~ lzmaDecompress(lzInfo, buf[swf.header.sizeof + lzHeader.sizeof .. $]);
-			pos = swf.header.sizeof;
+				enforce(swf.header.sizeof + lzHeader.sizeof + lzHeader.compressedLength == buf.length, "Trailing data in LZMA-compressed SWF file");
+				buf = buf[0..swf.header.sizeof] ~ lzmaDecompress(lzInfo, buf[swf.header.sizeof + lzHeader.sizeof .. $]);
+				pos = swf.header.sizeof;
+			}
+			else
+				enforce(false, "This version was built without LZMA support");
 		}
 		enforce(swf.header.fileLength == buf.length, "Incorrect file length in file header");
 		swf.frameSize = readRect();
@@ -277,15 +282,20 @@ private final class SWFWriter
 		else
 		if (swf.header.signature[0] == 'Z')
 		{
-			lzma.LZMAHeader lzInfo;
-			buf = lzmaCompress(buf, &lzInfo);
+			version (HAVE_LZMA)
+			{
+				lzma.LZMAHeader lzInfo;
+				buf = lzmaCompress(buf, &lzInfo);
 
-			SWFFile.LZMAHeader lzHeader;
-			lzHeader.compressionParameters = lzInfo.compressionParameters;
-			lzHeader.dictionarySize = lzInfo.dictionarySize;
-			lzHeader.compressedLength = buf.length;
+				SWFFile.LZMAHeader lzHeader;
+				lzHeader.compressionParameters = lzInfo.compressionParameters;
+				lzHeader.dictionarySize = lzInfo.dictionarySize;
+				lzHeader.compressedLength = buf.length;
 
-			buf = cast(ubyte[])(&lzHeader)[0..1] ~ buf;
+				buf = cast(ubyte[])(&lzHeader)[0..1] ~ buf;
+			}
+			else
+				enforce(false, "This version was built without LZMA support");
 		}
 		buf = toArray(swf.header) ~ buf;
 
