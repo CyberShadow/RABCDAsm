@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -606,11 +606,20 @@ final class RefBuilder : ASTraitsVisitor
 	void addClass(ASProgram.Class vclass)
 	{
 		addObject(vclass);
+
 		pushContext("cinit");
 		addMethod(vclass.cinit);
 		popContext();
+
 		pushContext("iinit");
 		addMethod(vclass.instance.iinit);
+		popContext();
+
+		pushContext("instance");
+		visitMultiname(vclass.instance.name);
+		visitMultiname(vclass.instance.superName);
+		foreach (iface; vclass.instance.interfaces)
+			visitMultiname(iface);
 		popContext();
 	}
 
