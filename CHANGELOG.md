@@ -1,6 +1,15 @@
 RABCDAsm Changelog
 ==================
 
+RABCDAsm v1.9 (2012.02.07)
+--------------------------
+
+ * Added support for LZMA-compressed SWF files
+ * Added swflzmacompress
+ * Fixed undiscovered private namespaces in class interfaces
+ * Fixed handling of overflown integers
+ * Documentation updates
+
 RABCDAsm v1.8 (2011.07.06)
 --------------------------
 
