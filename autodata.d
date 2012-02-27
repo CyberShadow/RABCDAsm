@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -48,7 +48,7 @@ template AutoCompare()
 		int opCmp(ref const typeof(this) s) const { return _AutoDataCmp(&s); }
 	}
 
-	private hash_t _AutoDataHash() const
+	@trusted private hash_t _AutoDataHash() const
 	{
 		HashDataHandler handler;
 		handler.hasher.Begin();
