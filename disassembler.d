@@ -591,7 +591,15 @@ final class RefBuilder : ASTraitsVisitor
 					result ~= format("%%%02X", c);
 				else
 					result ~= c;
-			return result;
+
+			auto pathSegments = result.split("/");
+			if (!pathSegments.length)
+				pathSegments = [""];
+			foreach (ref pathSegment; pathSegments)
+				if (pathSegment == "")
+					pathSegment = "%";
+
+			return arrayJoin(pathSegments);
 		}
 
 		string[] strings = new string[segments.length];
