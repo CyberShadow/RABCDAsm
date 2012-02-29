@@ -1,6 +1,11 @@
 RABCDAsm Changelog
 ==================
 
+RABCDAsm v1.10 (2012.02.29)
+---------------------------
+
+ * Fixed escaping of paths with empty segments
+
 RABCDAsm v1.9 (2012.02.07)
 --------------------------
 
