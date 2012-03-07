@@ -599,7 +599,7 @@ final class RefBuilder : ASTraitsVisitor
 				if (pathSegment == "")
 					pathSegment = "%";
 
-			return arrayJoin(pathSegments);
+			return arrayJoin(pathSegments, "/");
 		}
 
 		string[] strings = new string[segments.length];
