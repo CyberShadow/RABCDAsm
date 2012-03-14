@@ -25,6 +25,7 @@ import std.path;
 import std.exception;
 import abcfile;
 import asprogram;
+import common;
 
 final class Assembler
 {
@@ -52,7 +53,7 @@ final class Assembler
 
 		static File load(string filename, string[] arguments = null)
 		{
-			return fromFile(filename, cast(string)read(filename), arguments);
+			return fromFile(filename, cast(string)read(longPath(filename)), arguments);
 		}
 
 		static File fromFile(string filename, string data, string[] arguments = null)
@@ -151,7 +152,7 @@ final class Assembler
 				break;
 			case "get":
 				auto filename = convertFilename(readString());
-				pushFile(File.fromFile(filename, toStringLiteral(cast(string)read(filename))));
+				pushFile(File.fromFile(filename, toStringLiteral(cast(string)read(longPath(filename)))));
 				break;
 			case "set":
 				vars[readWord()] = readString();

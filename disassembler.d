@@ -28,6 +28,7 @@ import std.path;
 import abcfile;
 import asprogram;
 import autodata;
+import common;
 
 alias std.array.join join;
 
@@ -39,7 +40,7 @@ final class StringBuilder
 
 	this(string filename)
 	{
-		if (exists(filename))
+		if (exists(longPath(filename)))
 			throw new Exception(filename ~ " exists");
 		this.filename = filename;
 		buf.length = 1024;
@@ -68,10 +69,10 @@ final class StringBuilder
 		for (int l=0; l<dirSegments.length-1; l++)
 		{
 			auto subdir = join(dirSegments[0..l+1], "/");
-			if (!exists(subdir))
-				mkdir(subdir);
+			if (!exists(longPath(subdir)))
+				mkdir(longPath(subdir));
 		}
-		write(filename, buf[0..pos]);
+		write(longPath(filename), buf[0..pos]);
 	}
 
 	int indent;
