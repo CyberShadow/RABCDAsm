@@ -213,6 +213,74 @@ final class RefBuilder : ASTraitsVisitor
 			}
 			mixin(epilog);
 		}
+
+		static bool similar(ref ContextItem i1, ref ContextItem i2)
+		{
+			if (i1.type != i2.type) return false;
+			if (i1.type == ContextItem.Type.String)
+				return i1.str == i2.str;
+			if (i1.multiname.vQName.name != i2.multiname.vQName.name) return false;
+			return nsSimilar(i1.multiname.vQName.ns, i2.multiname.vQName.ns);
+		}
+
+		// truncate=true  -> return partial ContextItem
+		// truncate=false -> return null on partial match
+		static ContextItem[] commonRoot(ref ContextItem c1, ref ContextItem c2, bool truncate)
+		{
+			if (similar(c1, c2))
+				return [c1];
+
+			if (c1.type != ContextItem.Type.Multiname || c2.type != ContextItem.Type.Multiname)
+				return null;
+			if (c1.multiname.kind != ASType.QName || c2.multiname.kind != ASType.QName)
+				return null;
+
+			auto ns1 = c1.multiname.vQName.ns;
+			auto ns2 = c2.multiname.vQName.ns;
+
+			if (nsSimilar(ns1, ns2) && ns1.name.length && truncate)
+			{
+				auto m = new ASProgram.Multiname;
+				m.kind = ASType.QName;
+				m.vQName.ns = ns1;
+				return [ContextItem(m)];
+			}
+
+			if (c1.multiname.vQName.name && !c2.multiname.vQName.name && truncate)
+			{
+				swap(c1, c2);
+				swap(ns1, ns2);
+			}
+
+			if (!c1.multiname.vQName.name && c2.multiname.vQName.name && nsSimilar(ns1, ns2))
+			{
+				if (truncate)
+				{
+					auto m = new ASProgram.Multiname;
+					m.kind = ASType.QName;
+					m.vQName.ns = ns1;
+					return [ContextItem(m)];
+				}
+				else
+					return [c2];
+			}
+
+			if (ns1.name.length && ns2.name.length)
+			{
+				if (ns1.name.length > ns2.name.length && truncate)
+				{
+					swap(c1, c2);
+					swap(ns1, ns2);
+				}
+
+				auto fullName1 = ns1.name ~ (c1.multiname.vQName.name ? ':' ~ c1.multiname.vQName.name : "");
+				auto fullName2 = ns2.name ~ (c2.multiname.vQName.name ? ':' ~ c2.multiname.vQName.name : "");
+				if (fullName2.startsWith(fullName1 ~ ":"))
+					return [truncate ? c1 : c2];
+			}
+
+			return null;
+		}
 	}
 
 	ContextItem[] context; // potential optimization: use array-based stack
@@ -444,32 +512,15 @@ final class RefBuilder : ASTraitsVisitor
 		if (uninteresting(c1)) return c2;
 		if (uninteresting(c2)) return c1;
 
-		static bool nsSimilar(ASProgram.Namespace ns1, ASProgram.Namespace ns2)
+		ContextItem[] c;
+		while (c.length<c1.length && c.length<c2.length)
 		{
-			if (ns1.kind==ASType.PrivateNamespace || ns2.kind==ASType.PrivateNamespace)
-				return ns1.kind==ns2.kind && ns1.privateIndex==ns2.privateIndex;
-			// ignore ns kind in other cases
-			return ns1.name == ns2.name;
-		}
-
-		static bool similar(ref ContextItem i1, ref ContextItem i2)
-		{
-			if (i1.type != i2.type) return false;
-			if (i1.type == ContextItem.Type.String)
-				return i1.str == i2.str;
-			if (i1.multiname.vQName.name != i2.multiname.vQName.name) return false;
-			return nsSimilar(i1.multiname.vQName.ns, i2.multiname.vQName.ns);
-		}
-
-		int i=0;
-		while (i<c1.length && i<c2.length && similar(c1[i], c2[i])) i++;
-		auto c = c1[0..i];
-		if (i<c1.length && i<c2.length && c1[i].type==ContextItem.Type.Multiname && c2[i].type==ContextItem.Type.Multiname && nsSimilar(c1[i].multiname.vQName.ns, c2[i].multiname.vQName.ns) && c1[i].multiname.vQName.ns.name.length)
-		{
-			auto m = new ASProgram.Multiname;
-			m.kind = ASType.QName;
-			m.vQName.ns = c1[i].multiname.vQName.ns;
-			c ~= ContextItem(m);
+			auto root = ContextItem.commonRoot(c1[c.length], c2[c.length], true);
+			assert(root.length <= 1);
+			if (root.length)
+				c ~= root;
+			else
+				break;
 		}
 		return c;
 	}
@@ -569,9 +620,12 @@ final class RefBuilder : ASTraitsVisitor
 	{
 		context = ContextItem.expand(this, context, false);
 
-		foreach_reverse (i, c; context)
-			if (i>0 && c==context[i-1])
-				context = context[0..i] ~ context[i+1..$];
+		foreach_reverse (i; 0..context.length-1)
+		{
+			auto root = ContextItem.commonRoot(context[i], context[i+1], false);
+			if (root.length)
+				context = context[0..i] ~ root ~ context[i+2..$];
+		}
 
 		ContextItem.Segment[] segments;
 		foreach (ci; context)
@@ -584,10 +638,10 @@ final class RefBuilder : ASTraitsVisitor
 
 			string result;
 			foreach (c; s)
-				if (c == '.')
+				if (c == '.' || c == ':')
 					result ~= '/';
 				else
-				if (c == ':' || c == '\\' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|' || c < 0x20 || c >= 0x7F || c == ' ' || c == '%')
+				if (c == '\\' || c == '*' || c == '?' || c == '"' || c == '<' || c == '>' || c == '|' || c < 0x20 || c >= 0x7F || c == ' ' || c == '%')
 					result ~= format("%%%02X", c);
 				else
 					result ~= c;
@@ -1396,6 +1450,14 @@ final class Disassembler
 }
 
 private:
+
+bool nsSimilar(ASProgram.Namespace ns1, ASProgram.Namespace ns2)
+{
+	if (ns1.kind==ASType.PrivateNamespace || ns2.kind==ASType.PrivateNamespace)
+		return ns1.kind==ns2.kind && ns1.privateIndex==ns2.privateIndex;
+	// ignore ns kind in other cases
+	return ns1.name == ns2.name;
+}
 
 bool[256] newLineAfter;
 
