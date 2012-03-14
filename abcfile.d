@@ -1023,6 +1023,11 @@ private final class ABCReader
 
 	/// Note: may return values larger than 0xFFFFFFFF.
 	ulong readU32()
+	out(result)
+	{
+		assert(result <= ABCFile.MAX_UINT);
+	}
+	body
 	{
 		ulong next() { return readU8(); } // force ulong
 
@@ -1042,10 +1047,15 @@ private final class ABCReader
 	}
 
 	long readS32()
+	out(result)
 	{
-		ulong l = readU32();
-		if (l & 0xFFFFFFFF00000000) // preserve unused bits
-			return cast(long)l;
+		assert(result >= ABCFile.MIN_INT && result <= ABCFile.MAX_INT);
+	}
+	body
+	{
+		auto l = readU32();
+		if (l & 0xFFFFFFFF_00000000) // preserve unused bits
+			return l | 0xFFFFFFF0_00000000;
 		else
 			return cast(int)l;
 	}
