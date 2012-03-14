@@ -225,7 +225,7 @@ final class RefBuilder : ASTraitsVisitor
 
 		// truncate=true  -> return partial ContextItem
 		// truncate=false -> return null on partial match
-		static ContextItem[] commonRoot(ref ContextItem c1, ref ContextItem c2, bool truncate)
+		static ContextItem[] combine(bool truncate)(ref ContextItem c1, ref ContextItem c2)
 		{
 			if (similar(c1, c2))
 				return [c1];
@@ -281,6 +281,9 @@ final class RefBuilder : ASTraitsVisitor
 
 			return null;
 		}
+
+		alias combine!true commonRoot;
+		alias combine!false deduplicate;
 	}
 
 	ContextItem[] context; // potential optimization: use array-based stack
@@ -515,7 +518,7 @@ final class RefBuilder : ASTraitsVisitor
 		ContextItem[] c;
 		while (c.length<c1.length && c.length<c2.length)
 		{
-			auto root = ContextItem.commonRoot(c1[c.length], c2[c.length], true);
+			auto root = ContextItem.commonRoot(c1[c.length], c2[c.length]);
 			assert(root.length <= 1);
 			if (root.length)
 				c ~= root;
@@ -619,10 +622,12 @@ final class RefBuilder : ASTraitsVisitor
 	string contextToString(ContextItem[] context, bool filename)
 	{
 		context = ContextItem.expand(this, context, false);
+		if (!context.length)
+			return null;
 
 		foreach_reverse (i; 0..context.length-1)
 		{
-			auto root = ContextItem.commonRoot(context[i], context[i+1], false);
+			auto root = ContextItem.deduplicate(context[i], context[i+1]);
 			if (root.length)
 				context = context[0..i] ~ root ~ context[i+2..$];
 		}
