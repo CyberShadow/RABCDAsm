@@ -361,8 +361,7 @@ final class RefBuilder : ASTraitsVisitor
 			return *pname;
 		}
 
-		version (Windows)
-			static string[string] filenameMappings;
+		static string[string] filenameMappings;
 
 		string getFilename(U)(U obj, string suffix)
 		{
@@ -370,24 +369,21 @@ final class RefBuilder : ASTraitsVisitor
 			assert(pname, format("Unscanned object: ", obj));
 			auto filename = *pname;
 
-			version (Windows)
+			string[] dirSegments = split(filename, "/");
+			for (int l=0; l<dirSegments.length; l++)
 			{
-				string[] dirSegments = split(filename, "/");
-				for (int l=0; l<dirSegments.length; l++)
+			again:
+				string subpath = join(dirSegments[0..l+1], "/");
+				string subpathl = toLower(subpath);
+				string* canonicalp = subpathl in filenameMappings;
+				if (canonicalp && *canonicalp != subpath)
 				{
-				again:
-					string subpath = join(dirSegments[0..l+1], "/");
-					string subpathl = toLower(subpath);
-					string* canonicalp = subpathl in filenameMappings;
-					if (canonicalp && *canonicalp != subpath)
-					{
-						dirSegments[l] = dirSegments[l] ~ "_"; // not ~=
-						goto again;
-					}
-					filenameMappings[subpathl] = subpath;
+					dirSegments[l] = dirSegments[l] ~ "_"; // not ~=
+					goto again;
 				}
-				filename = join(dirSegments, "/");
+				filenameMappings[subpathl] = subpath;
 			}
+			filename = join(dirSegments, "/");
 
 			return filename ~ "." ~ suffix ~ ".asasm";
 		}
