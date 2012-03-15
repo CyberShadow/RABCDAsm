@@ -1,6 +1,17 @@
 RABCDAsm Changelog
 ==================
 
+RABCDAsm v1.11 (2012.03.15)
+---------------------------
+
+ * Fixed v1.10 hierarchy flattening regression
+ * Improved refid generation for protected namespaces
+ * Improved handling of overflown signed integers
+ * Fixed metadata handling (caused by error in ABC format specification)
+ * Removed path length limitation on Windows
+ * Improved filename sanitization
+ * Updated asasm.hrc
+
 RABCDAsm v1.10 (2012.02.29)
 ---------------------------
 
