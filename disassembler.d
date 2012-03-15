@@ -25,6 +25,7 @@ import std.conv;
 import std.exception;
 import std.algorithm;
 import std.path;
+import std.md5;
 import abcfile;
 import asprogram;
 import autodata;
@@ -656,8 +657,22 @@ final class RefBuilder : ASTraitsVisitor
 			if (!pathSegments.length)
 				pathSegments = [""];
 			foreach (ref pathSegment; pathSegments)
+			{
 				if (pathSegment == "")
 					pathSegment = "%";
+
+				static const reservedNames = ["CON", "PRN", "AUX", "NUL", "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9", "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9"];
+				auto pathSegmentU = pathSegment.toUpper();
+				foreach (reservedName; reservedNames)
+					if (pathSegmentU.startsWith(reservedName))
+					{
+						pathSegment = "%" ~ pathSegment;
+						break;
+					}
+
+				if (pathSegment.length > 240)
+					pathSegment = pathSegment[0..200] ~ '-' ~ getDigestString(pathSegment);
+			}
 
 			return arrayJoin(pathSegments, "/");
 		}
