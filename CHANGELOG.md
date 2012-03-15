@@ -11,6 +11,7 @@ RABCDAsm v1.11 (2012.03.15)
  * Removed path length limitation on Windows
  * Improved filename sanitization
  * Updated asasm.hrc
+ * Documentation updates
 
 RABCDAsm v1.10 (2012.02.29)
 ---------------------------
