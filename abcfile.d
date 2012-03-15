@@ -131,13 +131,8 @@ class ABCFile
 
 	struct Metadata
 	{
-		struct Item
-		{
-			uint key, value;
-		}
-
 		uint name;
-		Item[] items;
+		uint[] keys, values;
 	}
 
 	struct Instance
@@ -1195,12 +1190,11 @@ private final class ABCReader
 	{
 		ABCFile.Metadata r;
 		r.name = readU30();
-		r.items.length = readU30();
-		foreach (ref value; r.items)
-		{
-			value.key = readU30();
-			value.value = readU30();
-		}
+		r.keys.length = r.values.length = readU30();
+		foreach (ref key; r.keys)
+			key = readU30();
+		foreach (ref value; r.values)
+			value = readU30();
 		return r;
 	}
 
@@ -1686,12 +1680,12 @@ private final class ABCWriter
 	void writeMetadata(ref ABCFile.Metadata v)
 	{
 		writeU30(v.name);
-		writeU30(v.items.length);
-		foreach (ref value; v.items)
-		{
-			writeU30(value.key);
-			writeU30(value.value);
-		}
+		assert(v.keys.length == v.values.length);
+		writeU30(v.keys.length);
+		foreach (key; v.keys)
+			writeU30(key);
+		foreach (value; v.values)
+			writeU30(value);
 	}
 
 	void writeInstance(ref ABCFile.Instance v)

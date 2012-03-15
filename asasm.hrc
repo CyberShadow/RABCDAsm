@@ -59,6 +59,7 @@
         <word name="#privatens"/>
         <word name="#set"/>
         <word name="#unset"/>
+        <word name="#version"/>
       </keywords>
 
       <keywords ignorecase="no" region="def:Keyword">

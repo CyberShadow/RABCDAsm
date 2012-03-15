@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -159,16 +159,8 @@ final class ASProgram
 
 	static class Metadata
 	{
-		struct Item
-		{
-			string key, value;
-
-			mixin AutoCompare;
-			mixin ProcessAllData;
-		}
-
 		string name;
-		Item[] items;
+		string[] keys, values;
 
 		mixin AutoCompare;
 		mixin ProcessAllData;
@@ -477,12 +469,12 @@ private final class ABCtoAS
 	{
 		auto n = new ASProgram.Metadata();
 		n.name = abc.strings[md.name];
-		n.items.length = md.items.length;
-		foreach (j, ref item; md.items)
-		{
-			n.items[j].key = abc.strings[item.key];
-			n.items[j].value = abc.strings[item.value];
-		}
+		n.keys.length = md.keys.length;
+		foreach (j, key; md.keys)
+			n.keys[j] = abc.strings[key];
+		n.values.length = md.values.length;
+		foreach (j, value; md.values)
+			n.values[j] = abc.strings[value];
 		return n;
 	}
 
@@ -1110,12 +1102,12 @@ private final class AStoABC : ASVisitor
 		{
 			auto n = &abc.metadata[i];
 			n.name = strings.get(m.name);
-			n.items.length = m.items.length;
-			foreach (j, ref item; m.items)
-			{
-				n.items[j].key = strings.get(m.items[j].key);
-				n.items[j].value = strings.get(m.items[j].value);
-			}
+			n.keys.length = m.keys.length;
+			foreach (j, key; m.keys)
+				n.keys[j] = strings.get(key);
+			n.values.length = m.values.length;
+			foreach (j, value; m.values)
+				n.values[j] = strings.get(value);
 		}
 
 		ASProgram.MethodBody[] bodies;
@@ -1458,11 +1450,10 @@ class ASVisitor : ASTraitsVisitor
 		if (metadata)
 		{
 			visitString(metadata.name);
-			foreach (ref item; metadata.items)
-			{
-				visitString(item.key);
-				visitString(item.value);
-			}
+			foreach (key; metadata.keys)
+				visitString(key);
+			foreach (value; metadata.values)
+				visitString(value);
 		}
 	}
 

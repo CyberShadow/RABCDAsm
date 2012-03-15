@@ -304,6 +304,7 @@ Directives start with a `#`, followed by a word identifying the directive:
     variable *word*.
   * `#unset` *word* - deletes the variable *word*.
   * `#privatens` defines a private namespace alias, as described above.
+  * `#version` specifies the version of the disassembly.
 
 ### Variables
 

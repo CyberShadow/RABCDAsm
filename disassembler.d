@@ -753,6 +753,8 @@ final class Disassembler
 
 		StringBuilder sb = new StringBuilder(dir ~ "/" ~ name ~ ".main.asasm");
 
+		sb ~= "#version 2";
+		sb.newLine();
 		sb ~= "#include ";
 		dumpString(sb, name ~ ".privatens.asasm");
 		sb.newLine();
@@ -1096,12 +1098,13 @@ final class Disassembler
 		sb ~= "metadata ";
 		dumpString(sb, metadata.name);
 		sb.indent++; sb.newLine();
-		foreach (ref item; metadata.items)
+		assert(metadata.keys.length == metadata.values.length);
+		foreach (i; 0..metadata.keys.length)
 		{
 			sb ~= "item ";
-			dumpString(sb, item.key);
+			dumpString(sb, metadata.keys[i]);
 			sb ~= " ";
-			dumpString(sb, item.value);
+			dumpString(sb, metadata.values[i]);
 			sb.newLine();
 		}
 		sb.indent--; sb ~= "end ; metadata"; sb.newLine();

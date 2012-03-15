@@ -134,6 +134,7 @@ final class Assembler
 
 	string[string] vars;
 	uint[string] privateNamespaces;
+	uint sourceVersion = 1;
 
 	void handlePreprocessor()
 	{
@@ -163,6 +164,9 @@ final class Assembler
 			case "privatens":
 				uint index = cast(uint)readUInt();
 				privateNamespaces[readString()] = index;
+				break;
+			case "version":
+				sourceVersion = cast(uint)readUInt();
 				break;
 			default:
 				files[0].pos -= word.length;
@@ -757,13 +761,30 @@ final class Assembler
 	{
 		auto metadata = new ASProgram.Metadata;
 		metadata.name = readString();
+		string[] items;
 		while (true)
 			switch (readWord())
 			{
 				case "item":
-					metadata.items ~= ASProgram.Metadata.Item(readString(), readString());
+					items ~= readString();
+					items ~= readString();
 					break;
 				case "end":
+					if (sourceVersion < 2)
+					{
+						metadata.keys   = items[0..$/2];
+						metadata.values = items[$/2..$];
+					}
+					else
+					{
+						metadata.keys  .length = items.length/2;
+						metadata.values.length = items.length/2;
+						foreach (i; 0..items.length/2)
+						{
+							metadata.keys  [i] = items[i*2  ];
+							metadata.values[i] = items[i*2+1];
+						}
+					}
 					return metadata;
 				default:
 					throw new Exception("Expected item or end");
