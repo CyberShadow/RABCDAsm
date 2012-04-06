@@ -20,12 +20,12 @@ import std.conv;
 
 struct MurmurHash2A
 {
-	private static string mmix(string h, string k) { return "{ "~k~" *= m; "~k~" ^= "~k~" >> r; "~k~" *= m; "~h~" *= m; "~h~" ^= "~k~"; }"; }
+	private static string mmix(string h, string k) pure { return "{ "~k~" *= m; "~k~" ^= "~k~" >> r; "~k~" *= m; "~h~" *= m; "~h~" ^= "~k~"; }"; }
 
 
 public:
 
-	void Begin ( uint seed = 0 )
+	void Begin ( uint seed = 0 ) pure nothrow
 	{
 		m_hash  = seed;
 		m_tail  = 0;
@@ -33,8 +33,11 @@ public:
 		m_size  = 0;
 	}
 
-	void Add ( const(void) * vdata, int len )
+	void Add ( const(void) * vdata, size_t len_s ) pure nothrow
 	{
+		assert(len_s <= int.min);
+		int len = cast(int)len_s;
+
 		ubyte * data = cast(ubyte*)vdata;
 		m_size += len;
 
@@ -53,7 +56,7 @@ public:
 		MixTail(data,len);
 	}
 
-	uint End ( )
+	uint End ( ) pure nothrow
 	{
 		mixin(mmix("m_hash","m_tail"));
 		mixin(mmix("m_hash","m_size"));
@@ -77,7 +80,7 @@ private:
 	static const uint m = 0x5bd1e995;
 	static const int r = 24;
 
-	void MixTail ( ref ubyte * data, ref int len )
+	void MixTail ( ref ubyte * data, ref int len ) pure nothrow
 	{
 		while( len && ((len<4) || m_count) )
 		{

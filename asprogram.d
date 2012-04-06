@@ -83,7 +83,7 @@ final class ASProgram
 		mixin AutoCompare;
 		mixin AutoToString;
 
-		R processData(R, string prolog, string epilog, H)(ref H handler) const
+		R processData(R, string prolog, string epilog, H)(ref H handler) const pure nothrow
 		{
 			mixin(prolog);
 			mixin(addAutoField("kind"));
@@ -115,7 +115,7 @@ final class ASProgram
 					mixin(addAutoField("vTypeName.params"));
 					break;
 				default:
-					throw new .Exception("Unknown Multiname kind");
+					assert(false, "Unknown Multiname kind");
 			}
 			mixin(epilog);
 		}

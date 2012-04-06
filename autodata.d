@@ -22,7 +22,7 @@ import murmurhash2a;
 import std.traits;
 public import std.conv;
 
-string addAutoField(string name, bool reverseSort = false)
+string addAutoField(string name, bool reverseSort = false) pure
 {
 	return `mixin(typeof(handler).getMixin!(typeof(` ~ name ~ `), "` ~ name ~ `", ` ~ (reverseSort ? "true" : "false") ~`));`;
 }
@@ -35,7 +35,7 @@ template AutoCompare()
 		alias Object _AutoDataOtherTypeReference;
 
 		override hash_t toHash() const { return _AutoDataHash(); }
-		override bool opEquals(Object o) const { return _AutoDataEquals(o); }
+		override bool opEquals(Object o) const pure { return _AutoDataEquals(o); }
 		override int opCmp(Object o) const { return _AutoDataCmp(o); }
 	}
 	else // struct
@@ -43,12 +43,12 @@ template AutoCompare()
 		alias const(typeof(this)*) _AutoDataTypeReference;
 		alias const(typeof(this)*) _AutoDataOtherTypeReference;
 
-		hash_t toHash() const { return _AutoDataHash(); }
-		bool opEquals(ref const typeof(this) s) const { return _AutoDataEquals(&s); }
+		hash_t toHash() const pure nothrow @safe { return _AutoDataHash(); }
+		bool opEquals(ref const typeof(this) s) const pure { return _AutoDataEquals(&s); }
 		int opCmp(ref const typeof(this) s) const { return _AutoDataCmp(&s); }
 	}
 
-	@trusted private hash_t _AutoDataHash() const
+	private hash_t _AutoDataHash() const pure nothrow @trusted
 	{
 		HashDataHandler handler;
 		handler.hasher.Begin();
@@ -56,7 +56,7 @@ template AutoCompare()
 		return handler.hasher.End();
 	}
 
-	private bool _AutoDataEquals(_AutoDataOtherTypeReference other) const
+	private bool _AutoDataEquals(_AutoDataOtherTypeReference other) const pure
 	{
 		auto handler = EqualsDataHandler!_AutoDataTypeReference(cast(_AutoDataTypeReference) other);
 		if (handler.other is null)
@@ -89,7 +89,7 @@ template AutoToString()
 
 template ProcessAllData()
 {
-	R processData(R, string prolog, string epilog, H)(ref H handler) const
+	R processData(R, string prolog, string epilog, H)(ref H handler) const pure nothrow
 	{
 		mixin(prolog);
 		foreach (i, T; this.tupleof)
@@ -138,7 +138,7 @@ struct HashDataHandler
 
 	template getRawMixin(string ptr, string len)
 	{
-		enum getRawMixin = "handler.hasher.Add(" ~ ptr ~ ", to!int(" ~ len ~ "));";
+		enum getRawMixin = "handler.hasher.Add(" ~ ptr ~ ", " ~ len ~ ");";
 	}
 }
 
@@ -214,6 +214,20 @@ struct ToStringDataHandler
 {
 	template getMixin(T, string name, bool reverseSort)
 	{
-		enum getMixin = "_AutoDataResult ~= `" ~ name ~ " = ` ~ to!string(this." ~ name ~ ") ~ ` `;";
+		//enum getMixin = "_AutoDataResult ~= `" ~ name ~ " = ` ~ text(this." ~ name ~ ") ~ ` `;";
+		enum getMixin = ""; // FIXME!!!
+	}
+}
+
+private void test()
+{
+	// Test instantiation
+	struct S
+	{
+		int i;
+
+		mixin ProcessAllData;
+		mixin AutoCompare;
+		mixin AutoToString;
 	}
 }
