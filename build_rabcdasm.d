@@ -33,7 +33,7 @@ version(DigitalMars)
 else
 	const DEFAULT_COMPILER = "gdmd";
 
-const DEFAULT_FLAGS = "-w -O -inline";
+const DEFAULT_FLAGS = "-O -inline";
 const LZMA_FLAGS = "-version=HAVE_LZMA";
 
 import std.exception;

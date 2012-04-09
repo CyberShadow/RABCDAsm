@@ -34,7 +34,7 @@ template AutoCompare()
 		alias typeof(this) _AutoDataTypeReference;
 		alias Object _AutoDataOtherTypeReference;
 
-		override hash_t toHash() const { return _AutoDataHash(); }
+		override hash_t toHash() const { try { return _AutoDataHash(); } catch(object.Exception e) { assert(0, e.msg); } }
 		override bool opEquals(Object o) const { return _AutoDataEquals(o); }
 		override int opCmp(Object o) const { return _AutoDataCmp(o); }
 	}
