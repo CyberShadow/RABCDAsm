@@ -22,6 +22,7 @@ import std.file;
 import std.path;
 import std.conv;
 import std.stdio;
+
 import swffile;
 
 void main(string[] args)
@@ -50,6 +51,8 @@ void main(string[] args)
 			if (count == 0)
 				throw new Exception("No DoABC tags found");
 		}
-		catch (Exception e)
-			writefln("Error while processing %s: %s", arg, e);
+		catch (Exception e) {
+			writefln("Error while processing %s:", arg);
+			throw e;
+		}
 }
