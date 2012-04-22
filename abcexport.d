@@ -34,7 +34,7 @@ void main(string[] args)
 
 	//parse args
 	string flashfile = args[1];
-	string prefix    = "";
+	string prefix    = stripExtension(flashfile) ~ "-";
 	if (args.length >= 3) prefix = args[2];
 
 	//process flash file
@@ -54,7 +54,7 @@ void main(string[] args)
 				}
 
 				//write ABC to file
-				std.file.write(prefix ~ stripExtension(flashfile) ~ "-" ~ to!string(count++) ~ ".abc", abc);
+				std.file.write(prefix ~ to!string(count++) ~ ".abc", abc);
 			}
 
 		if (count == 0)
