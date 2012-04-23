@@ -30,7 +30,7 @@ void main(string[] args)
 		throw new Exception("No arguments specified.\nUsage: " ~ args[0] ~ " file.abc [directory/]");
 
 	string abcfile = args[1];
-	string directory = stripExtension(arg);
+	string directory = stripExtension(abcfile);
 	if (args.length >= 3) directory = args[2];
 	string name = baseName(directory);
 
