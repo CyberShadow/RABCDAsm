@@ -28,12 +28,12 @@ void main(string[] args)
 {
 	if (args.length < 2)
 		throw new Exception("No arguments specified.\nUsage: " ~ args[0] ~ " file.abc [directory/]");
-	
-	String abcfile = args[1];
-	String directory = stripExtension(arg);
+
+	string abcfile = args[1];
+	string directory = stripExtension(arg);
 	if (args.length >= 3) directory = args[2];
-	String name = baseName(directory);
-	
+	string name = baseName(directory);
+
 	scope abc = ABCFile.read(cast(ubyte[])read(abcfile));
 	scope as = ASProgram.fromABC(abc);
 	scope disassembler = new Disassembler(as, directory, name);
