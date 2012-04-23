@@ -66,14 +66,9 @@ final class StringBuilder
 
 	void save()
 	{
-		string[] dirSegments = split(filename, "/");
-		for (int l=0; l<dirSegments.length-1; l++)
-		{
-			auto subdir = join(dirSegments[0..l+1], "/");
-			if (!exists(longPath(subdir)))
-				mkdir(longPath(subdir));
-		}
-		write(longPath(filename), buf[0..pos]);
+	    string dir = dirName(filename);
+		if (!exists(dir)) mkdirRecurse(dir); // create needed directories
+		write(longPath(filename), buf[0..pos]); // write file
 	}
 
 	int indent;
