@@ -27,16 +27,16 @@ import assembler;
 void main(string[] args)
 {
 	if (args.length < 2)
-		throw new Exception("No arguments specified.\nUsage: "~args[0]~" directory/ [file.abc]");
+		throw new Exception("No arguments specified.\nUsage: "~args[0]~" directory/file.main.asasm [file.abc]");
 
 	auto as = new ASProgram;
 	auto assembler = new Assembler(as);
 
-    string dir = args[1];
-    string abcfile = setExtension(args[1], "abc");
-    if (args.length >= 3) abcfile = args[2];
+	string dirmain = args[1];
+	string abcfile = setExtension(args[1], "abc");
+	if (args.length >= 3) abcfile = args[2];
 
-	assembler.assemble(dir);
+	assembler.assemble(dirmain);
 	auto abc = as.toABC();
 	write(abcfile, abc.write());
 }
