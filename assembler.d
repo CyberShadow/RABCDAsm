@@ -1042,7 +1042,7 @@ final class Assembler
 						throw new Exception("Don't know how to assemble OP_" ~ opcodeInfo[instruction.opcode].name);
 
 					case OpcodeArgumentType.UByteLiteral:
-						instruction.arguments[i].ubytev = cast(ubyte)readUInt();
+						instruction.arguments[i].ubytev = to!ubyte(readUInt());
 						break;
 					case OpcodeArgumentType.IntLiteral:
 						instruction.arguments[i].intv = readInt();
