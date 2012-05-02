@@ -22,34 +22,47 @@ import std.file;
 import std.path;
 import std.conv;
 import std.stdio;
+
 import swffile;
 
 void main(string[] args)
 {
-	if (args.length == 1)
-		throw new Exception("No file specified");
-	foreach (arg; args[1..$])
-		try
-		{
-			scope swf = SWFFile.read(cast(ubyte[])read(arg));
-			uint count = 0;
-			foreach (ref tag; swf.tags)
-				if ((tag.type == TagType.DoABC || tag.type == TagType.DoABC2))
-				{
-					ubyte[] abc;
-					if (tag.type == TagType.DoABC)
-						abc = tag.data;
-					else
-					{
-						auto p = tag.data.ptr+4; // skip flags
-						while (*p++) {} // skip name
-						abc = tag.data[p-tag.data.ptr..$];
-					}
-					std.file.write(stripExtension(arg) ~ "-" ~ to!string(count++) ~ ".abc", abc);
+	//check args
+	if ((args.length < 2 || args.length > 3) ||
+	    (args[1] == "-h" || args[1] == "--help"))
+		throw new Exception("Usage: " ~ args[0] ~ " input.swf <prefix for ABC files>");
+
+	//parse args
+	string flashfile = args[1];
+	string prefix    = stripExtension(flashfile) ~ "-";
+	if (args.length >= 3) prefix = args[2];
+
+	//process flash file
+	try {
+		scope swf = SWFFile.read(cast(ubyte[])read(flashfile));
+		uint count = 0;
+		foreach (ref tag; swf.tags)
+			if ((tag.type == TagType.DoABC || tag.type == TagType.DoABC2)) {
+				ubyte[] abc;
+				if (tag.type == TagType.DoABC)
+					abc = tag.data;
+				else { //DoABC2
+					auto p = tag.data.ptr+4; // skip flags
+					while (*p++) {} // skip name
+					writeln();
+					abc = tag.data[p-tag.data.ptr..$];
 				}
-			if (count == 0)
-				throw new Exception("No DoABC tags found");
-		}
-		catch (Exception e)
-			writefln("Error while processing %s: %s", arg, e);
+
+				//write ABC to file
+				std.file.write(prefix ~ to!string(count++) ~ ".abc", abc);
+			}
+
+		if (count == 0)
+			writeln("Processed successfully, but no DoABC tags found.");
+		else
+			writefln("Processed successfully, %s DoABC tags found.", count);
+	} catch (Exception e) {
+		writeln("Error while processing:");
+		throw e;
+	}
 }

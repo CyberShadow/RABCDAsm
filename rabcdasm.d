@@ -26,13 +26,17 @@ import disassembler;
 
 void main(string[] args)
 {
-	if (args.length == 1)
-		throw new Exception("No arguments specified");
-	foreach (arg; args[1..$])
-	{
-		scope abc = ABCFile.read(cast(ubyte[])read(arg));
-		scope as = ASProgram.fromABC(abc);
-		scope disassembler = new Disassembler(as, stripExtension(arg), stripExtension(baseName(arg)));
-		disassembler.disassemble();
-	}
+	if (args.length < 2)
+		throw new Exception("No arguments specified.\nUsage: " ~ args[0] ~ " file.abc [directory/]");
+
+	string abcfile = args[1];
+	string directory = stripExtension(abcfile);
+	if (args.length >= 3) directory = args[2];
+	string name = baseName(directory);
+
+	scope abc = ABCFile.read(cast(ubyte[])read(abcfile));
+	scope as = ASProgram.fromABC(abc);
+	scope disassembler = new Disassembler(as, directory, name);
+	disassembler.disassemble();
+
 }
