@@ -78,7 +78,7 @@ template AutoToString()
 	static if (is(typeof(this)==class))
 		override string toString() const { return _AutoDataToString(); }
 	else // struct
-		string toString() { return _AutoDataToString(); }
+		string toString() const { return _AutoDataToString(); }
 
 	string _AutoDataToString() const
 	{
@@ -212,8 +212,46 @@ struct CmpDataHandler(O)
 
 struct ToStringDataHandler
 {
+	template getMixinSingle(T, string name)
+	{
+/*
+		enum getMixinSingle = "
+				static if (is(typeof(_AutoDataResult ~= " ~ name ~ ".toString())))
+					_AutoDataResult ~= " ~ name ~ ".toString();
+				else
+					_AutoDataResult ~= to!string(" ~ name ~ ");
+		";
+*/
+		static if (is(typeof(T.init.toString())))
+			enum getMixinSingle = "_AutoDataResult ~= " ~ name ~ ".toString();";
+		else
+			enum getMixinSingle = "_AutoDataResult ~= to!string(" ~ name ~ ");";
+	}
+
+	template getMixinBody(T, string name)
+	{
+		// TODO: arrays of arrays
+		static if (is(T U : U[]))
+		{
+			enum getMixinBody = "
+				_AutoDataResult ~= ` [ `;
+				foreach (_AutoDataArrayIndex, _AutoDataArrayItem; " ~ name ~ ")
+				{
+					if (_AutoDataArrayIndex) _AutoDataResult ~= ` , `;
+					" ~ getMixinSingle!(U, "_AutoDataArrayItem") ~ "
+				}
+				_AutoDataResult ~= ` ] `;
+			";
+		}
+		else
+			enum getMixinBody = getMixinSingle!(T, name);
+	}
+
 	template getMixin(T, string name, bool reverseSort)
 	{
-		enum getMixin = "_AutoDataResult ~= `" ~ name ~ " = ` ~ to!string(this." ~ name ~ ") ~ ` `;";
+		enum getMixin =
+			"_AutoDataResult ~= `" ~ name ~ " = `;" ~
+			getMixinBody!(T, name) ~
+			"_AutoDataResult ~= ` `;";
 	}
 }
