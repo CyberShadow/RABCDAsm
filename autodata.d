@@ -231,7 +231,7 @@ struct ToStringDataHandler
 	template getMixinBody(T, string name)
 	{
 		// TODO: arrays of arrays
-		static if (is(T U : U[]))
+		static if (is(T U : U[]) && !is(T : const(char)[]))
 		{
 			enum getMixinBody = "
 				_AutoDataResult ~= ` [ `;
