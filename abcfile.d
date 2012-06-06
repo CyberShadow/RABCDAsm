@@ -177,12 +177,12 @@ class ABCFile
 		}
 		uint[] metadata;
 
-		TraitKind kind() { return cast(TraitKind)(kindAttr&0xF); }
-		void kind(TraitKind value) { kindAttr = (kindAttr&0xF0) | value; }
+		@property TraitKind kind() { return cast(TraitKind)(kindAttr&0xF); }
+		@property void kind(TraitKind value) { kindAttr = (kindAttr&0xF0) | value; }
 
 		// TraitAttributes bitmask
-		ubyte attr() { return cast(ubyte)(kindAttr >> 4); }
-		void attr(ubyte value) { kindAttr = cast(ubyte)((kindAttr&0xF) | (value<<4)); }
+		@property ubyte attr() { return cast(ubyte)(kindAttr >> 4); }
+		@property void attr(ubyte value) { kindAttr = cast(ubyte)((kindAttr&0xF) | (value<<4)); }
 	}
 
 	struct Class
@@ -1325,7 +1325,7 @@ private final class ABCReader
 		size_t start = pos;
 		size_t end = pos + len;
 
-		size_t offset() { return pos - start; }
+		@property size_t offset() { return pos - start; }
 
 		try
 		{
