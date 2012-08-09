@@ -202,7 +202,7 @@ struct CmpDataHandler(O)
 		else
 		static if (is(typeof(T.opCmp)))
 			enum dataCode = nullCheck!(T, name, reverseStr)
-			              ~ "{ int _AutoDataCmp = this." ~ name ~ ".opCmp(_AutoDataOther." ~ name ~ "); if (_AutoDataCmp != 0) return " ~ reverseStr ~ "_AutoDataCmp; }";
+			              ~ "{ int _AutoDataCmp = this." ~ name ~ ".opCmp(cast()_AutoDataOther." ~ name ~ "); if (_AutoDataCmp != 0) return " ~ reverseStr ~ "_AutoDataCmp; }";
 		else
 			enum dataCode = "if (this." ~ name ~ " < _AutoDataOther." ~ name ~ ") return " ~ reverseStr ~ "(-1);" ~
 			                "if (this." ~ name ~ " > _AutoDataOther." ~ name ~ ") return " ~ reverseStr ~ "( 1);";
