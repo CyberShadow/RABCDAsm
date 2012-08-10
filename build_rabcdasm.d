@@ -55,7 +55,7 @@ void test(string code, string extraFlags=null)
 	const FN = "test.d";
 	std.file.write(FN, code);
 	scope(exit) remove(FN);
-	enforce(system(format("rdmd --compiler=%s %s %s %s", compiler, flags, extraFlags, FN)) == 0, "Test failed");
+	enforce(system(format("rdmd --force --compiler=%s %s %s %s", compiler, flags, extraFlags, FN)) == 0, "Test failed");
 	stderr.writeln(" >>> OK");
 }
 
