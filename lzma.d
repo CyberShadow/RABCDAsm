@@ -29,9 +29,9 @@ version (Windows)
 else
 	{ pragma(lib, "lzma"); }
 
-align(1)
-struct LZMAHeader
+align(1) struct LZMAHeader
 {
+align(1):
 	ubyte compressionParameters;
 	uint dictionarySize;
 	long decompressedSize = -1;

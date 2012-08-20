@@ -39,6 +39,7 @@ final class SWFFile
 
 	align(1) struct Header
 	{
+	align(1):
 		char[3] signature;
 		ubyte ver;
 		uint fileLength;
@@ -47,6 +48,7 @@ final class SWFFile
 
 	align(1) struct LZMAHeader
 	{
+	align(1):
 		uint compressedLength;
 		ubyte compressionParameters;
 		uint dictionarySize;
