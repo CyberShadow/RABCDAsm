@@ -304,7 +304,13 @@ Directives start with a `#`, followed by a word identifying the directive:
     variable *word*.
   * `#unset` *word* - deletes the variable *word*.
   * `#privatens` defines a private namespace alias, as described above.
-  * `#version` specifies the version of the disassembly.
+  * `#version` specifies the syntax version of the disassembly. Newer
+    RABCDAsm versions may emit disassembly output that is not
+    backwards-compatible, but should still understand older disassemblies.
+    The versions are:
+     1. The first version.
+     2. Introduced in v1.11 to work around error in ABC format specification.
+        This is the current version.
 
 ### Variables
 

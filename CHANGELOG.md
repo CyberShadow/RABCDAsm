@@ -8,6 +8,7 @@ RABCDAsm v1.11 (2012.03.15)
  * Improved refid generation for protected namespaces
  * Improved handling of overflown signed integers
  * Fixed metadata handling (caused by error in ABC format specification)
+ * Added #version directive (v1.11 disassemblies are not backwards-compatible)
  * Removed path length limitation on Windows
  * Improved filename sanitization
  * Updated asasm.hrc
