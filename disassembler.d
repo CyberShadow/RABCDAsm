@@ -298,7 +298,7 @@ final class RefBuilder : ASTraitsVisitor
 		ContextItem[][T] contexts;
 		string[T] names, filenames;
 
-		void add(U)(U obj, ContextItem[] context)
+		bool add(U)(U obj, ContextItem[] context)
 		{
 			auto p = cast(T)obj;
 			static if (ALLOW_DUPLICATES)
@@ -308,16 +308,26 @@ final class RefBuilder : ASTraitsVisitor
 				{
 					auto rootContext = contextRoot(*pexisting, context);
 					contexts[p] = rootContext;
+					return false;
 				}
 				else
+				{
 					contexts[p] = context;
+					return true;
+				}
 			}
 			else
 			{
 				if (p in contexts)
+				{
 					contexts[p] = [ContextItem("multireferenced")];
+					return false;
+				}
 				else
+				{
 					contexts[p] = context.dup;
+					return true;
+				}
 			}
 		}
 
@@ -680,7 +690,7 @@ final class RefBuilder : ASTraitsVisitor
 		return arrayJoin(strings);
 	}
 
-	void addObject(T)(T obj) { objects.add(obj, context); }
+	bool addObject(T)(T obj) { return objects.add(obj, context); }
 
 	void addClass(ASProgram.Class vclass)
 	{
@@ -704,9 +714,9 @@ final class RefBuilder : ASTraitsVisitor
 
 	void addMethod(ASProgram.Method method)
 	{
-		addObject(method);
-		if (method.vbody)
-			visitMethodBody(method.vbody);
+		if (addObject(method))
+			if (method.vbody)
+				visitMethodBody(method.vbody);
 	}
 }
 
