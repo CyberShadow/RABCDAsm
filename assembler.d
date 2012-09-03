@@ -133,7 +133,7 @@ final class Assembler
 	}
 
 	string[string] vars;
-	uint[string] privateNamespaces;
+	uint[string] namespaceLabels; // for homonym namespaces
 	uint sourceVersion = 1;
 
 	void handlePreprocessor()
@@ -162,11 +162,13 @@ final class Assembler
 				vars.remove(readWord());
 				break;
 			case "privatens":
-				uint index = cast(uint)readUInt();
-				privateNamespaces[readString()] = index;
+				enforce(sourceVersion < 3, "#privatens is deprecated");
+				readUInt();
+				readString();
 				break;
 			case "version":
 				sourceVersion = cast(uint)readUInt();
+				enforce(sourceVersion >= 1 && sourceVersion <= 3, "Invalid/unknown #version");
 				break;
 			default:
 				files[0].pos -= word.length;
@@ -563,14 +565,15 @@ final class Assembler
 		n.kind = toASType(word);
 		expectChar('(');
 		n.name = readString();
-		if (n.kind == ASType.PrivateNamespace)
+		if (peekChar() == ',')
 		{
-			expectChar(',');
+			skipChar();
 			string name = readString();
-			auto pindex = name in privateNamespaces;
-			if (pindex is null)
-				throw new Exception("Unknown private namespace name");
-			n.privateIndex = *pindex;
+			auto pindex = name in namespaceLabels;
+			if (pindex)
+				n.id = *pindex;
+			else
+				n.id = namespaceLabels[name] = namespaceLabels.length;
 		}
 		expectChar(')');
 		return n;

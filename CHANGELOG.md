@@ -9,6 +9,10 @@ RABCDAsm v1.12 (2012.09.??)
  * Fixed LZMA support misdetection caused by stale rdmd cache
  * Added coerce_b, coerce_i and coerce_d opcodes
  * Fixed handling of recursively-nested function literals
+ * Fixed handling of homonym non-private namespaces
+   * #privatens directives are now ignored, and no longer generated
+ * Bumped #version to 3 (v1.12 disassemblies are not backwards-compatible)
+ * Updated asasm.hrc
  * Documentation updates
 
 RABCDAsm v1.11 (2012.03.15)

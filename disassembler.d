@@ -106,9 +106,35 @@ final class StringBuilder
 
 final class RefBuilder : ASTraitsVisitor
 {
+	bool[uint][string][ASType.Max] homonyms;
+	debug bool homonymsBuilt;
+
+	bool hasHomonyms(ASProgram.Namespace ns)
+	{
+		debug assert(homonymsBuilt);
+		auto pnsHomonyms = ns.name in homonyms[ns.kind];
+		auto nsHomonyms = pnsHomonyms ? *pnsHomonyms : null;
+		return nsHomonyms.length > 1;
+	}
+
+	void addHomonym(ASProgram.Namespace ns)
+	{
+		debug assert(!homonymsBuilt);
+		homonyms[ns.kind][ns.name][ns.id] = true;
+	}
+
+	/// Represents a link in a "context chain", which represents the context in which an object is encountered.
+	/// The common root of contexts is used to build ref strings, namespace labels, file paths etc.
+	/// Expansion is recursive and delayed until decompilation (an object may be encountered inside a private namespace,
+	/// all contexts of which are unknown until the whole program is scanned).
 	struct ContextItem
 	{
-		enum Type { Multiname, String }
+		enum Type
+		{
+			Multiname, /// An ASProgram.Multiname (may be a private namespace, etc.)
+			String,    /// Fixed string
+			Group,     /// Multiple ContextItem[]s (which are expanded and the common root is taken as the result)
+		}
 		Type type;
 
 		union
@@ -119,6 +145,11 @@ final class RefBuilder : ASTraitsVisitor
 				string str;
 				bool filenameSuffix;
 			}
+			struct
+			{
+				ContextItem[] group;
+				string groupFallback;
+			}
 		}
 
 		struct Segment
@@ -127,60 +158,126 @@ final class RefBuilder : ASTraitsVisitor
 			string str;
 		}
 
-		Segment[] toSegments(bool filename)
+		ContextItem[] reduceGroup(RefBuilder refs)
+		{
+			assert(type==Type.Group);
+
+			ContextItem[][] contexts;
+			foreach (context; group)
+				contexts ~= ContextItem.expand(refs, [context]);
+
+			ContextItem[] context;
+			if (contexts.length)
+				context = reduce!contextRoot(contexts);
+			if (!context.length)
+				context = /*null*/[ContextItem(groupFallback)];
+			return context;
+		}
+
+		Segment[] toSegments(RefBuilder refs, bool filename)
+		out(result)
+		{
+			debug(CONTEXTS) std.stdio.writefln("Segmented:\n\t%s\nto\n\t%s\n", this, result);
+		}
+		body
 		{
 			final switch(type)
 			{
-			case Type.Multiname:
-				assert(multiname.kind == ASType.QName);
-				auto nsName = multiname.vQName.ns.name;
-				if (multiname.vQName.ns.kind == ASType.PrivateNamespace) // unexpanded private namespace
-					nsName ~= '#' ~ to!string(multiname.vQName.ns.privateIndex);
-				if (nsName.length)
-					if (multiname.vQName.name.length)
-						return [Segment('/', nsName), Segment(filename ? '/' : ':', multiname.vQName.name)];
+				case Type.Multiname:
+				{
+					assert(multiname.kind == ASType.QName);
+					auto ns = multiname.vQName.ns;
+					auto nsName = ns.name;
+				//	if (refs.hasHomonyms(ns))
+				//		nsName ~= '#' ~ to!string(ns.id);
+					if (nsName.length)
+						if (multiname.vQName.name.length)
+							return [Segment('/', nsName), Segment(filename ? '/' : ':', multiname.vQName.name)];
+						else
+							return [Segment('/', nsName)];
 					else
-						return [Segment('/', nsName)];
-				else
-					if (multiname.vQName.name.length)
-						return [Segment('/', multiname.vQName.name)];
-					else
-						assert(0);
-			case Type.String:
-				return [Segment(filenameSuffix ? '.' : '/', str)];
+						if (multiname.vQName.name.length)
+							return [Segment('/', multiname.vQName.name)];
+						else
+							assert(0);
+				}
+				case Type.String:
+					return [Segment(filenameSuffix ? '.' : '/', str)];
+				case Type.Group:
+				{
+					Segment[] segments;
+					foreach (context; reduceGroup(refs))
+						segments ~= context.toSegments(refs, filename);
+					return segments;
+				}
 			}
 		}
 
-		static ContextItem[] expand(RefBuilder refs, ContextItem[] context, bool abortOnUnknown) /// recursively expand all private namespaces
+		static ContextItem[] expand(RefBuilder refs, ContextItem[] context)
 		{
 			ContextItem[] newContext;
 			foreach (ref c; context)
 			{
-				auto cEx = c.expand(refs, abortOnUnknown);
-				if (cEx is null) return null;
-				newContext ~= cEx;
+				auto cEx = c.expand(refs);
+				if (cEx)
+					newContext ~= cEx;
 			}
 			return newContext;
 		}
 
-		ContextItem[] expand(RefBuilder refs, bool abortOnUnknown)
+		bool expanding;
+
+		/// Recursively expand contexts (lower to Type.String ContextItems)
+		ContextItem[] expand(RefBuilder refs)
+		in
 		{
-			if (type==Type.Multiname && multiname.vQName.ns.kind == ASType.PrivateNamespace)
-			{
-				auto pcontext = multiname.vQName.ns.privateIndex in refs.privateNamespaces.contexts;
-				if (pcontext is null)
+			debug(CONTEXTS) std.stdio.writefln("Expanding:\n\t%s\n", this);
+		}
+		out(result)
+		{
+			debug(CONTEXTS) std.stdio.writefln("Expanded:\n\t%s\nto\n\t%s\n", this, result);
+		}
+		body
+		{
+			if (expanding)
+				final switch (type)
 				{
-					if (abortOnUnknown)
-						return null;
-					else
+					case Type.String:
+						assert(0);
+					case Type.Multiname:
 						return (&this)[0..1];
+					case Type.Group:
+						return [ContextItem(groupFallback)];
 				}
-				auto expanded = expand(refs, *pcontext, abortOnUnknown);
-				if (expanded is null) return null;
-				return expanded ~ (multiname.vQName.name.length ? [ContextItem(multiname.vQName.name)] : null); // hack
+
+			assert(!expanding);
+			expanding = true;
+			scope(exit) expanding = false;
+
+			final switch (type)
+			{
+				case Type.Multiname:
+					auto ns = multiname.vQName.ns;
+					if (ns.kind == ASType.PrivateNamespace)
+					{
+					//	auto pcontext = ns.id in refs.namespaces[ns.kind].contexts;
+					//	if (pcontext is null)
+					//		return (&this)[0..1];
+					//	assert(pcontext);
+						auto context = refs.namespaces[ns.kind].getContext(refs, ns.id);
+						debug(CONTEXTS) std.stdio.writefln("Context of namespace %s is:\n\t%s\n", ns, context);
+					//	auto expanded = expand(refs, context);
+					//	if (expanded is null) return null;
+						return /*expanded*/context ~ (multiname.vQName.name.length ? [ContextItem(multiname.vQName.name)] : null); // hack
+					}
+					break;
+				case Type.String:
+					break;
+				case Type.Group:
+					return reduceGroup(refs);
 			}
-			else
-				return (&this)[0..1];
+
+			return (&this)[0..1];
 		}
 
 		this(ASProgram.Multiname m)
@@ -196,6 +293,13 @@ final class RefBuilder : ASTraitsVisitor
 			this.filenameSuffix = filenameSuffix;
 		}
 
+		this(ContextItem[] group, string groupFallback)
+		{
+			this.type = Type.Group;
+			this.group = group;
+			this.groupFallback = groupFallback;
+		}
+
 		mixin AutoCompare;
 		mixin AutoToString;
 
@@ -205,13 +309,17 @@ final class RefBuilder : ASTraitsVisitor
 			mixin(addAutoField("type"));
 			final switch (type)
 			{
-			case Type.Multiname:
-				mixin(addAutoField("multiname"));
-				break;
-			case Type.String:
-				mixin(addAutoField("str"));
-				mixin(addAutoField("filenameSuffix"));
-				break;
+				case Type.Multiname:
+					mixin(addAutoField("multiname"));
+					break;
+				case Type.String:
+					mixin(addAutoField("str"));
+					mixin(addAutoField("filenameSuffix"));
+					break;
+				case Type.Group:
+					mixin(addAutoField("group"));
+					mixin(addAutoField("groupFallback"));
+					break;
 			}
 			mixin(epilog);
 		}
@@ -219,10 +327,16 @@ final class RefBuilder : ASTraitsVisitor
 		static bool similar(ref ContextItem i1, ref ContextItem i2)
 		{
 			if (i1.type != i2.type) return false;
-			if (i1.type == ContextItem.Type.String)
-				return i1.str == i2.str;
-			if (i1.multiname.vQName.name != i2.multiname.vQName.name) return false;
-			return nsSimilar(i1.multiname.vQName.ns, i2.multiname.vQName.ns);
+			final switch (i1.type)
+			{
+				case ContextItem.Type.String:
+					return i1.str == i2.str;
+				case ContextItem.Type.Multiname:
+					if (i1.multiname.vQName.name != i2.multiname.vQName.name) return false;
+					return nsSimilar(i1.multiname.vQName.ns, i2.multiname.vQName.ns);
+				case ContextItem.Type.Group:
+					return i1.group == i2.group;
+			}
 		}
 
 		// truncate=true  -> return partial ContextItem
@@ -296,11 +410,30 @@ final class RefBuilder : ASTraitsVisitor
 	struct ContextSet(T, bool ALLOW_DUPLICATES)
 	{
 		ContextItem[][T] contexts;
+		ContextItem[][][T] contextSets;
+		debug bool contextsSealed;
+
 		string[T] names, filenames;
+		debug bool coagulated;
 
 		bool add(U)(U obj, ContextItem[] context)
+		out
 		{
+			/*
+			static if (is(U==uint))
+				if (obj==219)
+					assert(contexts[219].length);
+			*/
+		}
+		body
+		{
+			debug assert(!coagulated);
+			debug assert(!contextsSealed);
+
 			auto p = cast(T)obj;
+			contextSets[p] ~= context.dup;
+			return contextSets[p].length == 1;
+/*
 			static if (ALLOW_DUPLICATES)
 			{
 				auto pexisting = p in contexts;
@@ -329,12 +462,27 @@ final class RefBuilder : ASTraitsVisitor
 					return true;
 				}
 			}
+*/
+		}
+
+		bool addIfNew(U)(U obj, ContextItem[] context)
+		{
+			if (isAdded(obj))
+				return false;
+			else
+				return add(obj, context);
 		}
 
 		void coagulate(RefBuilder refs)
 		{
+			debug assert(!coagulated);
+
 			int[string] collisionCounter;
 			T[string] first;
+
+			foreach (obj, set; contextSets)
+				if (obj !in contexts)
+					getContext(refs, obj);
 
 			foreach (obj; contexts.keys.sort)
 			{
@@ -359,14 +507,46 @@ final class RefBuilder : ASTraitsVisitor
 				filenames[obj] = bfilename ~ suffix;
 				collisionCounter[bname] = counter+1;
 			}
+
+			debug coagulated = true;
 		}
 
-		bool isAdded(U)(U obj) { return (cast(T)obj in contexts) ? true : false; }
-		ContextItem[] getContext(U)(U obj) { return contexts[cast(T)obj]; }
+		bool isAdded(U)(U obj) { return (cast(T)obj in contextSets) ? true : false; }
+
+		ContextItem[] getContext(U)(RefBuilder refs, U obj)
+		{
+		//	debug assert(coagulated);
+			debug contextsSealed = true;
+
+			auto p = cast(T)obj;
+			auto pcontext = p in contexts;
+			if (pcontext)
+				return *pcontext;
+
+			auto set = contextSets[p];
+
+			static if (ALLOW_DUPLICATES)
+			{
+				auto context = ContextItem.expand(refs, set[0]);
+				foreach (setContext; set[1..$])
+					context = contextRoot(context, ContextItem.expand(refs, setContext));
+				return contexts[p] = context;
+			}
+			else
+			{
+				if (set.length > 1)
+					return contexts[p] = [ContextItem("multireferenced")];
+				else
+					return contexts[p] = ContextItem.expand(refs, set[0]);
+			}
+		}
 
 		string getName(U)(U obj)
 		{
+			debug assert(coagulated);
+
 			auto pname = cast(T)obj in names;
+		//	return pname?*pname:"##" ~ format(obj);
 			assert(pname, format("Unscanned object: ", obj));
 			return *pname;
 		}
@@ -375,6 +555,8 @@ final class RefBuilder : ASTraitsVisitor
 
 		string getFilename(U)(U obj, string suffix)
 		{
+			debug assert(coagulated);
+
 			auto pname = cast(T)obj in filenames;
 			assert(pname, format("Unscanned object: ", obj));
 			auto filename = *pname;
@@ -399,7 +581,7 @@ final class RefBuilder : ASTraitsVisitor
 		}
 	}
 
-	ContextSet!(uint, true) privateNamespaces;
+	ContextSet!(uint, true)[ASType.Max] namespaces;
 	ContextSet!(void*, false) objects, scripts;
 
 	this(ASProgram as)
@@ -419,21 +601,20 @@ final class RefBuilder : ASTraitsVisitor
 			addOrphan(method);
 
 		super.run();
+
 		foreach (i, v; as.scripts)
 		{
-			ContextItem[][] classContexts;
+			ContextItem[] classContexts;
+
 			foreach (trait; v.traits)
-			{
-				auto c = ContextItem.expand(this, [ContextItem(trait.name)], true);
-				if (c)
-					classContexts ~= c;
-			}
-			if (classContexts.length)
-				context = reduce!contextRoot(classContexts);
-			else
-				context = null;
-			if (context.length==0)
-				pushContext("script_" ~ to!string(i));
+				if (trait.name.vQName.ns.kind != ASType.PrivateNamespace)
+					classContexts ~= ContextItem(trait.name);
+
+			if (!classContexts.length)
+				foreach (trait; v.traits)
+					classContexts ~= ContextItem(trait.name);
+
+			context = [ContextItem(classContexts, "script_" ~ to!string(i))];
 			scripts.add(v, context);
 			pushContext("sinit", true);
 			addMethod(v.sinit);
@@ -454,23 +635,26 @@ final class RefBuilder : ASTraitsVisitor
 				popContext();
 			}
 
-		// add private namespaces referenced only at script level
+		scripts.coagulate(this);
+
+		// add namespaces referenced only at script level
 		foreach (v; as.scripts)
 			foreach (trait; v.traits)
-				if (trait.name.kind == ASType.QName && trait.name.vQName.ns.kind == ASType.PrivateNamespace && !privateNamespaces.isAdded(trait.name.vQName.ns.privateIndex))
-					privateNamespaces.add(trait.name.vQName.ns.privateIndex, scripts.getContext(v));
+				if (trait.name.kind == ASType.QName)
+					namespaces[trait.name.vQName.ns.kind].addIfNew(trait.name.vQName.ns.id, scripts.getContext(this, v));
 
-		foreach (privateIndex, b; possibleOrphanPrivateNamespaces)
-			if (!privateNamespaces.isAdded(privateIndex))
+		foreach (id, b; possibleOrphanPrivateNamespaces)
+			if (!namespaces[ASType.PrivateNamespace].isAdded(id))
 			{
-				pushContext("private_namespace_" ~ to!string(privateIndex));
-				privateNamespaces.add(privateIndex, context);
+				pushContext("orphan_namespace_" ~ to!string(id));
+				namespaces[ASType.PrivateNamespace].add(id, context);
 				popContext();
 			}
 
-		privateNamespaces.coagulate(this);
+		debug homonymsBuilt = true;
+		foreach (ref namespace; namespaces)
+			namespace.coagulate(this);
 		objects.coagulate(this);
-		scripts.coagulate(this);
 	}
 
 	override void visitTrait(ref ASProgram.Trait trait)
@@ -514,6 +698,10 @@ final class RefBuilder : ASTraitsVisitor
 	{
 		static bool uninteresting(ContextItem[] c)
 		{
+			// Do some validation while we're at it
+			foreach (cc; c)
+				assert(cc.type != ContextItem.Type.Group, "Groups should be expanded by now");
+
 			return
 				(c.length==1 && c[0].type==ContextItem.Type.String && c[0].str.startsWith("script_") && c[0].str.endsWith("_sinit")) ||
 				(c.length==1 && c[0].type==ContextItem.Type.String && c[0].str.startsWith("orphan_method_")) ||
@@ -541,27 +729,30 @@ final class RefBuilder : ASTraitsVisitor
 	void visitNamespace(ASProgram.Namespace ns)
 	{
 		if (ns is null) return;
-		if (ns.kind == ASType.PrivateNamespace)
-		{
-			assert(context.length > 0, "No context");
-			//assert(ns.name is null, "Named private namespace");
 
-			auto myPos = context.length;
-			foreach (i, ref item; context)
-				if (item.type == ContextItem.Type.Multiname && item.multiname.vQName.ns == ns)
-				{
-					myPos = i;
-					break;
-				}
-			if (myPos == 0)
+		// Add to homonyms
+
+		addHomonym(ns);
+
+		// Add to namespaces (for context)
+
+		assert(context.length > 0, "No context");
+
+		auto myPos = context.length;
+		foreach (i, ref item; context)
+			if (item.type == ContextItem.Type.Multiname && item.multiname.vQName.ns == ns)
 			{
-				possibleOrphanPrivateNamespaces[ns.privateIndex] = true;
-				return;
+				myPos = i;
+				break;
 			}
-			auto myContext = context[0..myPos].dup;
-
-			privateNamespaces.add(ns.privateIndex, myContext);
+		if (ns.kind == ASType.PrivateNamespace && myPos == 0)
+		{
+			possibleOrphanPrivateNamespaces[ns.id] = true;
+			return;
 		}
+
+		auto myContext = context[0..myPos].dup;
+		namespaces[ns.kind].add(ns.id, myContext);
 	}
 
 	void visitNamespaceSet(ASProgram.Namespace[] nsSet)
@@ -628,8 +819,17 @@ final class RefBuilder : ASTraitsVisitor
 	}
 
 	string contextToString(ContextItem[] context, bool filename)
+	in
 	{
-		context = ContextItem.expand(this, context, false);
+		debug(CONTEXTS) std.stdio.writefln("Stringizing:\n\t%s\n", context);
+	}
+	out(result)
+	{
+		debug(CONTEXTS) std.stdio.writefln("Stringized:\n\t%s\nto\n\t%s\n------------------\n", context, result);
+	}
+	body
+	{
+		context = ContextItem.expand(this, context);
 		if (!context.length)
 			return null;
 
@@ -642,7 +842,7 @@ final class RefBuilder : ASTraitsVisitor
 
 		ContextItem.Segment[] segments;
 		foreach (ci; context)
-			segments ~= ci.toSegments(filename);
+			segments ~= ci.toSegments(this, filename);
 
 		string escape(string s)
 		{
@@ -715,8 +915,13 @@ final class RefBuilder : ASTraitsVisitor
 	void addMethod(ASProgram.Method method)
 	{
 		if (addObject(method))
+		{
+			foreach (paramType; method.paramTypes)
+				visitMultiname(paramType);
+			visitMultiname(method.returnType);
 			if (method.vbody)
 				visitMethodBody(method.vbody);
+		}
 	}
 }
 
@@ -763,10 +968,7 @@ final class Disassembler
 
 		StringBuilder sb = new StringBuilder(dir ~ "/" ~ name ~ ".main.asasm");
 
-		sb ~= "#version 2";
-		sb.newLine();
-		sb ~= "#include ";
-		dumpString(sb, name ~ ".privatens.asasm");
+		sb ~= "#version 3";
 		sb.newLine();
 
 		sb ~= "program";
@@ -819,39 +1021,6 @@ final class Disassembler
 		sb.indent--;
 		sb ~= "end ; program"; sb.newLine();
 
-		sb.save();
-
-		// now dump the private namespace indices
-		sb = new StringBuilder(dir ~ "/" ~ name ~ ".privatens.asasm");
-		uint[] indices = refs.privateNamespaces.names.keys;
-		bool alphaSortDelegate(uint a, uint b) { return refs.privateNamespaces.names[a] < refs.privateNamespaces.names[b]; }
-		sort!alphaSortDelegate(indices);
-		foreach (index; indices)
-		{
-			void dumpContext(RefBuilder.ContextItem[] context)
-			{
-				sb ~= "; ";
-				foreach (i, c; context)
-				{
-					if (c.type == RefBuilder.ContextItem.Type.Multiname)
-						dumpMultiname(sb, c.multiname);
-					else
-						sb ~= c.str;
-					if (i < context.length-1)
-						sb ~= " -> ";
-				}
-				sb.newLine();
-			}
-			auto context = refs.privateNamespaces.contexts[index];
-			dumpContext(context);
-			/*auto contextEx = refs.ContextItem.expand(refs, context);
-			if (context != contextEx)
-				dumpContext(contextEx);*/
-
-			sb ~= format("#privatens %4d ", index);
-			dumpString(sb, refs.privateNamespaces.names[index]);
-			sb.newLine();
-		}
 		sb.save();
 	}
 
@@ -931,15 +1100,16 @@ final class Disassembler
 		if (namespace is null)
 			sb ~= "null";
 		else
-		with (namespace)
 		{
-			sb ~= ASTypeNames[kind];
+			sb ~= ASTypeNames[namespace.kind];
 			sb ~= '(';
-			dumpString(sb, name);
-			if (kind == ASType.PrivateNamespace)
+			dumpString(sb, namespace.name);
+			if (refs.hasHomonyms(namespace))
 			{
 				sb ~= ", ";
-				dumpString(sb, refs.privateNamespaces.getName(privateIndex));
+				auto label = refs.namespaces[namespace.kind].getName(namespace.id);
+			//	label ~= format(" (%d)", namespace.id);
+				dumpString(sb, label);
 			}
 			sb ~= ')';
 		}
@@ -1484,7 +1654,7 @@ private:
 bool nsSimilar(ASProgram.Namespace ns1, ASProgram.Namespace ns2)
 {
 	if (ns1.kind==ASType.PrivateNamespace || ns2.kind==ASType.PrivateNamespace)
-		return ns1.kind==ns2.kind && ns1.privateIndex==ns2.privateIndex;
+		return ns1.kind==ns2.kind && ns1.id==ns2.id;
 	// ignore ns kind in other cases
 	return ns1.name == ns2.name;
 }

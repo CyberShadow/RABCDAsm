@@ -103,9 +103,8 @@ To disassemble one of the `.abc` files:
     rabcdasm file-0.abc
 
 This will create a `file-0` directory, which will contain `file-0.main.asasm` 
-(the main program file), `file-0.privatens.asasm` (private namespace alias 
-definitions), and files for ActionScript scripts, classes, and orphan and 
-script-level methods.
+(the main program file) and files for ActionScript scripts, classes, and 
+orphan and script-level methods.
 
 To assemble the `.asasm` files back, and update the SWF file:
 
@@ -252,14 +251,13 @@ Namespace sets have the syntax `[` *[ namespace [* `,` *namespace ... ] ]* `]`
 (that is, a comma-separated list of namespaces in square brackets). Empty 
 namespace sets can be specified using `[]`.
 
-Namespaces have the syntax *type* `(` *parameters* `)` . For types other than 
-`PrivateNamespace` there is only one parameter - a string. `PrivateNamespace` 
-namespaces have a second parameter, a named alias for a particular private 
-namespace. Internally (the ABC file format), private namespaces are 
-distinguished by a numerical index - `rabcdasm` will attempt to give them 
-descriptive names based on their context. Aliases can be defined using the 
-`#privatens` directive. `rabcdasm` will create a separate file containing the 
-aliases (`file-0.privatens.asasm`).
+Namespaces have the syntax *type* `(` *string [* `,` *string ]* `)` . The 
+first string indicates the namespace name. In the case that there are multiple 
+distinct namespaces with the same type and name (as `PrivateNamespace` 
+namespaces usually are), a second parameter may be present to uniquely 
+distinguish them. Internally (the ABC file format), namespaces are 
+distinguished by a numerical index. When disassembling, `rabcdasm` will 
+attempt to give them descriptive names based on their context.
 
 Strings have a syntax similar to C string literals. Strings start and end with 
 a `"`. Supported escape sequences (a backslash followed by a letter) are `\n` 
@@ -302,13 +300,14 @@ Directives start with a `#`, followed by a word identifying the directive:
   * `#set` *word* *string* - assigns the contents of the string to the 
     variable *word*.
   * `#unset` *word* - deletes the variable *word*.
-  * `#privatens` defines a private namespace alias, as described above.
+  * `#privatens` *number* *string* - deprecated, currently ignored.
   * `#version` specifies the syntax version of the disassembly. Newer RABCDAsm 
     versions may emit disassembly output that is not backwards-compatible, but 
     should still understand older disassemblies. The versions are:
      1. The first version.
      2. Introduced in v1.11 to work around error in ABC format specification. 
-        This is the current version.
+     3. Introduced in v1.12 to support multiple non-private namespaces with 
+        the same name. This is the current version.
 
 ### Variables
 

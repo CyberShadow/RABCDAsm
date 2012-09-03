@@ -40,7 +40,7 @@ final class ASProgram
 		ASType kind;
 		string name;
 
-		uint privateIndex; // unique index for private namespaces
+		uint id; // unique index for private/homonym namespaces
 
 		mixin AutoCompare;
 		mixin AutoToString;
@@ -371,12 +371,12 @@ private final class ABCtoAS
 		return o;
 	}
 
-	ASProgram.Namespace convertNamespace(ref ABCFile.Namespace namespace, int privateIndex)
+	ASProgram.Namespace convertNamespace(ref ABCFile.Namespace namespace, int id)
 	{
 		auto n = new ASProgram.Namespace();
 		n.kind = namespace.kind;
 		n.name = abc.strings[namespace.name];
-		n.privateIndex = privateIndex;
+		n.id = id;
 		return n;
 	}
 
