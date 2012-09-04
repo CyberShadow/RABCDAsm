@@ -351,8 +351,10 @@ final class RefBuilder : ASTraitsVisitor
 			if (c1.multiname.kind != ASType.QName || c2.multiname.kind != ASType.QName)
 				return null;
 
-			auto ns1 = c1.multiname.vQName.ns;
-			auto ns2 = c2.multiname.vQName.ns;
+			auto name1 = c1.multiname.vQName.name;
+			auto name2 = c2.multiname.vQName.name;
+			auto ns1   = c1.multiname.vQName.ns;
+			auto ns2   = c2.multiname.vQName.ns;
 
 			if (nsSimilar(ns1, ns2) && ns1.name.length && truncate)
 			{
@@ -362,13 +364,14 @@ final class RefBuilder : ASTraitsVisitor
 				return [ContextItem(m)];
 			}
 
-			if (c1.multiname.vQName.name && !c2.multiname.vQName.name && truncate)
+			if (name1 && !name2 && truncate)
 			{
 				swap(c1, c2);
 				swap(ns1, ns2);
+				swap(name1, name2);
 			}
 
-			if (!c1.multiname.vQName.name && c2.multiname.vQName.name && nsSimilar(ns1, ns2))
+			if (!name1 && name2 && nsSimilar(ns1, ns2))
 			{
 				if (truncate)
 				{
@@ -383,14 +386,25 @@ final class RefBuilder : ASTraitsVisitor
 
 			if (ns1.name.length && ns2.name.length)
 			{
+				if (nsSimilar(ns1, ns2))
+				{
+					assert(name1 != name2); // handled by similar() check
+					assert(!truncate); // handled above
+					if (name2.length)
+						return [c1, ContextItem(name2)];
+					else
+						return [c1];
+				}
+
 				if (ns1.name.length > ns2.name.length && truncate)
 				{
 					swap(c1, c2);
 					swap(ns1, ns2);
+					swap(name1, name2);
 				}
 
-				auto fullName1 = ns1.name ~ (c1.multiname.vQName.name ? ':' ~ c1.multiname.vQName.name : "");
-				auto fullName2 = ns2.name ~ (c2.multiname.vQName.name ? ':' ~ c2.multiname.vQName.name : "");
+				auto fullName1 = ns1.name ~ (name1 ? ':' ~ name1 : "");
+				auto fullName2 = ns2.name ~ (name2 ? ':' ~ name2 : "");
 				if (fullName2.startsWith(fullName1 ~ ":"))
 					return [truncate ? c1 : c2];
 			}
