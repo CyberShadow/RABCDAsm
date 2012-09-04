@@ -431,8 +431,19 @@ final class RefBuilder : ASTraitsVisitor
 			debug assert(!contextsSealed);
 
 			auto p = cast(T)obj;
-			contextSets[p] ~= context.dup;
-			return contextSets[p].length == 1;
+			auto pset = p in contextSets;
+
+			if (!pset)
+			{
+				contextSets[p] ~= context.dup;
+				return true;
+			}
+			else
+			{
+				if ((*pset)[$-1] != context)
+					*pset ~= context.dup;
+				return false;
+			}
 /*
 			static if (ALLOW_DUPLICATES)
 			{
