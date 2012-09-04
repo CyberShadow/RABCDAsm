@@ -417,15 +417,6 @@ final class RefBuilder : ASTraitsVisitor
 		debug bool coagulated;
 
 		bool add(U)(U obj, ContextItem[] context)
-		out
-		{
-			/*
-			static if (is(U==uint))
-				if (obj==219)
-					assert(contexts[219].length);
-			*/
-		}
-		body
 		{
 			debug assert(!coagulated);
 			debug assert(!contextsSealed);
@@ -444,36 +435,6 @@ final class RefBuilder : ASTraitsVisitor
 					*pset ~= context.dup;
 				return false;
 			}
-/*
-			static if (ALLOW_DUPLICATES)
-			{
-				auto pexisting = p in contexts;
-				if (pexisting)
-				{
-					auto rootContext = contextRoot(*pexisting, context);
-					contexts[p] = rootContext;
-					return false;
-				}
-				else
-				{
-					contexts[p] = context;
-					return true;
-				}
-			}
-			else
-			{
-				if (p in contexts)
-				{
-					contexts[p] = [ContextItem("multireferenced")];
-					return false;
-				}
-				else
-				{
-					contexts[p] = context.dup;
-					return true;
-				}
-			}
-*/
 		}
 
 		bool addIfNew(U)(U obj, ContextItem[] context)
