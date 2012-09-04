@@ -1336,6 +1336,7 @@ final class Disassembler
 	void dumpMethod(StringBuilder sb, ASProgram.Method method, string label)
 	{
 		sb ~= label;
+	//	sb ~= format(" ; %d", method.id);
 		sb.indent++; sb.newLine();
 		if (method.name !is null)
 		{

@@ -154,6 +154,8 @@ final class ASProgram
 		Value[] options;
 		string[] paramNames;
 
+		uint id; // file index
+
 		MethodBody vbody;
 	}
 
@@ -447,7 +449,7 @@ private final class ABCtoAS
 		}
 	}
 
-	ASProgram.Method convertMethod(ref ABCFile.MethodInfo method)
+	ASProgram.Method convertMethod(ref ABCFile.MethodInfo method, uint id)
 	{
 		auto n = new ASProgram.Method();
 		n.paramTypes.length = method.paramTypes.length;
@@ -462,6 +464,7 @@ private final class ABCtoAS
 		n.paramNames.length = method.paramNames.length;
 		foreach (j, name; method.paramNames)
 			n.paramNames[j] = abc.strings[name];
+		n.id = id;
 		return n;
 	}
 
@@ -666,7 +669,7 @@ private final class ABCtoAS
 
 		methods.length = methodAdded.length = abc.methods.length;
 		foreach (i, ref method; abc.methods)
-			methods[i] = convertMethod(method);
+			methods[i] = convertMethod(method, i);
 
 		metadata.length = abc.metadata.length;
 		foreach (i, ref md; abc.metadata)
