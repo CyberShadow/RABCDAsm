@@ -11,6 +11,7 @@ RABCDAsm v1.12 (2012.09.??)
  * Fixed handling of recursively-nested function literals
  * Fixed handling of homonym non-private namespaces
    * #privatens directives are now ignored, and no longer generated
+ * Improved refid generation
  * Bumped #version to 3 (v1.12 disassemblies are not backwards-compatible)
  * Updated asasm.hrc
  * Documentation updates

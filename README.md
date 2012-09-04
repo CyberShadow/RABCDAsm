@@ -256,8 +256,9 @@ first string indicates the namespace name. In the case that there are multiple
 distinct namespaces with the same type and name (as `PrivateNamespace` 
 namespaces usually are), a second parameter may be present to uniquely 
 distinguish them. Internally (the ABC file format), namespaces are 
-distinguished by a numerical index. When disassembling, `rabcdasm` will 
-attempt to give them descriptive names based on their context.
+distinguished by their numerical index. When disassembling, `rabcdasm` will 
+attempt to assign descriptive labels to homonym namespaces based on their 
+context.
 
 Strings have a syntax similar to C string literals. Strings start and end with 
 a `"`. Supported escape sequences (a backslash followed by a letter) are `\n` 
@@ -305,7 +306,7 @@ Directives start with a `#`, followed by a word identifying the directive:
     versions may emit disassembly output that is not backwards-compatible, but 
     should still understand older disassemblies. The versions are:
      1. The first version.
-     2. Introduced in v1.11 to work around error in ABC format specification. 
+     2. Introduced in v1.11 to work around error in ABC format specification.
      3. Introduced in v1.12 to support multiple non-private namespaces with 
         the same name. This is the current version.
 
