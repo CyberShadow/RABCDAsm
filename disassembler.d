@@ -970,8 +970,9 @@ final class Disassembler
 
 		foreach (uint i, script; as.scripts)
 		{
+			auto ii = i; // http://d.puremagic.com/issues/show_bug.cgi?id=8526
 			newInclude(sb, refs.scripts.getFilename(script, "script"), (StringBuilder sb) {
-				dumpScript(sb, script, i);
+				dumpScript(sb, script, ii);
 			});
 		}
 		sb.newLine();
