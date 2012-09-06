@@ -70,7 +70,7 @@ final class StringBuilder
 		for (int l=0; l<dirSegments.length-1; l++)
 		{
 			auto subdir = join(dirSegments[0..l+1], "/");
-			if (!exists(longPath(subdir)))
+			if (subdir.length && !exists(longPath(subdir)))
 				mkdir(longPath(subdir));
 		}
 		write(longPath(filename), buf[0..pos]);
