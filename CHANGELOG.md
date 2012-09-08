@@ -1,7 +1,7 @@
 RABCDAsm Changelog
 ==================
 
-RABCDAsm v1.12 (2012.09.??)
+RABCDAsm v1.12 (2012.09.08)
 ---------------------------
 
  * Relaxed filename sanitization for names like "controller"
@@ -13,7 +13,6 @@ RABCDAsm v1.12 (2012.09.??)
    * #privatens directives are now ignored, and no longer generated
  * Improved refid generation
  * Bumped #version to 3 (v1.12 disassemblies are not backwards-compatible)
- * Updated asasm.hrc
  * Documentation updates
 
 RABCDAsm v1.11 (2012.03.15)
