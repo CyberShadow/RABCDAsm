@@ -40,9 +40,9 @@ static assert(LZMAHeader.sizeof == 13);
 
 ubyte[] lzmaDecompress(LZMAHeader header, in ubyte[] compressedData)
 {
-    enforce(header.decompressedSize > 0, "Decompression with unknown size is unsupported");
+	enforce(header.decompressedSize > 0, "Decompression with unknown size is unsupported");
 
-    lzma_stream strm;
+	lzma_stream strm;
 	lzmaEnforce(lzma_alone_decoder(&strm, ulong.max), "lzma_alone_decoder");
 	scope(exit) lzma_end(&strm);
 
@@ -54,7 +54,7 @@ ubyte[] lzmaDecompress(LZMAHeader header, in ubyte[] compressedData)
 	{
 		strm.next_in  = chunk.ptr;
 		strm.avail_in = chunk.length;
-		lzmaEnforce(lzma_code(&strm, lzma_action.LZMA_RUN), "lzma_code");
+		lzmaEnforce!true(lzma_code(&strm, lzma_action.LZMA_RUN), "lzma_code (LZMA_RUN)");
 		enforce(strm.avail_in == 0, "Not all data was read");
 	}
 
@@ -62,7 +62,7 @@ ubyte[] lzmaDecompress(LZMAHeader header, in ubyte[] compressedData)
 	decompress(cast(ubyte[])(&header)[0..1]);
 	decompress(compressedData);
 
-	lzmaEnforce(lzma_code(&strm, lzma_action.LZMA_FINISH), "lzma_code");
+	lzmaEnforce!true(lzma_code(&strm, lzma_action.LZMA_FINISH), "lzma_code (LZMA_FINISH)");
 
 	enforce(strm.avail_out == 0, "Decompressed size mismatch");
 
@@ -71,30 +71,31 @@ ubyte[] lzmaDecompress(LZMAHeader header, in ubyte[] compressedData)
 
 ubyte[] lzmaCompress(in ubyte[] decompressedData, LZMAHeader* header)
 {
-    lzma_options_lzma opts;
-    enforce(lzma_lzma_preset(&opts, 9 | LZMA_PRESET_EXTREME) == false, "lzma_lzma_preset error");
+	lzma_options_lzma opts;
+	enforce(lzma_lzma_preset(&opts, 9 | LZMA_PRESET_EXTREME) == false, "lzma_lzma_preset error");
 
-    lzma_stream strm;
+	lzma_stream strm;
 	lzmaEnforce(lzma_alone_encoder(&strm, &opts), "lzma_alone_encoder");
 	scope(exit) lzma_end(&strm);
 
-	auto outBuf = new ubyte[decompressedData.length];
+	auto outBuf = new ubyte[decompressedData.length + 1024];
 	strm.next_out  = outBuf.ptr;
 	strm.avail_out = outBuf.length;
 	strm.next_in   = decompressedData.ptr;
 	strm.avail_in  = decompressedData.length;
-	lzmaEnforce(lzma_code(&strm, lzma_action.LZMA_RUN), "lzma_code");
+	lzmaEnforce(lzma_code(&strm, lzma_action.LZMA_RUN), "lzma_code (LZMA_RUN)");
 	scope(failure) { import std.stdio; writeln("avail_in=", strm.avail_in); }
 	enforce(strm.avail_in == 0, "Not all data was read");
+	enforce(strm.avail_out != 0, "Ran out of compression space");
 
-	lzmaEnforce(lzma_code(&strm, lzma_action.LZMA_FINISH), "lzma_code");
+	lzmaEnforce!true(lzma_code(&strm, lzma_action.LZMA_FINISH), "lzma_code (LZMA_FINISH)");
 
 	*header = *cast(LZMAHeader*)outBuf.ptr;
 	return outBuf[LZMAHeader.sizeof..to!size_t(strm.total_out)];
 }
 
-private void lzmaEnforce(lzma_ret v, string f)
+private void lzmaEnforce(bool STREAM_END_OK=false)(lzma_ret v, string f)
 {
-    if (v != lzma_ret.LZMA_OK && v != lzma_ret.LZMA_STREAM_END)
-    	throw new Exception(text(f, " error: ", v));
+	if (v != lzma_ret.LZMA_OK && (!STREAM_END_OK || v != lzma_ret.LZMA_STREAM_END))
+		throw new Exception(text(f, " error: ", v));
 }
