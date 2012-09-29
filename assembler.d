@@ -67,7 +67,7 @@ final class Assembler
 			return File(name, data, data.ptr, data.ptr + data.length, arguments, basePath);
 		}
 
-		Position position()
+		@property Position position()
 		{
 			Position p;
 			p.filename = filename;
@@ -75,7 +75,7 @@ final class Assembler
 			return p;
 		}
 
-		string positionStr()
+		@property string positionStr()
 		{
 			auto lines = splitLines(buf);
 			foreach (i, line; lines)
@@ -104,7 +104,7 @@ final class Assembler
 		foreach (ref c; buf)
 			if (c == '\\')
 				c = '/';
-		return buildPath(getBasePath, buf);
+		return buildPath(getBasePath(), buf);
 	}
 
 	void skipWhitespace()
@@ -1100,13 +1100,13 @@ final class Assembler
 
 		foreach (ref f; jumpFixups)
 		{
-			scope(failure) setFile(f.where.load);
+			scope(failure) setFile(f.where.load());
 			instructions[f.ii].arguments[f.ai].jumpTarget = parseLabel(f.name, labels);
 		}
 
 		foreach (ref f; switchFixups)
 		{
-			scope(failure) setFile(f.where.load);
+			scope(failure) setFile(f.where.load());
 			instructions[f.ii].arguments[f.ai].switchTargets[f.si] = parseLabel(f.name, labels);
 		}
 
@@ -1211,7 +1211,7 @@ final class Assembler
 					auto cp = f.name in classesByID;
 					if (cp is null)
 					{
-						setFile(f.where.load);
+						setFile(f.where.load());
 						throw new Exception("Unknown class refid: " ~ f.name);
 					}
 					*f.ptr = *cp;
@@ -1225,7 +1225,7 @@ final class Assembler
 					auto mp = f.name in methodsByID;
 					if (mp is null)
 					{
-						setFile(f.where.load);
+						setFile(f.where.load());
 						throw new Exception("Unknown method refid: " ~ f.name);
 					}
 					*f.ptr = *mp;

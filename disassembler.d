@@ -389,11 +389,15 @@ final class RefBuilder : ASTraitsVisitor
 				if (nsSimilar(ns1, ns2))
 				{
 					assert(name1 != name2); // handled by similar() check
-					assert(!truncate); // handled above
-					if (name2.length)
-						return [c1, ContextItem(name2)];
+					static if (truncate)
+						assert(false); // handled above
 					else
-						return [c1];
+					{
+						if (name2.length)
+							return [c1, ContextItem(name2)];
+						else
+							return [c1];
+					}
 				}
 
 				if (ns1.name.length > ns2.name.length && truncate)
