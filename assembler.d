@@ -573,7 +573,7 @@ final class Assembler
 			if (pindex)
 				n.id = *pindex;
 			else
-				n.id = namespaceLabels[name] = namespaceLabels.length+1;
+				n.id = namespaceLabels[name] = cast(uint)namespaceLabels.length+1;
 		}
 		expectChar(')');
 		return n;

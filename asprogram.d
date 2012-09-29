@@ -668,7 +668,7 @@ private final class ABCtoAS
 				postConvertMultiname(multiname, multinames[i]);
 
 		methods.length = methodAdded.length = abc.methods.length;
-		foreach (i, ref method; abc.methods)
+		foreach (uint i, ref method; abc.methods)
 			methods[i] = convertMethod(method, i);
 
 		metadata.length = abc.metadata.length;

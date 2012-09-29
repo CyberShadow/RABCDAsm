@@ -33,7 +33,7 @@ void main(string[] args)
 		{
 			auto bin = cast(ubyte[])read(args[3]);
 			tag.data = tag.data[0..6] ~ bin;
-			tag.length = tag.data.length;
+			tag.length = cast(uint)tag.data.length;
 			write(args[1], swf.write());
 			return;
 		}

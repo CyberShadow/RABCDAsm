@@ -41,7 +41,7 @@ void main(string[] args)
 				while (*p++) {} // skip name
 				tag.data = tag.data[0..p-tag.data.ptr] ~ abc;
 			}
-			tag.length = tag.data.length;
+			tag.length = cast(uint)tag.data.length;
 			write(args[1], swf.write());
 			return;
 		}
