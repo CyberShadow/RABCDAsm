@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -41,6 +41,7 @@ void main(string[] args)
 				while (*p++) {} // skip name
 				tag.data = tag.data[0..p-tag.data.ptr] ~ abc;
 			}
+			tag.length = tag.data.length;
 			write(args[1], swf.write());
 			return;
 		}

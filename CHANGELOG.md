@@ -1,6 +1,11 @@
 RABCDAsm Changelog
 ==================
 
+RABCDAsm v1.13 (2012.09.29)
+---------------------------
+
+ * Fixed handling of truncated SWF tags
+
 RABCDAsm v1.12 (2012.09.08)
 ---------------------------
 

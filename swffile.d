@@ -65,6 +65,7 @@ final class SWFFile
 	{
 		ushort type;
 		ubyte[] data;
+		uint length; // may be >data.length if file is truncated
 		bool forceLongLength;
 	}
 
@@ -129,10 +130,12 @@ private final class SWFReader
 		pos += raw.length;
 	}
 
+	/// May read less than len on EOF
 	void[] readRaw(size_t len)
 	{
-		auto data = buf[pos..pos+len];
-		pos += len;
+		auto end = pos+len;
+		auto data = buf[pos..end<$?end:$];
+		pos = end;
 		return data;
 	}
 
@@ -174,6 +177,7 @@ private final class SWFReader
 			if (length < 0x3F)
 				t.forceLongLength = true;
 		}
+		t.length = length;
 		t.data = cast(ubyte[])readRaw(length);
 		return t;
 	}
@@ -263,16 +267,16 @@ private final class SWFWriter
 		foreach (ref tag; swf.tags)
 		{
 			ushort u = cast(ushort)(tag.type << 6);
-			if (tag.data.length < 0x3F && !tag.forceLongLength)
+			if (tag.length < 0x3F && !tag.forceLongLength)
 			{
-				u |= tag.data.length;
+				u |= tag.length;
 				buf ~= toArray(u);
 			}
 			else
 			{
 				u |= 0x3F;
 				buf ~= toArray(u);
-				uint l = to!uint(tag.data.length);
+				uint l = to!uint(tag.length);
 				buf ~= toArray(l);
 			}
 			buf ~= tag.data;

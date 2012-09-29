@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -33,6 +33,7 @@ void main(string[] args)
 		{
 			auto bin = cast(ubyte[])read(args[3]);
 			tag.data = tag.data[0..6] ~ bin;
+			tag.length = tag.data.length;
 			write(args[1], swf.write());
 			return;
 		}
