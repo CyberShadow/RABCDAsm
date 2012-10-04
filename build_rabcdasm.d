@@ -103,7 +103,7 @@ int main()
 		if (haveLZMA)
 			flags ~= " " ~ LZMA_FLAGS;
 
-		foreach (program; ["rabcasm", "rabcdasm", "abcexport", "abcreplace", "swfbinexport", "swfbinreplace", "swfdecompress", "swf7zcompress"])
+		foreach (program; ["rabcasm", "rabcdasm", "abcexport", "abcreplace", "swfbinexport", "swfbinreplace", "swfdecompress", "swf7zcompress", "scexport", "screplace"])
 			compile(program);
 
 		if (haveLZMA)
