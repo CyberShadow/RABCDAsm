@@ -32,14 +32,17 @@ void main(string[] args)
 		try
 		{
 			scope swf = SWFFile.read(cast(ubyte[])read(arg));
+			uint count = 0;
 			foreach (ref tag; swf.tags)
 				if (tag.type == TagType.SymbolClass)
 				{
 					ubyte[] abc;
 					abc = tag.data;
-					std.file.write(stripExtension(arg) ~ ".sc", abc);
+					std.file.write(stripExtension(arg) ~ "-" ~ to!string(count++) ~ ".sc", abc);
 					break;
 				}
+			if (count == 0)
+				throw new Exception("No SymbolClass tags found");
 		}
 		catch (Exception e)
 			writefln("Error while processing %s: %s", arg, e);

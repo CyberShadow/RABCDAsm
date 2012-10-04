@@ -24,18 +24,19 @@ import swffile;
 
 void main(string[] args)
 {
-	if (args.length != 3)
-		throw new Exception("Bad arguments. Usage: screplace file.swf SymbolClass.sc");
+	if (args.length != 4)
+		throw new Exception("Bad arguments. Usage: screplace file.swf index SymbolClass.sc");
 	auto swf = SWFFile.read(cast(ubyte[])read(args[1]));
+	auto index = to!uint(args[2]);
 	uint count;
 	foreach (ref tag; swf.tags)
-		if (tag.type == TagType.SymbolClass)
+		if ((tag.type == TagType.SymbolClass) && count++ == index)
 		{
-			auto sc = cast(ubyte[])read(args[2]);
+			auto sc = cast(ubyte[])read(args[3]);
 			tag.data = sc;
 			tag.length = cast(uint)tag.data.length;
 			write(args[1], swf.write());
 			return;
 		}
-	throw new Exception("SymbolClass tag not found in file");
+	throw new Exception("Not enough SymbolClass tags in file");
 }
