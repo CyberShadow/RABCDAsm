@@ -39,7 +39,6 @@ void main(string[] args)
 					ubyte[] abc;
 					abc = tag.data;
 					std.file.write(stripExtension(arg) ~ "-" ~ to!string(count++) ~ ".sc", abc);
-					break;
 				}
 			if (count == 0)
 				throw new Exception("No SymbolClass tags found");
