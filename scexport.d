@@ -40,8 +40,6 @@ void main(string[] args)
 					std.file.write(stripExtension(arg) ~ ".sc", abc);
 					break;
 				}
-			if (count == 0)
-				throw new Exception("No SymbolClass tags found");
 		}
 		catch (Exception e)
 			writefln("Error while processing %s: %s", arg, e);
