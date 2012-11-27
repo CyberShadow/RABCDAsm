@@ -658,6 +658,10 @@ final class RefBuilder : ASTraitsVisitor
 		visitMultiname(m);
 		switch (trait.kind)
 		{
+			case TraitKind.Slot:
+			case TraitKind.Const:
+				visitMultiname(trait.vSlot.typeName);
+				break;
 			case TraitKind.Class:
 				addClass(trait.vClass.vclass);
 				break;
