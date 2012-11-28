@@ -901,6 +901,7 @@ final class RefBuilder : ASTraitsVisitor
 		pushContext("instance");
 		visitMultiname(vclass.instance.name);
 		visitMultiname(vclass.instance.superName);
+		visitNamespace(vclass.instance.protectedNs);
 		foreach (iface; vclass.instance.interfaces)
 			visitMultiname(iface);
 		popContext();
