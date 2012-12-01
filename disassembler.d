@@ -257,18 +257,32 @@ final class RefBuilder : ASTraitsVisitor
 			final switch (type)
 			{
 				case Type.Multiname:
-					auto ns = multiname.vQName.ns;
-					if (ns.kind == ASType.PrivateNamespace)
+					switch (multiname.kind)
 					{
-					//	auto pcontext = ns.id in refs.namespaces[ns.kind].contexts;
-					//	if (pcontext is null)
-					//		return (&this)[0..1];
-					//	assert(pcontext);
-						auto context = refs.namespaces[ns.kind].getContext(refs, ns.id);
-						debug(CONTEXTS) std.stdio.writefln("Context of namespace %s is:\n\t%s\n", ns, context);
-					//	auto expanded = expand(refs, context);
-					//	if (expanded is null) return null;
-						return /*expanded*/context ~ (multiname.vQName.name.length ? [ContextItem(multiname.vQName.name)] : null); // hack
+						case ASType.QName:
+						{
+							auto ns = multiname.vQName.ns;
+							if (ns.kind == ASType.PrivateNamespace)
+							{
+							//	auto pcontext = ns.id in refs.namespaces[ns.kind].contexts;
+							//	if (pcontext is null)
+							//		return (&this)[0..1];
+							//	assert(pcontext);
+								auto context = refs.namespaces[ns.kind].getContext(refs, ns.id);
+								debug(CONTEXTS) std.stdio.writefln("Context of namespace %s is:\n\t%s\n", ns, context);
+							//	auto expanded = expand(refs, context);
+							//	if (expanded is null) return null;
+								return /*expanded*/context ~ (multiname.vQName.name.length ? [ContextItem(multiname.vQName.name)] : null); // hack
+							}
+							break;
+						}
+						case ASType.Multiname:
+							return multiname.vMultiname.name.length ? [ContextItem(multiname.vMultiname.name)] : null;
+						default:
+							debug
+								assert(false, text(multiname.kind));
+							else
+								break;
 					}
 					break;
 				case Type.String:
@@ -332,6 +346,7 @@ final class RefBuilder : ASTraitsVisitor
 				case ContextItem.Type.String:
 					return i1.str == i2.str;
 				case ContextItem.Type.Multiname:
+					assert(i1.multiname.kind == ASType.QName && i2.multiname.kind == ASType.QName);
 					if (i1.multiname.vQName.name != i2.multiname.vQName.name) return false;
 					return nsSimilar(i1.multiname.vQName.ns, i2.multiname.vQName.ns);
 				case ContextItem.Type.Group:
@@ -597,8 +612,10 @@ final class RefBuilder : ASTraitsVisitor
 			ContextItem[] classContexts;
 
 			foreach (trait; v.traits)
-				if (trait.name.vQName.ns.kind != ASType.PrivateNamespace)
+			{
+				if (trait.name.kind == ASType.QName && trait.name.vQName.ns.kind != ASType.PrivateNamespace)
 					classContexts ~= ContextItem(trait.name);
+			}
 
 			if (!classContexts.length)
 				foreach (trait; v.traits)
@@ -651,8 +668,8 @@ final class RefBuilder : ASTraitsVisitor
 	{
 		auto m = trait.name;
 
-		if (m.kind != ASType.QName)
-			throw new Exception("Trait name is not a QName");
+	//	if (m.kind != ASType.QName)
+	//		throw new Exception("Trait name is not a QName");
 
 		pushContext(m);
 		visitMultiname(m);
@@ -734,7 +751,7 @@ final class RefBuilder : ASTraitsVisitor
 
 		auto myPos = context.length;
 		foreach (i, ref item; context)
-			if (item.type == ContextItem.Type.Multiname && item.multiname.vQName.ns == ns)
+			if (item.type == ContextItem.Type.Multiname && item.multiname.kind == ASType.QName && item.multiname.vQName.ns == ns)
 			{
 				myPos = i;
 				break;
