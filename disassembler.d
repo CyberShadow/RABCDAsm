@@ -678,30 +678,49 @@ final class RefBuilder : ASTraitsVisitor
 			case TraitKind.Slot:
 			case TraitKind.Const:
 				visitMultiname(trait.vSlot.typeName);
+
+				super.visitTrait(trait);
 				break;
 			case TraitKind.Class:
 				addClass(trait.vClass.vclass);
+
+				pushContext("class");
+				visitTraits(trait.vClass.vclass.traits);
+				popContext();
+
+				pushContext("instance");
+				visitTraits(trait.vClass.vclass.instance.traits);
+				popContext();
+
 				break;
 			case TraitKind.Function:
 				addMethod(trait.vFunction.vfunction);
+
+				super.visitTrait(trait);
 				break;
 			case TraitKind.Method:
 				addMethod(trait.vMethod.vmethod);
+
+				super.visitTrait(trait);
 				break;
 			case TraitKind.Getter:
 				pushContext("getter");
 				addMethod(trait.vMethod.vmethod);
 				popContext();
+
+				super.visitTrait(trait);
 				break;
 			case TraitKind.Setter:
 				pushContext("setter");
 				addMethod(trait.vMethod.vmethod);
 				popContext();
+
+				super.visitTrait(trait);
 				break;
 			default:
+				super.visitTrait(trait);
 				break;
 		}
-		super.visitTrait(trait);
 		popContext();
 	}
 
