@@ -202,7 +202,7 @@ final class RefBuilder : ASTraitsVisitor
 							assert(0);
 				}
 				case Type.String:
-					return [Segment(filenameSuffix ? '.' : '/', str)];
+					return [Segment((filename && filenameSuffix) ? '.' : '/', str)];
 				case Type.Group:
 				{
 					Segment[] segments;
@@ -440,16 +440,24 @@ final class RefBuilder : ASTraitsVisitor
 	void pushContext(T...)(T v) { context ~= ContextItem(v); }
 	void popContext() { context = context[0..$-1]; }
 
+	enum ContextPriority
+	{
+		declaration,
+		usage,
+		orphan,
+		max
+	}
+
 	struct ContextSet(T, bool ALLOW_DUPLICATES)
 	{
 		ContextItem[][T] contexts;
-		ContextItem[][][T] contextSets;
+		ContextItem[][][ContextPriority.max][T] contextSets;
 		debug bool contextsSealed;
 
 		string[T] names, filenames;
 		debug bool coagulated;
 
-		bool add(U)(U obj, ContextItem[] context)
+		bool add(U)(U obj, ContextItem[] context, ContextPriority priority)
 		{
 			debug assert(!coagulated);
 			debug assert(!contextsSealed);
@@ -459,23 +467,24 @@ final class RefBuilder : ASTraitsVisitor
 
 			if (!pset)
 			{
-				contextSets[p] ~= context.dup;
+				contextSets[p] = contextSets[p].init;
+				contextSets[p][priority] ~= context.dup;
 				return true;
 			}
 			else
 			{
-				if ((*pset)[$-1] != context)
-					*pset ~= context.dup;
+				if ((*pset)[priority].length==0 || (*pset)[priority][$-1] != context) // Optimization: don't add contexts identical to the last added
+					(*pset)[priority] ~= context.dup;
 				return false;
 			}
 		}
 
-		bool addIfNew(U)(U obj, ContextItem[] context)
+		bool addIfNew(U)(U obj, ContextItem[] context, ContextPriority priority)
 		{
 			if (isAdded(obj))
 				return false;
 			else
-				return add(obj, context);
+				return add(obj, context, priority);
 		}
 
 		void coagulate(RefBuilder refs)
@@ -528,7 +537,10 @@ final class RefBuilder : ASTraitsVisitor
 			if (pcontext)
 				return *pcontext;
 
-			auto set = contextSets[p];
+			ContextItem[][] set;
+			foreach (prioritySet; contextSets[p])
+				if (prioritySet)
+					set = prioritySet;
 
 			static if (ALLOW_DUPLICATES)
 			{
@@ -622,23 +634,23 @@ final class RefBuilder : ASTraitsVisitor
 					classContexts ~= ContextItem(trait.name);
 
 			context = [ContextItem(classContexts, "script_" ~ to!string(i))];
-			scripts.add(v, context);
-			pushContext("sinit", true);
-			addMethod(v.sinit);
+			scripts.add(v, context, ContextPriority.declaration);
+			pushContext("init", true);
+			addMethod(v.sinit, ContextPriority.declaration);
 			context = null;
 		}
 		foreach (i, vclass; as.orphanClasses)
 			if (!objects.isAdded(vclass))
 			{
 				pushContext("orphan_class_" ~ to!string(i));
-				addClass(vclass);
+				addClass(vclass, ContextPriority.orphan);
 				popContext();
 			}
 		foreach (i, method; as.orphanMethods)
 			if (!objects.isAdded(method))
 			{
 				pushContext("orphan_method_" ~ to!string(i));
-				addMethod(method);
+				addMethod(method, ContextPriority.orphan);
 				popContext();
 			}
 
@@ -648,13 +660,13 @@ final class RefBuilder : ASTraitsVisitor
 		foreach (v; as.scripts)
 			foreach (trait; v.traits)
 				if (trait.name.kind == ASType.QName)
-					namespaces[trait.name.vQName.ns.kind].addIfNew(trait.name.vQName.ns.id, scripts.getContext(this, v));
+					namespaces[trait.name.vQName.ns.kind].addIfNew(trait.name.vQName.ns.id, scripts.getContext(this, v), ContextPriority.declaration);
 
 		foreach (id, b; possibleOrphanPrivateNamespaces)
 			if (!namespaces[ASType.PrivateNamespace].isAdded(id))
 			{
 				pushContext("orphan_namespace_" ~ to!string(id));
-				namespaces[ASType.PrivateNamespace].add(id, context);
+				namespaces[ASType.PrivateNamespace].add(id, context, ContextPriority.orphan);
 				popContext();
 			}
 
@@ -672,47 +684,47 @@ final class RefBuilder : ASTraitsVisitor
 	//		throw new Exception("Trait name is not a QName");
 
 		pushContext(m);
-		visitMultiname(m);
+		visitMultiname(m, ContextPriority.declaration);
 		switch (trait.kind)
 		{
 			case TraitKind.Slot:
 			case TraitKind.Const:
-				visitMultiname(trait.vSlot.typeName);
+				visitMultiname(trait.vSlot.typeName, ContextPriority.usage);
 
 				super.visitTrait(trait);
 				break;
 			case TraitKind.Class:
-				addClass(trait.vClass.vclass);
+				addClass(trait.vClass.vclass, ContextPriority.declaration);
 
-				pushContext("class");
+				pushContext("class", true);
 				visitTraits(trait.vClass.vclass.traits);
 				popContext();
 
-				pushContext("instance");
+				pushContext("instance", true);
 				visitTraits(trait.vClass.vclass.instance.traits);
 				popContext();
 
 				break;
 			case TraitKind.Function:
-				addMethod(trait.vFunction.vfunction);
+				addMethod(trait.vFunction.vfunction, ContextPriority.declaration);
 
 				super.visitTrait(trait);
 				break;
 			case TraitKind.Method:
-				addMethod(trait.vMethod.vmethod);
+				addMethod(trait.vMethod.vmethod, ContextPriority.declaration);
 
 				super.visitTrait(trait);
 				break;
 			case TraitKind.Getter:
 				pushContext("getter");
-				addMethod(trait.vMethod.vmethod);
+				addMethod(trait.vMethod.vmethod, ContextPriority.declaration);
 				popContext();
 
 				super.visitTrait(trait);
 				break;
 			case TraitKind.Setter:
 				pushContext("setter");
-				addMethod(trait.vMethod.vmethod);
+				addMethod(trait.vMethod.vmethod, ContextPriority.declaration);
 				popContext();
 
 				super.visitTrait(trait);
@@ -756,7 +768,7 @@ final class RefBuilder : ASTraitsVisitor
 
 	bool[uint] possibleOrphanPrivateNamespaces;
 
-	void visitNamespace(ASProgram.Namespace ns)
+	void visitNamespace(ASProgram.Namespace ns, ContextPriority priority)
 	{
 		if (ns is null) return;
 
@@ -782,16 +794,16 @@ final class RefBuilder : ASTraitsVisitor
 		}
 
 		auto myContext = context[0..myPos].dup;
-		namespaces[ns.kind].add(ns.id, myContext);
+		namespaces[ns.kind].add(ns.id, myContext, priority);
 	}
 
-	void visitNamespaceSet(ASProgram.Namespace[] nsSet)
+	void visitNamespaceSet(ASProgram.Namespace[] nsSet, ContextPriority priority)
 	{
 		foreach (ns; nsSet)
-			visitNamespace(ns);
+			visitNamespace(ns, priority);
 	}
 
-	void visitMultiname(ASProgram.Multiname m)
+	void visitMultiname(ASProgram.Multiname m, ContextPriority priority)
 	{
 		if (m is null) return;
 		with (m)
@@ -799,20 +811,20 @@ final class RefBuilder : ASTraitsVisitor
 			{
 				case ASType.QName:
 				case ASType.QNameA:
-					visitNamespace(vQName.ns);
+					visitNamespace(vQName.ns, priority);
 					break;
 				case ASType.Multiname:
 				case ASType.MultinameA:
-					visitNamespaceSet(vMultiname.nsSet);
+					visitNamespaceSet(vMultiname.nsSet, priority);
 					break;
 				case ASType.MultinameL:
 				case ASType.MultinameLA:
-					visitNamespaceSet(vMultinameL.nsSet);
+					visitNamespaceSet(vMultinameL.nsSet, priority);
 					break;
 				case ASType.TypeName:
-					visitMultiname(vTypeName.name);
+					visitMultiname(vTypeName.name, priority);
 					foreach (param; vTypeName.params)
-						visitMultiname(param);
+						visitMultiname(param, priority);
 					break;
 				default:
 					break;
@@ -826,21 +838,21 @@ final class RefBuilder : ASTraitsVisitor
 				switch (type)
 				{
 					case OpcodeArgumentType.Namespace:
-						visitNamespace(instruction.arguments[i].namespacev);
+						visitNamespace(instruction.arguments[i].namespacev, ContextPriority.usage);
 						break;
 					case OpcodeArgumentType.Multiname:
-						visitMultiname(instruction.arguments[i].multinamev);
+						visitMultiname(instruction.arguments[i].multinamev, ContextPriority.usage);
 						break;
 					case OpcodeArgumentType.Class:
 						pushContext("inline_class");
 						if (isOrphan(instruction.arguments[i].classv))
-							addClass(instruction.arguments[i].classv);
+							addClass(instruction.arguments[i].classv, ContextPriority.usage);
 						popContext();
 						break;
 					case OpcodeArgumentType.Method:
 						pushContext("inline_method");
 						if (isOrphan(instruction.arguments[i].methodv))
-							addMethod(instruction.arguments[i].methodv);
+							addMethod(instruction.arguments[i].methodv, ContextPriority.usage);
 						popContext();
 						break;
 					default:
@@ -920,36 +932,38 @@ final class RefBuilder : ASTraitsVisitor
 		return arrayJoin(strings);
 	}
 
-	bool addObject(T)(T obj) { return objects.add(obj, context); }
+	bool addObject(T)(T obj, ContextPriority priority) { return objects.add(obj, context, priority); }
 
-	void addClass(ASProgram.Class vclass)
+	void addClass(ASProgram.Class vclass, ContextPriority priority)
 	{
-		addObject(vclass);
+		addObject(vclass, priority);
 
-		pushContext("cinit");
-		addMethod(vclass.cinit);
-		popContext();
+		pushContext("class", true);
+		pushContext("init", true);
+		addMethod(vclass.cinit, ContextPriority.declaration);
+		popContext(); // init
+		popContext(); // class
 
-		pushContext("iinit");
-		addMethod(vclass.instance.iinit);
-		popContext();
+		pushContext("instance", true);
+		pushContext("init", true);
+		addMethod(vclass.instance.iinit, ContextPriority.declaration);
+		popContext(); // init
 
-		pushContext("instance");
-		visitMultiname(vclass.instance.name);
-		visitMultiname(vclass.instance.superName);
-		visitNamespace(vclass.instance.protectedNs);
+		visitMultiname(vclass.instance.name, ContextPriority.declaration);
+		visitMultiname(vclass.instance.superName, ContextPriority.usage);
+		visitNamespace(vclass.instance.protectedNs, ContextPriority.declaration);
 		foreach (iface; vclass.instance.interfaces)
-			visitMultiname(iface);
-		popContext();
+			visitMultiname(iface, ContextPriority.usage);
+		popContext(); // instance
 	}
 
-	void addMethod(ASProgram.Method method)
+	void addMethod(ASProgram.Method method, ContextPriority priority)
 	{
-		if (addObject(method))
+		if (addObject(method, priority))
 		{
 			foreach (paramType; method.paramTypes)
-				visitMultiname(paramType);
-			visitMultiname(method.returnType);
+				visitMultiname(paramType, ContextPriority.usage);
+			visitMultiname(method.returnType, ContextPriority.usage);
 			if (method.vbody)
 				visitMethodBody(method.vbody);
 		}
