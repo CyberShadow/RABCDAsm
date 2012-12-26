@@ -82,11 +82,11 @@ to have the liblzma library and development files installed on your system.
 Pre-compiled binaries
 ---------------------
 
-You can find pre-compiled Windows binaries in the [Downloads section on 
-GitHub][downloads]. However, please don't expect them to be up-to-date with 
-the latest source versions.
+You can find pre-compiled Windows binaries on [my website][downloads]. 
+However, please don't expect them to be up-to-date with the latest source 
+versions.
 
-  [downloads]: http://github.com/CyberShadow/RABCDAsm/downloads
+  [downloads]: http://files.thecybershadow.net/RABCDAsm/
 
 Usage
 -----
