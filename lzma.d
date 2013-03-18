@@ -59,6 +59,7 @@ ubyte[] lzmaDecompress(LZMAHeader header, in ubyte[] compressedData)
 	}
 
 	header.decompressedSize = -1; // Required as Flash uses End-of-Stream marker
+	fixDictSize(header.dictionarySize);
 	decompress(cast(ubyte[])(&header)[0..1]);
 	decompress(compressedData);
 
@@ -97,4 +98,19 @@ private void lzmaEnforce(bool STREAM_END_OK=false)(lzma_ret v, string f)
 {
 	if (v != lzma_ret.LZMA_OK && (!STREAM_END_OK || v != lzma_ret.LZMA_STREAM_END))
 		throw new Exception(text(f, " error: ", v));
+}
+
+/// Work around an artificial lzma_alone_decoder limitation in liblzma
+/// which prevents it from accepting any streams with a dictionary size
+/// that is not 2^n or 2^n + 2^(n-1).
+/// See xz\src\liblzma\common\alone_decoder.c (git commit e7b424d267), line 87
+private void fixDictSize(ref uint d)
+{
+	--d;
+	d |= d >> 2;
+	d |= d >> 3;
+	d |= d >> 4;
+	d |= d >> 8;
+	d |= d >> 16;
+	++d;
 }
