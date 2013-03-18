@@ -1,5 +1,5 @@
 /*
- *  Copyright 2012 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2012, 2013 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -84,7 +84,6 @@ ubyte[] lzmaCompress(in ubyte[] decompressedData, LZMAHeader* header)
 	strm.next_in   = decompressedData.ptr;
 	strm.avail_in  = decompressedData.length;
 	lzmaEnforce(lzma_code(&strm, lzma_action.LZMA_RUN), "lzma_code (LZMA_RUN)");
-	scope(failure) { import std.stdio; writeln("avail_in=", strm.avail_in); }
 	enforce(strm.avail_in == 0, "Not all data was read");
 	enforce(strm.avail_out != 0, "Ran out of compression space");
 
