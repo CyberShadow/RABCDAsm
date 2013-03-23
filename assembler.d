@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011, 2012 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012, 2013 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -266,7 +266,7 @@ final class Assembler
 	{
 		if (fileCount == files.length)
 			throw new Exception("Recursion limit exceeded");
-		files[1..fileCount+1] = files[0..fileCount].dup;
+		files[1..fileCount+1] = files[0..fileCount].dup[];
 		fileCount++;
 		files[0] = file;
 	}
@@ -284,7 +284,7 @@ final class Assembler
 		if (fileCount==1)
 			throw new Exception("Unexpected end of file");
 		fileCount--;
-		files[0..fileCount] = files[1..fileCount+1].dup;
+		files[0..fileCount] = files[1..fileCount+1].dup[];
 	}
 
 	void expectWord(string expected)

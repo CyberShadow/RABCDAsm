@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011, 2012 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012, 2013 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -53,7 +53,7 @@ final class StringBuilder
 		auto end = pos + s.length;
 		while (buf.length < end)
 			buf.length = buf.length*2;
-		buf[pos..end] = s;
+		buf[pos..end] = s[];
 		pos = end;
 	}
 
