@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011, 2012 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012, 2013 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -762,11 +762,11 @@ const OpcodeInfo[256] opcodeInfo = [
 	/* 0x64 */		{"getglobalscope",		[]},
 	/* 0x65 */		{"getscopeobject",		[OpcodeArgumentType.UByteLiteral]},
 	/* 0x66 */		{"getproperty",			[OpcodeArgumentType.Multiname]},
-	/* 0x67 */		{"getpropertylate",		[OpcodeArgumentType.Unknown]},
+	/* 0x67 */		{"getpropertylate",		[]},
 	/* 0x68 */		{"initproperty",		[OpcodeArgumentType.Multiname]},
-	/* 0x69 */		{"setpropertylate",		[OpcodeArgumentType.Unknown]},
+	/* 0x69 */		{"setpropertylate",		[]},
 	/* 0x6A */		{"deleteproperty",		[OpcodeArgumentType.Multiname]},
-	/* 0x6B */		{"deletepropertylate",	[OpcodeArgumentType.Unknown]},
+	/* 0x6B */		{"deletepropertylate",	[]},
 	/* 0x6C */		{"getslot",				[OpcodeArgumentType.UIntLiteral]},
 	/* 0x6D */		{"setslot",				[OpcodeArgumentType.UIntLiteral]},
 	/* 0x6E */		{"getglobalslot",		[OpcodeArgumentType.UIntLiteral]},
