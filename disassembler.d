@@ -25,7 +25,7 @@ import std.conv;
 import std.exception;
 import std.algorithm;
 import std.path;
-import std.md5;
+import std.digest.md;
 import abcfile;
 import asprogram;
 import autodata;
@@ -919,7 +919,7 @@ final class RefBuilder : ASTraitsVisitor
 					}
 
 				if (pathSegment.length > 240)
-					pathSegment = pathSegment[0..200] ~ '-' ~ getDigestString(pathSegment);
+					pathSegment = assumeUnique(pathSegment[0..200] ~ '-' ~ toHexString(md5Of(pathSegment)));
 			}
 
 			return arrayJoin(pathSegments, "/");
