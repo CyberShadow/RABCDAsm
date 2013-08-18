@@ -754,7 +754,7 @@ const OpcodeInfo[256] opcodeInfo = [
 	/* 0x5C */		{"0x5C",				[OpcodeArgumentType.Unknown]},
 	/* 0x5D */		{"findpropstrict",		[OpcodeArgumentType.Multiname]},
 	/* 0x5E */		{"findproperty",		[OpcodeArgumentType.Multiname]},
-	/* 0x5F */		{"finddef",				[OpcodeArgumentType.Unknown]},
+	/* 0x5F */		{"finddef",				[OpcodeArgumentType.Multiname]},
 	/* 0x60 */		{"getlex",				[OpcodeArgumentType.Multiname]},
 	/* 0x61 */		{"setproperty",			[OpcodeArgumentType.Multiname]},
 	/* 0x62 */		{"getlocal",			[OpcodeArgumentType.UIntLiteral]},
