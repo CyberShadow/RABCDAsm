@@ -1,6 +1,17 @@
 RABCDAsm Changelog
 ==================
 
+RABCDAsm v1.14 (2013.08.21)
+---------------------------
+
+ * Improved refid generation
+ * Worked around liblzma dictionary size limitation, which prevented 
+   decompression of some LZMA-compressed files
+ * Added an option to `swflzmacompress` to update the SWF version number
+ * Added `finddef` instruction
+ * Added unimplemented `{get|set|delete}propertylate` instructions
+ * Documentation updates
+
 RABCDAsm v1.13 (2012.09.29)
 ---------------------------
 
