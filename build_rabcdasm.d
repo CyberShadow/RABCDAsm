@@ -53,10 +53,11 @@ void compile(string program)
 
 void test(string code, string extraFlags=null)
 {
-	const FN = "test.d";
+	const BASE = "build_rabcdasm_buildtest";
+	const FN = BASE ~ ".d";
 	std.file.write(FN, code);
-	scope(exit) remove(FN);
-	enforce(system(format("rdmd --force --compiler=%s %s %s %s", compiler, flags, extraFlags, FN)) == 0, "Test failed");
+	scope(exit) foreach (de; dirEntries(".", BASE ~ "*", SpanMode.shallow)) remove(de.name);
+	enforce(system(format("rdmd --force --compiler=%s -od. %s %s %s", compiler, flags, extraFlags, FN)) == 0, "Test failed");
 	stderr.writeln(" >>> OK");
 }
 
