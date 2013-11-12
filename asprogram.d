@@ -864,7 +864,7 @@ private final class AStoABC : ASVisitor
 		{
 			if (haveNull && isNull(value))
 				return 0;
-			return NullOffset + pool[toKey(value)].index;
+			return NullOffset + to!uint(pool[toKey(value)].index);
 		}
 	}
 
