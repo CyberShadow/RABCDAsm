@@ -797,6 +797,7 @@ private final class AStoABC : ASVisitor
 			return !ep;
 		}
 
+		/// "from" is child of "to", thus "from" must come after "to"
 		void registerDependency(T from, T to)
 		{
 			auto pfrom = toKey(from) in pool;
@@ -990,8 +991,11 @@ private final class AStoABC : ASVisitor
 	{
 		foreach (m; multinames.getPreliminaryValues())
 			if (m.kind == ASType.TypeName)
+			{
+				multinames.registerDependency(m, m.vTypeName.name);
 				foreach (t; m.vTypeName.params)
 					multinames.registerDependency(m, t);
+			}
 	}
 
 	this(ASProgram as)
