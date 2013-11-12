@@ -761,18 +761,6 @@ private final class AStoABC : ASVisitor
 			T value;
 			size_t addIndex, index;
 			Key[] parents;
-/+
-			mixin AutoCompare;
-
-			R processData(R, string prolog, string epilog, H)(ref H handler) const
-			{
-				mixin(prolog);
-				mixin(addAutoField("hits", true));
-				static if (
-				mixin(addAutoField("value"));
-				mixin(epilog);
-			}
-+/
 
 			mixin AutoToString;
 			mixin ProcessAllData;
