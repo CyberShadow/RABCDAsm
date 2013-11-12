@@ -998,6 +998,14 @@ private final class AStoABC : ASVisitor
 					}
 	}
 
+	void registerMultinameDependencies()
+	{
+		foreach (m; multinames.getPreliminaryValues())
+			if (m.kind == ASType.TypeName)
+				foreach (t; m.vTypeName.params)
+					multinames.registerDependency(m, t);
+	}
+
 	this(ASProgram as)
 	{
 		super(as);
@@ -1009,6 +1017,7 @@ private final class AStoABC : ASVisitor
 		super.run();
 
 		registerClassDependencies();
+		registerMultinameDependencies();
 
 		ints.finalize();
 		uints.finalize();
