@@ -39,8 +39,9 @@ final class StringBuilder
 {
 	enum BUF_SIZE = 256*1024;
 
-	char[] buf;
-	size_t pos;
+	static char[] buf;
+	static size_t pos;
+
 	string filename;
 	File file;
 
@@ -58,6 +59,11 @@ final class StringBuilder
 				mkdir(longPath(subdir));
 		}
 		file.open(longPath(filename), "wb");
+		assert(!pos, "Opening new file with unflushed buffer");
+	}
+
+	static this()
+	{
 		buf = new char[BUF_SIZE];
 	}
 
@@ -1017,6 +1023,7 @@ final class Disassembler
 				base = dirName(base), up++;
 			string rel  = replicate("../", up) ~ full[base.length+1..$];
 
+			mainsb.flush();
 			StringBuilder sb = new StringBuilder(full);
 			callback(sb);
 			sb.save();
