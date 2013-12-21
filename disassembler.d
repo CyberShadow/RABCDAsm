@@ -61,7 +61,7 @@ final class StringBuilder
 		buf = new char[BUF_SIZE];
 	}
 
-	void opCatAssign(in char[] s)
+	void put(in char[] s)
 	{
 		checkIndent();
 		auto end = pos + s.length;
@@ -76,11 +76,19 @@ final class StringBuilder
 		pos = end;
 	}
 
-	void opCatAssign(char c)
+	void put(char c)
 	{
 		if (pos == buf.length) // speed hack: no indent check
 			flush();
 		buf[pos++] = c;
+	}
+
+	alias put opCatAssign;
+
+	void write(T)(T v)
+	{
+		checkIndent();
+		formattedWrite(this, "%s", v);
 	}
 
 	void flush()
@@ -1097,7 +1105,7 @@ final class Disassembler
 		if (v == ABCFile.NULL_INT)
 			sb ~= "null";
 		else
-			sb ~= to!string(v);
+			sb.write(v);
 	}
 
 	void dumpUInt(StringBuilder sb, ulong v)
@@ -1105,7 +1113,7 @@ final class Disassembler
 		if (v == ABCFile.NULL_UINT)
 			sb ~= "null";
 		else
-			sb ~= to!string(v);
+			sb.write(v);
 	}
 
 	static struct StaticBuf(T, size_t size)
@@ -1529,7 +1537,7 @@ final class Disassembler
 	void dumpScript(StringBuilder sb, ASProgram.Script script, uint index)
 	{
 		sb ~= "script ; ";
-		sb ~= to!string(index);
+		sb.write(index);
 		sb.indent++; sb.newLine();
 		dumpMethod(sb, script.sinit, "sinit");
 		dumpTraits(sb, script.traits, true);
@@ -1547,12 +1555,12 @@ final class Disassembler
 	void dumpLabel(StringBuilder sb, ref ABCFile.Label label)
 	{
 		sb ~= 'L';
-		sb ~= to!string(label.index);
+		sb.write(label.index);
 		if (label.offset != 0)
 		{
 			if (label.offset > 0)
 				sb ~= '+';
-			sb ~= to!string(label.offset);
+			sb.write(label.offset);
 		}
 	}
 
@@ -1639,7 +1647,7 @@ final class Disassembler
 			{
 				sb.noIndent();
 				sb ~= 'L';
-				sb ~= to!string(ii);
+				sb.write(ii);
 				sb ~= ':';
 				sb.newLine();
 			}
@@ -1667,13 +1675,13 @@ final class Disassembler
 							throw new Exception("Don't know how to disassemble OP_" ~ opcodeInfo[instruction.opcode].name);
 
 						case OpcodeArgumentType.UByteLiteral:
-							sb ~= to!string(instruction.arguments[i].ubytev);
+							sb.write(instruction.arguments[i].ubytev);
 							break;
 						case OpcodeArgumentType.IntLiteral:
-							sb ~= to!string(instruction.arguments[i].intv);
+							sb.write(instruction.arguments[i].intv);
 							break;
 						case OpcodeArgumentType.UIntLiteral:
-							sb ~= to!string(instruction.arguments[i].uintv);
+							sb.write(instruction.arguments[i].uintv);
 							break;
 
 						case OpcodeArgumentType.Int:
