@@ -509,7 +509,8 @@ final class RefBuilder : ASTraitsVisitor
 			}
 			else
 			{
-				if ((*pset)[priority].length==0 || (*pset)[priority][$-1] != context) // Optimization: don't add contexts identical to the last added
+				static bool rawEqual(T)(T[] arr1, T[] arr2) { return cast(ubyte[])arr1 == cast(ubyte[])arr2; }
+				if ((*pset)[priority].length==0 || !rawEqual((*pset)[priority][$-1], context)) // Optimization: don't add contexts identical to the last added
 					(*pset)[priority] ~= context.dup;
 				return false;
 			}
