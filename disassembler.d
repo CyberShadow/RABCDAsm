@@ -18,14 +18,15 @@
 
 module disassembler;
 
-import std.file;
-import std.string;
+import std.algorithm;
 import std.array;
 import std.conv;
-import std.exception;
-import std.algorithm;
-import std.path;
 import std.digest.md;
+import std.exception;
+import std.file;
+import std.path;
+import std.stdio;
+import std.string;
 import abcfile;
 import asprogram;
 import autodata;
@@ -35,37 +36,19 @@ alias std.array.join join;
 
 final class StringBuilder
 {
+	enum BUF_SIZE = 256*1024;
+
 	char[] buf;
 	size_t pos;
 	string filename;
+	File file;
 
 	this(string filename)
 	{
+		this.filename = filename;
 		if (exists(longPath(filename)))
 			throw new Exception(filename ~ " exists");
-		this.filename = filename;
-		buf.length = 1024;
-	}
 
-	void opCatAssign(string s)
-	{
-		checkIndent();
-		auto end = pos + s.length;
-		while (buf.length < end)
-			buf.length = buf.length*2;
-		buf[pos..end] = s[];
-		pos = end;
-	}
-
-	void opCatAssign(char c)
-	{
-		if (buf.length < pos+1) // speed hack: no loop, no indent check
-			buf.length = buf.length*2;
-		buf[pos++] = c;
-	}
-
-	void save()
-	{
 		string[] dirSegments = split(filename, "/");
 		for (int l=0; l<dirSegments.length-1; l++)
 		{
@@ -73,7 +56,45 @@ final class StringBuilder
 			if (subdir.length && !exists(longPath(subdir)))
 				mkdir(longPath(subdir));
 		}
-		write(longPath(filename), buf[0..pos]);
+		file.open(longPath(filename), "wb");
+		buf = new char[BUF_SIZE];
+	}
+
+	void opCatAssign(string s)
+	{
+		checkIndent();
+		auto end = pos + s.length;
+		if (end > buf.length)
+		{
+			flush();
+			end = s.length;
+			while (end > buf.length)
+				buf.length = buf.length*2;
+		}
+		buf[pos..end] = s[];
+		pos = end;
+	}
+
+	void opCatAssign(char c)
+	{
+		if (pos == buf.length) // speed hack: no indent check
+			flush();
+		buf[pos++] = c;
+	}
+
+	void flush()
+	{
+		if (pos)
+		{
+			file.rawWrite(buf[0..pos]);
+			pos = 0;
+		}
+	}
+
+	void save()
+	{
+		flush();
+		file.close();
 	}
 
 	int indent;
