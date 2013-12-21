@@ -24,6 +24,7 @@ import std.conv;
 import std.digest.md;
 import std.exception;
 import std.file;
+import std.format;
 import std.path;
 import std.stdio;
 import std.string;
@@ -60,7 +61,7 @@ final class StringBuilder
 		buf = new char[BUF_SIZE];
 	}
 
-	void opCatAssign(string s)
+	void opCatAssign(in char[] s)
 	{
 		checkIndent();
 		auto end = pos + s.length;
@@ -1107,20 +1108,36 @@ final class Disassembler
 			sb ~= to!string(v);
 	}
 
+	static struct StaticBuf(T, size_t size)
+	{
+		T[size] buf;
+		size_t pos;
+		void put(T v) { buf[pos++] = v; }
+		T[] data() { return buf[0..pos]; }
+	}
+
 	void dumpDouble(StringBuilder sb, double v)
 	{
 		if (v == ABCFile.NULL_DOUBLE)
 			sb ~= "null";
 		else
 		{
-			string s = format("%.18g", v);
+			StaticBuf!(char, 64) buf;
+			formattedWrite(&buf, "%.18g", v);
+			char[] s = buf.data();
 
 			static double forceDouble(double d) { static double n; n = d; return n; }
 			if (s != "nan" && s != "inf" && s != "-inf")
 			{
 				foreach_reverse (i; 1..s.length)
-					if (s[i]>='0' && s[i]<='8' && forceDouble(to!double(s[0..i] ~ cast(char)(s[i]+1)))==v)
-						s = s[0..i] ~ cast(char)(s[i]+1);
+					if (s[i]>='0' && s[i]<='8')
+					{
+						s[i]++;
+						if (forceDouble(to!double(s[0..i+1]))==v)
+							s = s[0..i+1];
+						else
+							s[i]--;
+					}
 				while (s.length>2 && s[$-1]!='.' && forceDouble(to!double(s[0..$-1]))==v)
 					s = s[0..$-1];
 			}
