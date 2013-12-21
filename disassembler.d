@@ -793,7 +793,7 @@ final class RefBuilder : ASTraitsVisitor
 			return;
 		}
 
-		auto myContext = context[0..myPos].dup;
+		auto myContext = context[0..myPos];
 		namespaces[ns.kind].add(ns.id, myContext, priority);
 	}
 
