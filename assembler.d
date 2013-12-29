@@ -49,25 +49,29 @@ final class Assembler
 	{
 		string name;
 		string[] arguments;
-		bool isVirtual;
+		string data;
+		@property bool isVirtual() { return data ! is null; }
 
 		File parent;
 
 		const(char)* ptr, end;
+
 		enum BUF_SIZE = 256*1024;
+		enum PADDING = 16;
 		private char[] buffer;
+		static char[][] usedBuffers;
 
 		ulong filePosition; // File position of buffer.ptr
 		sizediff_t shift; // Error location adjustment
 		std.stdio.File f;
 
-		this(string name, in char[] data = null, string[] arguments = null)
+		this(string name, string data = null, string[] arguments = null)
 		{
 			this.name = name;
 			this.arguments = arguments;
+			this.data = data;
 			if (data)
 			{
-				isVirtual = true;
 				createBuffer(data.length);
 				buffer[] = data[];
 				ptr = buffer.ptr;
@@ -93,12 +97,15 @@ final class Assembler
 			{
 				ptr = result.ptr;
 				end = ptr + result.length;
+				if (result.length < BUF_SIZE)
+					buffer[result.length..result.length+PADDING] = 0;
 				return true;
 			}
 			else
 			{
 				f.close();
-				ptr = end = null;
+				ptr = end = buffer.ptr + buffer.length - PADDING;
+				usedBuffers ~= buffer;
 				buffer = null;
 				return false;
 			}
@@ -106,17 +113,23 @@ final class Assembler
 
 		void createBuffer(size_t size)
 		{
-			// keep a null gutter at the end for readWord, readString
-			auto bufferSize = size + 16;
-			if (buffer.length < bufferSize)
-				buffer.length = bufferSize;
+			// guarantee that an out-of-bounds access (within a few bytes)
+			// will result in a null character, as an optimization
+			auto bufferSize = size + PADDING;
+			if (usedBuffers.length && usedBuffers[0].length >= bufferSize)
+			{
+				buffer = usedBuffers[0];
+				usedBuffers = usedBuffers[1..$];
+			}
+			else
+				buffer = new char[bufferSize];
 			ptr = end = buffer.ptr;
 			buffer[] = 0;
 		}
 
 		@property Position position()
 		{
-			return Position(this, filePosition + (ptr - buffer.ptr) + shift);
+			return Position(this, filePosition + (buffer ? ptr - buffer.ptr : 0) + shift);
 		}
 
 		@property string positionStr()
@@ -128,7 +141,7 @@ final class Assembler
 
 			InputRange!(ubyte[]) dataSource;
 			if (isVirtual)
-				dataSource = (cast(ubyte[])buffer).only.inputRangeObject;
+				dataSource = (cast(ubyte[])data).only.inputRangeObject;
 			else
 			{
 				f.open(name, "rb");
@@ -153,12 +166,8 @@ final class Assembler
 
 		@property char front()
 		{
-			if (ptr == end)
-			{
-				if (!loadNextChunk())
-					return 0;
-			}
-			return *ptr;
+			char c;
+			return (c = *ptr) != 0 ? c : (loadNextChunk(), *ptr);
 		}
 
 		void popFront()
@@ -224,7 +233,7 @@ final class Assembler
 		switch (word)
 		{
 			case "mixin":
-				pushFile(new File("#mixin", readString()));
+				pushFile(new File("#mixin", readString().idup));
 				break;
 			case "call": // #mixin with arguments
 				pushFile(new File("#call", readString().idup, readList!('(', ')', readImmString, false)()));
@@ -1398,5 +1407,4 @@ struct StackBuf
 		return (*buffer)[0..ptr-(*buffer).ptr];
 	}
 }
-
 alias StackBuf.create getBuf;
