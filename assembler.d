@@ -167,7 +167,7 @@ final class Assembler
 				readString();
 				break;
 			case "version":
-				sourceVersion = cast(uint)readUInt();
+				sourceVersion = readUInt().to!uint();
 				enforce(sourceVersion >= 1 && sourceVersion <= 3, "Invalid/unknown #version");
 				break;
 			default:
@@ -660,7 +660,7 @@ final class Assembler
 							t.attr |= readFlag(TraitAttributeNames);
 							break;
 						case "slotid":
-							t.vSlot.slotId = cast(uint)readUInt();
+							t.vSlot.slotId = readUInt().to!uint();
 							break;
 						case "type":
 							mustBeNull(t.vSlot.typeName);
@@ -688,7 +688,7 @@ final class Assembler
 							t.attr |= readFlag(TraitAttributeNames);
 							break;
 						case "slotid":
-							t.vClass.slotId = cast(uint)readUInt();
+							t.vClass.slotId = readUInt().to!uint();
 							break;
 						case "class":
 							mustBeNull(t.vClass.vclass);
@@ -713,7 +713,7 @@ final class Assembler
 							t.attr |= readFlag(TraitAttributeNames);
 							break;
 						case "slotid":
-							t.vFunction.slotId = cast(uint)readUInt();
+							t.vFunction.slotId = readUInt().to!uint();
 							break;
 						case "method":
 							mustBeNull(t.vFunction.vfunction);
@@ -740,7 +740,7 @@ final class Assembler
 							t.attr |= readFlag(TraitAttributeNames);
 							break;
 						case "dispid":
-							t.vMethod.dispId = cast(uint)readUInt();
+							t.vMethod.dispId = readUInt().to!uint();
 							break;
 						case "method":
 							mustBeNull(t.vMethod.vmethod);
@@ -961,16 +961,16 @@ final class Assembler
 			switch (word)
 			{
 				case "maxstack":
-					m.maxStack = cast(uint)readUInt();
+					m.maxStack = readUInt().to!uint();
 					break;
 				case "localcount":
-					m.localCount = cast(uint)readUInt();
+					m.localCount = readUInt().to!uint();
 					break;
 				case "initscopedepth":
-					m.initScopeDepth = cast(uint)readUInt();
+					m.initScopeDepth = readUInt().to!uint();
 					break;
 				case "maxscopedepth":
-					m.maxScopeDepth = cast(uint)readUInt();
+					m.maxScopeDepth = readUInt().to!uint();
 					break;
 				case "code":
 					m.instructions = readInstructions(labels);
@@ -1168,10 +1168,10 @@ final class Assembler
 			switch (word)
 			{
 				case "minorversion":
-					as.minorVersion = cast(ushort)readUInt();
+					as.minorVersion = readUInt().to!ushort();
 					break;
 				case "majorversion":
-					as.majorVersion = cast(ushort)readUInt();
+					as.majorVersion = readUInt().to!ushort();
 					break;
 				case "script":
 					as.scripts ~= readScript();
