@@ -233,10 +233,10 @@ final class Assembler
 		switch (word)
 		{
 			case "mixin":
-				pushFile(new File("#mixin", readString().idup));
+				pushFile(new File("#mixin", readImmString()));
 				break;
 			case "call": // #mixin with arguments
-				pushFile(new File("#call", readString().idup, readList!('(', ')', readImmString, false)()));
+				pushFile(new File("#call", readImmString(), readList!('(', ')', readImmString, false)()));
 				break;
 			case "include":
 				pushFile(new File(convertFilename(readString())));
@@ -246,7 +246,7 @@ final class Assembler
 				pushFile(new File(filename, toStringLiteral(cast(string)read(longPath(filename)))));
 				break;
 			case "set":
-				vars[readWord()] = readString().idup;
+				vars[readWord()] = readImmString();
 				break;
 			case "unset":
 				vars.remove(readWord().idup);
@@ -503,7 +503,7 @@ final class Assembler
 				v.vdouble = readDouble();
 				break;
 			case ASType.Utf8:
-				v.vstring = readString().idup;
+				v.vstring = readImmString();
 				break;
 			case ASType.Namespace:
 			case ASType.PackageNamespace:
@@ -555,7 +555,7 @@ final class Assembler
 		}
 
 		expectSymbol(OPEN);
-		T[] r;
+		auto a = appender!(T[]);
 
 		skipWhitespace();
 		if (peekChar() == CLOSE)
@@ -563,9 +563,9 @@ final class Assembler
 			skipChar(); // CLOSE
 			static if (ALLOW_NULL)
 			{
+				static T[1] sr;
 				// HACK: give r a .ptr so (r is null) is false, to distinguish it from "null"
-				r.length = 1;
-				r.length = 0;
+				auto r = sr[0..0];
 				assert(r !is null);
 				return r;
 			}
@@ -574,7 +574,7 @@ final class Assembler
 		}
 		while (true)
 		{
-			r ~= READER();
+			a.put(READER());
 			char c = readSymbol();
 			if (c == CLOSE)
 				break;
@@ -584,7 +584,7 @@ final class Assembler
 				throw new Exception("Expected " ~ CLOSE ~ " or ,");
 			}
 		}
-		return r;
+		return a.data;
 	}
 
 	// **************************************************
@@ -660,29 +660,41 @@ final class Assembler
 			}
 	}
 
-	string readImmString() { return readString().idup; }
+	StringPool stringPool;
+	string readImmString() { return stringPool.get(readString()); }
+
+	Pool!(ASProgram.Namespace, ASType, string, uint) namespacePool;
 
 	ASProgram.Namespace readNamespace()
 	{
 		auto word = readWord();
 		if (word == "null")
 			return null;
-		ASProgram.Namespace n = new ASProgram.Namespace;
-		n.kind = toASType(word);
+		auto kind = toASType(word);
 		expectSymbol('(');
-		n.name = readString().idup;
+		auto name = readImmString();
+		uint id;
 		if (peekChar() == ',')
 		{
 			skipChar();
-			string name = readString().idup;
-			auto pindex = name in namespaceLabels;
+			string s = readImmString();
+			auto pindex = s in namespaceLabels;
 			if (pindex)
-				n.id = *pindex;
+				id = *pindex;
 			else
-				n.id = namespaceLabels[name] = cast(uint)namespaceLabels.length+1;
+				id = namespaceLabels[s] = cast(uint)namespaceLabels.length+1;
 		}
 		expectSymbol(')');
-		return n;
+
+		static ASProgram.Namespace createNamespace(ASType kind, string name, uint id)
+		{
+			ASProgram.Namespace n = new ASProgram.Namespace;
+			n.kind = kind;
+			n.name = name;
+			n.id = id;
+			return n;
+		}
+		return namespacePool.get(kind, name, id, &createNamespace);
 	}
 
 	ASProgram.Namespace[] readNamespaceSet()
@@ -704,18 +716,18 @@ final class Assembler
 			case ASType.QNameA:
 				m.vQName.ns = readNamespace();
 				expectSymbol(',');
-				m.vQName.name = readString().idup;
+				m.vQName.name = readImmString();
 				break;
 			case ASType.RTQName:
 			case ASType.RTQNameA:
-				m.vRTQName.name = readString().idup;
+				m.vRTQName.name = readImmString();
 				break;
 			case ASType.RTQNameL:
 			case ASType.RTQNameLA:
 				break;
 			case ASType.Multiname:
 			case ASType.MultinameA:
-				m.vMultiname.name = readString().idup;
+				m.vMultiname.name = readImmString();
 				expectSymbol(',');
 				m.vMultiname.nsSet = readNamespaceSet();
 				break;
@@ -752,6 +764,7 @@ final class Assembler
 			throw new Exception("Unknown trait kind");
 		}
 		t.kind = *pkind;
+		kind = TraitKindNames[t.kind];
 		t.name = readMultiname();
 		switch (t.kind)
 		{
@@ -869,14 +882,14 @@ final class Assembler
 	ASProgram.Metadata readMetadata()
 	{
 		auto metadata = new ASProgram.Metadata;
-		metadata.name = readString().idup;
+		metadata.name = readImmString();
 		string[] items;
 		while (true)
 			switch (readWord())
 			{
 				case "item":
-					items ~= readString().idup;
-					items ~= readString().idup;
+					items ~= readImmString();
+					items ~= readImmString();
 					break;
 				case "end":
 					if (sourceVersion < 2)
@@ -910,10 +923,10 @@ final class Assembler
 			{
 				case "name":
 					mustBeNull(m.name);
-					m.name = readString().idup;
+					m.name = readImmString();
 					break;
 				case "refid":
-					addUnique!("method")(methodsByID, readString().idup, m);
+					addUnique!("method")(methodsByID, readImmString(), m);
 					break;
 				case "param":
 					m.paramTypes ~= readMultiname();
@@ -929,7 +942,7 @@ final class Assembler
 					m.options ~= readValue();
 					break;
 				case "paramname":
-					m.paramNames ~= readString().idup;
+					m.paramNames ~= readImmString();
 					break;
 				case "body":
 					m.vbody = readMethodBody();
@@ -991,7 +1004,7 @@ final class Assembler
 			switch (word)
 			{
 				case "refid":
-					addUnique!("class")(classesByID, readString().idup, c);
+					addUnique!("class")(classesByID, readImmString(), c);
 					break;
 				case "instance":
 					mustBeNull(c.instance);
@@ -1170,7 +1183,7 @@ final class Assembler
 						instruction.arguments[i].doublev = readDouble();
 						break;
 					case OpcodeArgumentType.String:
-						instruction.arguments[i].stringv = readString().idup;
+						instruction.arguments[i].stringv = readImmString();
 						break;
 					case OpcodeArgumentType.Namespace:
 						instruction.arguments[i].namespacev = readNamespace();
@@ -1179,10 +1192,10 @@ final class Assembler
 						instruction.arguments[i].multinamev = readMultiname();
 						break;
 					case OpcodeArgumentType.Class:
-						localClassFixups ~= LocalFixup(currentFile.position, to!uint(instructions.length), i, readString().idup);
+						localClassFixups ~= LocalFixup(currentFile.position, to!uint(instructions.length), i, readImmString());
 						break;
 					case OpcodeArgumentType.Method:
-						localMethodFixups ~= LocalFixup(currentFile.position, to!uint(instructions.length), i, readString().idup);
+						localMethodFixups ~= LocalFixup(currentFile.position, to!uint(instructions.length), i, readImmString());
 						break;
 
 					case OpcodeArgumentType.JumpTarget:
@@ -1408,3 +1421,41 @@ struct StackBuf
 	}
 }
 alias StackBuf.create getBuf;
+
+struct StringPool
+{
+	string[string] pool;
+
+	string get(in char[] s)
+	{
+		if (s is null)
+			return null;
+		auto p = s in pool;
+		if (p)
+			return *p;
+		auto i = s.idup;
+		if (i is null)
+			i = ""[0..0];
+		assert(i !is null);
+		return pool[i] = i;
+	}
+}
+
+struct Pool(T, IndexTypes...)
+{
+	struct Data
+	{
+		IndexTypes indices;
+	}
+
+	T[Data] pool;
+
+	T get(IndexTypes indices, T function(IndexTypes) ctor)
+	{
+		auto data = Data(indices);
+		auto p = data in pool;
+		if (p)
+			return *p;
+		return pool[data] = ctor(indices);
+	}
+}
