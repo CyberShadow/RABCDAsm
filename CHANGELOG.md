@@ -1,6 +1,14 @@
 RABCDAsm Changelog
 ==================
 
+RABCDAsm v1.15 (2014.01.11)
+---------------------------
+
+ * Fix building on systems with a noexec `/tmp/`
+ * Improve compatibility with 3rd-party players
+   * Don't emit forward references in TypeName-kind Multinames
+ * Improve performance and memory usage
+
 RABCDAsm v1.14 (2013.08.21)
 ---------------------------
 
