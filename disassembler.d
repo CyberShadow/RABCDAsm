@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011, 2012, 2013 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012, 2013, 2014 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -1129,6 +1129,7 @@ final class Disassembler
 		T[size] buf;
 		size_t pos;
 		void put(T v) { buf[pos++] = v; }
+		void put(in T[] v) { buf[pos..pos+v.length] = v[]; pos+=v.length; }
 		T[] data() { return buf[0..pos]; }
 	}
 
