@@ -72,7 +72,7 @@ Substitute `dmd` with `gdmd` if you're using gdc. You can use the `DC` and
 compilation flags (`-O -inline`).
 
 To be able to manipulate SWF files packed with LZMA compression, you'll need 
-to have the [liblzma library][] and development files installed on your system. If you download the precompiled binaries, you will need the 32 bit version of the dll (in the i486 folder).
+to have the [liblzma library][] and development files installed on your system. If you download the precompiled binaries, you might need the 32 bit version of the binaries (in the i486 folder), depending on the D compiler you have.
 
   [d2]: http://dlang.org/
   [dmd]: http://www.digitalmars.com/d/download.html
