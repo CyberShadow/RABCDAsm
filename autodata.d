@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011, 2012 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012, 2014 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -222,8 +222,8 @@ struct ToStringDataHandler
 					_AutoDataResult ~= to!string(" ~ name ~ ");
 		";
 */
-		static if (is(typeof(T.init.toString())))
-			enum getMixinSingle = "_AutoDataResult ~= " ~ name ~ ".toString();";
+		static if (is(typeof(T.init is null)))
+			enum getMixinSingle = "_AutoDataResult ~= " ~ name ~ " ? to!string(" ~ name ~ ") : `null`;";
 		else
 			enum getMixinSingle = "_AutoDataResult ~= to!string(" ~ name ~ ");";
 	}
