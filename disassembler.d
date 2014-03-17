@@ -58,7 +58,7 @@ final class StringBuilder
 			if (subdir.length && !exists(longPath(subdir)))
 				mkdir(longPath(subdir));
 		}
-		file.open(longPath(filename), "wb");
+		file = openFile(filename, "wb");
 		assert(!pos, "Opening new file with unflushed buffer");
 	}
 

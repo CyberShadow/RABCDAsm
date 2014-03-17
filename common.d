@@ -1,5 +1,5 @@
 /*
- *  Copyright 2012 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2012, 2014 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -18,9 +18,10 @@
 
 module common;
 
-import std.path;
-import std.string;
 import std.array;
+import std.path;
+import std.stdio;
+import std.string;
 
 string longPath(string s)
 {
@@ -33,4 +34,57 @@ string longPath(string s)
 	}
 	else
 		return s;
+}
+
+File openFile(string fn, string mode)
+{
+	File f;
+	static if (is(typeof(&f.windowsHandleOpen)))
+	{
+		import core.sys.windows.windows;
+
+		import std.exception;
+		import std.utf;
+		import std.windows.syserror;
+
+		string winMode;
+		foreach (c; mode)
+			switch (c)
+			{
+				case 'r':
+				case 'w':
+				case 'a':
+				case '+':
+					winMode ~= c;
+					break;
+				case 'b':
+				case 't':
+					break;
+				default:
+					assert(false, "Unknown character in mode");
+			}
+		DWORD access, creation;
+		bool append;
+		switch (winMode)
+		{
+			case "r" : access = GENERIC_READ                ; creation = OPEN_EXISTING; break;
+			case "r+": access = GENERIC_READ | GENERIC_WRITE; creation = OPEN_EXISTING; break;
+			case "w" : access =                GENERIC_WRITE; creation = OPEN_ALWAYS  ; break;
+			case "w+": access = GENERIC_READ | GENERIC_WRITE; creation = OPEN_ALWAYS  ; break;
+			case "a" : access =                GENERIC_WRITE; creation = OPEN_ALWAYS  ; append = true; break;
+			case "a+": assert(false, "Not implemented"); // requires two file pointers
+			default: assert(false, "Bad file mode: " ~ mode);
+		}
+
+		auto pathW = toUTF16z(longPath(fn));
+		auto h = CreateFileW(pathW, access, FILE_SHARE_READ, null, creation, 0, HANDLE.init);
+		enforce(h != INVALID_HANDLE_VALUE, "Failed to open file \"" ~ fn ~ "\": " ~ sysErrorString(GetLastError()));
+
+		assert(!append, "'a' mode not implemented");
+
+		f.windowsHandleOpen(h, mode);
+	}
+	else
+		f.open(fn, mode);
+	return f;
 }

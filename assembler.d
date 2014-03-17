@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011, 2012, 2013 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012, 2013, 2014 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -80,7 +80,7 @@ final class Assembler
 			else
 			{
 				createBuffer(BUF_SIZE);
-				f.open(name, "rb");
+				f = openFile(name, "rb");
 			}
 		}
 
@@ -144,7 +144,7 @@ final class Assembler
 				dataSource = (cast(ubyte[])data).only.inputRangeObject;
 			else
 			{
-				f.open(name, "rb");
+				f = openFile(name, "rb");
 				dataSource = f.byChunk(BUF_SIZE).inputRangeObject;
 			}
 			scope(exit) if (!isVirtual) f.close();
