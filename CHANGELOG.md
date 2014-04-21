@@ -1,6 +1,13 @@
 RABCDAsm Changelog
 ==================
 
+RABCDAsm v1.16 (2014.04.21)
+---------------------------
+
+ * Fix handling of TypeName-kind Multinames with null parameters
+ * Fix v1.15 regression in handling very long paths on Windows
+   (DMD 2.066 is required when building from source for this to work)
+
 RABCDAsm v1.15 (2014.01.11)
 ---------------------------
 
