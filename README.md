@@ -72,7 +72,7 @@ Substitute `dmd` with `gdmd` if you're using gdc. You can use the `DC` and
 compilation flags (`-O -inline`).
 
 To be able to manipulate SWF files packed with LZMA compression, you'll need 
-to have the liblzma library and development files installed on your system.
+to have the [liblzma library][] and development files installed on your system. If you download the precompiled binaries, you might need the 32 bit version of the binaries (in the i486 folder), depending on the D compiler you have.
 
 Note: DMD 2.066 (as of this moment not yet released) is required for long path
 support on Windows since RABCDAsm 1.16.
@@ -81,6 +81,7 @@ support on Windows since RABCDAsm 1.16.
   [dmd]: http://www.digitalmars.com/d/download.html
   [gdc]: http://bitbucket.org/goshawk/gdc/
   [git]: http://git-scm.com/
+  [liblzma library]: http://tukaani.org/xz/
 
 Pre-compiled binaries
 ---------------------
