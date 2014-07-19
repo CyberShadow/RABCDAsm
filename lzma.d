@@ -1,5 +1,5 @@
 /*
- *  Copyright 2012, 2013 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2012, 2013, 2014 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -79,7 +79,7 @@ ubyte[] lzmaCompress(in ubyte[] decompressedData, LZMAHeader* header)
 	lzmaEnforce(lzma_alone_encoder(&strm, &opts), "lzma_alone_encoder");
 	scope(exit) lzma_end(&strm);
 
-	auto outBuf = new ubyte[decompressedData.length + 1024];
+	auto outBuf = new ubyte[decompressedData.length * 11 / 10 + 1024];
 	strm.next_out  = outBuf.ptr;
 	strm.avail_out = outBuf.length;
 	strm.next_in   = decompressedData.ptr;
