@@ -1575,13 +1575,6 @@ final class Disassembler
 
 	void dumpMethodBody(StringBuilder sb, ASProgram.MethodBody mbody)
 	{
-		if (mbody.error)
-		{
-			sb ~= "; Error while disassembling method: " ~ mbody.error;
-			sb.newLine();
-			sb.linePrefix = "; ";
-		}
-
 		sb ~= "body";
 		sb.indent++; sb.newLine();
 		dumpUIntField(sb, "maxstack", mbody.maxStack);
@@ -1597,17 +1590,7 @@ final class Disassembler
 			labels[e.from.index] = labels[e.to.index] = labels[e.target.index] = true;
 
 		sb.indent++;
-		if (mbody.error)
-			foreach (i, b; mbody.rawBytes)
-			{
-				sb ~= format("0x%02X", b);
-				if (i%16==15 || i==mbody.rawBytes.length-1)
-					sb.newLine();
-				else
-					sb ~= " ";
-			}
-		else
-			dumpInstructions(sb, mbody.instructions, labels);
+		dumpInstructions(sb, mbody.instructions, labels, mbody.errors);
 		sb.indent--;
 
 		sb ~= "end ; code";
@@ -1632,7 +1615,7 @@ final class Disassembler
 		sb.linePrefix = null;
 	}
 
-	void dumpInstructions(StringBuilder sb, ASProgram.Instruction[] instructions, bool[] labels)
+	void dumpInstructions(StringBuilder sb, ASProgram.Instruction[] instructions, bool[] labels, ABCFile.Error[] errors)
 	{
 		foreach (ref instruction; instructions)
 			foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
@@ -1662,6 +1645,10 @@ final class Disassembler
 			}
 		}
 
+		string[] iErrors = new string[instructions.length + 1];
+		foreach (ref error; errors)
+			iErrors[error.loc.index] = error.msg;
+
 		bool extraNewLine = false;
 		foreach (uint ii, ref instruction; instructions)
 		{
@@ -1669,6 +1656,20 @@ final class Disassembler
 				sb.newLine();
 			extraNewLine = newLineAfter[instruction.opcode];
 			checkLabel(ii);
+
+			if (iErrors[ii])
+			{
+				sb ~= "; Error: ";
+				sb ~= iErrors[ii];
+				sb.newLine();
+			}
+
+			if (instruction.opcode == Opcode.OP_raw)
+			{
+				sb ~= "; 0x%02X".format(instruction.arguments[0].ubytev);
+				sb.newLine();
+				continue;
+			}
 
 			sb ~= opcodeInfo[instruction.opcode].name;
 			auto argTypes = opcodeInfo[instruction.opcode].argumentTypes;

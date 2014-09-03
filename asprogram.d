@@ -261,8 +261,7 @@ final class ASProgram
 		Exception[] exceptions;
 		Trait[] traits;
 
-		string error;
-		ubyte[] rawBytes;
+		ABCFile.Error[] errors;
 	}
 
 	struct Instruction
@@ -583,8 +582,7 @@ private final class ABCtoAS
 			e.varName = multinames[exc.varName];
 		}
 		n.traits = convertTraits(vbody.traits);
-		n.error = vbody.error;
-		n.rawBytes = vbody.rawBytes;
+		n.errors = vbody.errors;
 		return n;
 	}
 

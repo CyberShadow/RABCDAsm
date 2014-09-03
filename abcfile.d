@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011, 2012, 2013 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012, 2013, 2014 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -208,8 +208,7 @@ class ABCFile
 		ExceptionInfo[] exceptions;
 		TraitsInfo[] traits;
 
-		string error;
-		ubyte[] rawBytes;
+		Error[] errors;
 	}
 
 	/// Destination for a jump or exception block boundary
@@ -219,11 +218,18 @@ class ABCFile
 		{
 			struct
 			{
-				uint index; /// instruction index
-				int offset; /// signed offset relative to said instruction
+				uint index = uint.max; /// instruction index
+				int offset = int.max; /// signed offset relative to said instruction
 			}
 			private ptrdiff_t absoluteOffset; /// internal temporary value used during reading and writing
 		}
+	}
+
+	/// Disassembly/decoding error
+	struct Error
+	{
+		Label loc;
+		string msg;
 	}
 
 	struct Instruction
@@ -439,6 +445,7 @@ const string[4] TraitAttributeNames = ["FINAL", "OVERRIDE", "METADATA", "0x08"];
 
 enum Opcode : ubyte
 {
+	OP_raw = 0x00, /// Used internally by RABCDAsm
 	OP_bkpt = 0x01,
 	OP_nop = 0x02,
 	OP_throw = 0x03,
@@ -659,7 +666,7 @@ struct OpcodeInfo
 }
 
 const OpcodeInfo[256] opcodeInfo = [
-	/* 0x00 */		{"0x00",				[OpcodeArgumentType.Unknown]},
+	/* 0x00 */		{"db",					[OpcodeArgumentType.UByteLiteral]},
 	/* 0x01 */		{"bkpt",				[OpcodeArgumentType.Unknown]},
 	/* 0x02 */		{"nop",					[]},
 	/* 0x03 */		{"throw",				[]},
@@ -925,6 +932,16 @@ static this()
 		OpcodeByName[i.name] = cast(Opcode)o;
 	OpcodeByName = OpcodeByName.rehash;
 }
+
+bool[256] genLookup(Opcode[] opcodes)
+{
+	bool[256] result;
+	foreach (op; opcodes)
+		result[op] = true;
+	return result;
+}
+
+const bool[256] stopsExecution = genLookup([Opcode.OP_returnvalue, Opcode.OP_returnvoid, Opcode.OP_throw, Opcode.OP_jump, Opcode.OP_lookupswitch]);
 
 private final class ABCReader
 {
@@ -1291,8 +1308,194 @@ private final class ABCReader
 		r.instructions = null;
 
 		size_t len = readU30();
+		size_t start = pos;
+		size_t end = pos + len;
+
+		pos = end;
+		r.exceptions.length = readU30();
+		foreach (ref value; r.exceptions)
+			value = readExceptionInfo();
+
+		size_t postExceptions = pos;
+
+		enum TraceState : ubyte
+		{
+			unexplored,
+			pending,
+			instruction,
+			instructionBody,
+			error,
+		}
+
+		auto traceState = new TraceState[len];
+		auto instructions = new ABCFile.Instruction[len];
+
+		@property size_t offset() { return pos - start; }
+
+		bool havePending;
+
+		void queue(size_t traceOffset)
+		{
+			if (traceOffset < len && traceState[traceOffset] == TraceState.unexplored)
+			{
+				traceState[traceOffset] = TraceState.pending;
+				havePending = true;
+			}
+		}
+
+		queue(0);
+
+		foreach (ref value; r.exceptions)
+			queue(value.target.absoluteOffset);
+
+		while (havePending)
+		{
+			havePending = false;
+			pos = start;
+			while (pos < end)
+			{
+				if (traceState[offset] == TraceState.pending)
+				{
+					size_t instructionOffset;
+
+					try
+					{
+						while (pos < end)
+						{
+							instructionOffset = offset;
+
+							enforce(traceState[instructionOffset] != TraceState.instructionBody, "Overlapping instruction");
+							if (traceState[instructionOffset] == TraceState.instruction)
+								break; // already decoded
+
+							ABCFile.Instruction instruction;
+							instruction.opcode = cast(Opcode)readU8();
+							enforce(instruction.opcode != Opcode.OP_raw, "Null opcode");
+							instruction.arguments.length = opcodeInfo[instruction.opcode].argumentTypes.length;
+							foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
+								final switch (type)
+								{
+									case OpcodeArgumentType.Unknown:
+										throw new Exception("Don't know how to decode OP_" ~ opcodeInfo[instruction.opcode].name);
+
+									case OpcodeArgumentType.UByteLiteral:
+										instruction.arguments[i].ubytev = readU8();
+										break;
+									case OpcodeArgumentType.IntLiteral:
+										instruction.arguments[i].intv = readS32();
+										break;
+									case OpcodeArgumentType.UIntLiteral:
+										instruction.arguments[i].uintv = readU32();
+										break;
+
+									case OpcodeArgumentType.Int:
+									case OpcodeArgumentType.UInt:
+									case OpcodeArgumentType.Double:
+									case OpcodeArgumentType.String:
+									case OpcodeArgumentType.Namespace:
+									case OpcodeArgumentType.Multiname:
+									case OpcodeArgumentType.Class:
+									case OpcodeArgumentType.Method:
+									{
+										auto index = readU30();
+										size_t length;
+										switch (type)
+										{
+											case OpcodeArgumentType.Int:       length = abc.ints      .length; break;
+											case OpcodeArgumentType.UInt:      length = abc.uints     .length; break;
+											case OpcodeArgumentType.Double:    length = abc.doubles   .length; break;
+											case OpcodeArgumentType.String:    length = abc.strings   .length; break;
+											case OpcodeArgumentType.Namespace: length = abc.namespaces.length; break;
+											case OpcodeArgumentType.Multiname: length = abc.multinames.length; break;
+											case OpcodeArgumentType.Class:     length = abc.classes   .length; break;
+											case OpcodeArgumentType.Method:    length = abc.methods   .length; break;
+											default: assert(false);
+										}
+										enforce(index < length, "Out-of-bounds constant index");
+										instruction.arguments[i].index = index;
+										break;
+									}
+
+									case OpcodeArgumentType.JumpTarget:
+									{
+										auto delta = readS24();
+										auto target = offset + delta;
+										instruction.arguments[i].jumpTarget.absoluteOffset = target;
+										queue(target);
+										break;
+									}
+
+									case OpcodeArgumentType.SwitchDefaultTarget:
+									{
+										auto target = instructionOffset + readS24();
+										instruction.arguments[i].jumpTarget.absoluteOffset = target;
+										queue(target);
+										break;
+									}
+
+									case OpcodeArgumentType.SwitchTargets:
+										instruction.arguments[i].switchTargets.length = readU30()+1;
+										foreach (ref label; instruction.arguments[i].switchTargets)
+										{
+											label.absoluteOffset = instructionOffset + readS24();
+											queue(label.absoluteOffset);
+										}
+										break;
+								}
+
+							enforce(offset <= len, "Out-of-bounds code read error");
+
+							instructions[instructionOffset] = instruction;
+							traceState[instructionOffset] = TraceState.instruction;
+							traceState[instructionOffset+1..offset] = TraceState.instructionBody;
+
+							if (stopsExecution[instruction.opcode])
+								break;
+						}
+					}
+					catch (Exception e)
+					{
+						traceState[instructionOffset] = TraceState.error;
+						ABCFile.Label loc;
+						loc.absoluteOffset = instructionOffset;
+						r.errors ~= ABCFile.Error(loc, e.msg);
+
+						pos = start + instructionOffset + 1;
+					}
+				}
+				else
+					pos++;
+			}
+		}
+
+		size_t[] instructionOffsets;
 		auto instructionAtOffset = new uint[len];
-		r.rawBytes = buf[pos..pos+len];
+		instructionAtOffset[] = uint.max;
+
+		void addInstruction(ref ABCFile.Instruction i, size_t offset)
+		{
+			instructionAtOffset[offset] = r.instructions.length;
+			r.instructions ~= i;
+			instructionOffsets ~= offset;
+		}
+
+		foreach (o, state; traceState)
+		{
+			assert(state != TraceState.pending);
+			if (state == TraceState.instruction)
+				addInstruction(instructions[o], o);
+			else
+			if (state == TraceState.unexplored || state == TraceState.error)
+			{
+				ABCFile.Instruction instruction;
+				instruction.opcode = Opcode.OP_raw;
+				instruction.arguments.length = 1;
+				instruction.arguments[0].ubytev = buf[start + o];
+				addInstruction(instruction, o);
+			}
+			else
+				assert(state == TraceState.instructionBody);
+		}
 
 		void translateLabel(ref ABCFile.Label label)
 		{
@@ -1322,105 +1525,37 @@ private final class ABCReader
 			label.offset = to!int(absoluteOffset-instructionOffset);
 		}
 
-		size_t start = pos;
-		size_t end = pos + len;
+		// convert jump target offsets to instruction indices
+		foreach (ii, ref instruction; r.instructions)
+			foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
+				switch (type)
+				{
+					case OpcodeArgumentType.JumpTarget:
+					case OpcodeArgumentType.SwitchDefaultTarget:
+						translateLabel(instruction.arguments[i].jumpTarget);
+						break;
+					case OpcodeArgumentType.SwitchTargets:
+						foreach (ref x; instruction.arguments[i].switchTargets)
+							translateLabel(x);
+						break;
+					default:
+						break;
+				}
 
-		@property size_t offset() { return pos - start; }
+		// convert error offsets to instruction indices
+		foreach (ref e; r.errors)
+			translateLabel(e.loc);
 
-		try
-		{
-			instructionAtOffset[] = uint.max;
-			size_t[] instructionOffsets;
-			while (pos < end)
-			{
-				auto instructionOffset = offset;
-				scope(failure) pos = start + instructionOffset;
-				instructionAtOffset[instructionOffset] = to!uint(r.instructions.length);
-				ABCFile.Instruction instruction;
-				instruction.opcode = cast(Opcode)readU8();
-				instruction.arguments.length = opcodeInfo[instruction.opcode].argumentTypes.length;
-				foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
-					final switch (type)
-					{
-						case OpcodeArgumentType.Unknown:
-							throw new Exception("Don't know how to decode OP_" ~ opcodeInfo[instruction.opcode].name);
-
-						case OpcodeArgumentType.UByteLiteral:
-							instruction.arguments[i].ubytev = readU8();
-							break;
-						case OpcodeArgumentType.IntLiteral:
-							instruction.arguments[i].intv = readS32();
-							break;
-						case OpcodeArgumentType.UIntLiteral:
-							instruction.arguments[i].uintv = readU32();
-							break;
-
-						case OpcodeArgumentType.Int:
-						case OpcodeArgumentType.UInt:
-						case OpcodeArgumentType.Double:
-						case OpcodeArgumentType.String:
-						case OpcodeArgumentType.Namespace:
-						case OpcodeArgumentType.Multiname:
-						case OpcodeArgumentType.Class:
-						case OpcodeArgumentType.Method:
-							instruction.arguments[i].index = readU30();
-							break;
-
-						case OpcodeArgumentType.JumpTarget:
-							int delta = readS24();
-							instruction.arguments[i].jumpTarget.absoluteOffset = offset + delta;
-							break;
-
-						case OpcodeArgumentType.SwitchDefaultTarget:
-							instruction.arguments[i].jumpTarget.absoluteOffset = instructionOffset + readS24();
-							break;
-
-						case OpcodeArgumentType.SwitchTargets:
-							instruction.arguments[i].switchTargets.length = readU30()+1;
-							foreach (ref label; instruction.arguments[i].switchTargets)
-								label.absoluteOffset = instructionOffset + readS24();
-							break;
-					}
-				r.instructions ~= instruction;
-				instructionOffsets ~= instructionOffset;
-			}
-
-			if (pos > end)
-				throw new Exception("Out-of-bounds code read error");
-
-			// convert jump target offsets to instruction indices
-			foreach (ii, ref instruction; r.instructions)
-				foreach (i, type; opcodeInfo[instruction.opcode].argumentTypes)
-					switch (type)
-					{
-						case OpcodeArgumentType.JumpTarget:
-						case OpcodeArgumentType.SwitchDefaultTarget:
-							translateLabel(instruction.arguments[i].jumpTarget);
-							break;
-						case OpcodeArgumentType.SwitchTargets:
-							foreach (ref x; instruction.arguments[i].switchTargets)
-								translateLabel(x);
-							break;
-						default:
-							break;
-					}
-		}
-		catch (Exception e)
-		{
-			r.instructions = null;
-			r.error = e.msg;
-			instructionAtOffset[] = 0;
-		}
-		pos = end;
-
-		r.exceptions.length = readU30();
+		// convert exception offsets to instruction indices
 		foreach (ref value; r.exceptions)
 		{
-			value = readExceptionInfo();
 			translateLabel(value.from);
 			translateLabel(value.to);
 			translateLabel(value.target);
 		}
+
+		pos = postExceptions;
+
 		r.traits.length = readU30();
 		foreach (ref value; r.traits)
 			value = readTrait();
