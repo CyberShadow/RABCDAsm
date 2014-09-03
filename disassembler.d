@@ -1803,6 +1803,7 @@ static this()
 		Opcode.OP_si32,
 		Opcode.OP_sf32,
 		Opcode.OP_sf64,
+		Opcode.OP_throw,
 	])
 		newLineAfter[o] = true;
 }
