@@ -748,11 +748,17 @@ private final class AStoABC : ASVisitor
 		static if (byRef)
 			alias void* Key;
 		else
+		static if (is(T == double))
+			alias ulong Key; // https://issues.dlang.org/show_bug.cgi?id=13420
+		else
 			alias immutable(T) Key;
 
 		Key toKey(T value)
 		{
-			return cast(Key)value;
+			static if (is(T == double))
+				return *cast(ulong*)&value;
+			else
+				return cast(Key)value;
 		}
 
 		struct Entry
