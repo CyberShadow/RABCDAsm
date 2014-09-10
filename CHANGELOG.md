@@ -1,6 +1,14 @@
 RABCDAsm Changelog
 ==================
 
+RABCDAsm v1.17 (2014.09.10)
+---------------------------
+
+ * Do not attempt to disassemble unreachable code
+ * Improve handling of disassembly errors:
+   methods will be partially disassembled as far as possible.
+ * Fix LZMA errors with uncompressable data.
+
 RABCDAsm v1.16 (2014.04.21)
 ---------------------------
 
