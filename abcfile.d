@@ -1474,7 +1474,7 @@ private final class ABCReader
 
 		void addInstruction(ref ABCFile.Instruction i, size_t offset)
 		{
-			instructionAtOffset[offset] = r.instructions.length;
+			instructionAtOffset[offset] = to!uint(r.instructions.length);
 			r.instructions ~= i;
 			instructionOffsets ~= offset;
 		}
