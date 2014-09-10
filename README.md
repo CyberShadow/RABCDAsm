@@ -74,8 +74,8 @@ compilation flags (`-O -inline`).
 To be able to manipulate SWF files packed with LZMA compression, you'll need 
 to have the [liblzma library][] and development files installed on your system.
 
-Note: DMD 2.066 (as of this moment not yet released) is required for long path
-support on Windows since RABCDAsm 1.16.
+Note: DMD 2.066 is required for long path support on Windows since RABCDAsm 
+1.16.
 
   [d2]: http://dlang.org/
   [dmd]: http://www.digitalmars.com/d/download.html
