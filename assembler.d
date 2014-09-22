@@ -73,7 +73,7 @@ final class Assembler
 			if (data)
 			{
 				createBuffer(data.length);
-				buffer[] = data[];
+				buffer[0..data.length] = data[];
 				ptr = buffer.ptr;
 				end = ptr + data.length;
 			}
@@ -120,6 +120,7 @@ final class Assembler
 			{
 				buffer = usedBuffers[0];
 				usedBuffers = usedBuffers[1..$];
+				buffer[size..bufferSize] = 0;
 			}
 			else
 				buffer = new char[bufferSize];
