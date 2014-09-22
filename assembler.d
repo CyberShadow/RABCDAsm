@@ -1329,40 +1329,44 @@ final class Assembler
 		try
 		{
 			readProgram();
-
-			foreach (ref f; classFixups)
-				if (f.name is null)
-					*f.ptr = null;
-				else
-				{
-					auto cp = f.name in classesByID;
-					if (cp is null)
-					{
-						setFile(f.where.load());
-						throw new Exception("Unknown class refid: " ~ f.name);
-					}
-					*f.ptr = *cp;
-				}
-
-			foreach (ref f; methodFixups)
-				if (f.name is null)
-					*f.ptr = null;
-				else
-				{
-					auto mp = f.name in methodsByID;
-					if (mp is null)
-					{
-						setFile(f.where.load());
-						throw new Exception("Unknown method refid: " ~ f.name);
-					}
-					*f.ptr = *mp;
-				}
+			applyFixups();
 		}
 		catch (Exception e)
 		{
 			e.msg = "\n%s\n%s".format(context(), e.msg);
 			throw e;
 		}
+	}
+
+	void applyFixups()
+	{
+		foreach (ref f; classFixups)
+			if (f.name is null)
+				*f.ptr = null;
+			else
+			{
+				auto cp = f.name in classesByID;
+				if (cp is null)
+				{
+					setFile(f.where.load());
+					throw new Exception("Unknown class refid: " ~ f.name);
+				}
+				*f.ptr = *cp;
+			}
+
+		foreach (ref f; methodFixups)
+			if (f.name is null)
+				*f.ptr = null;
+			else
+			{
+				auto mp = f.name in methodsByID;
+				if (mp is null)
+				{
+					setFile(f.where.load());
+					throw new Exception("Unknown method refid: " ~ f.name);
+				}
+				*f.ptr = *mp;
+			}
 
 		classFixups = null;
 		methodFixups = null;
