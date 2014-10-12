@@ -1051,7 +1051,7 @@ final class Disassembler
 
 		StringBuilder sb = new StringBuilder(dir ~ "/" ~ name ~ ".main.asasm");
 
-		sb ~= "#version 3";
+		sb ~= "#version 4";
 		sb.newLine();
 
 		sb ~= "program";
@@ -1684,6 +1684,9 @@ final class Disassembler
 						case OpcodeArgumentType.Unknown:
 							throw new Exception("Don't know how to disassemble OP_" ~ opcodeInfo[instruction.opcode].name);
 
+						case OpcodeArgumentType.ByteLiteral:
+							sb.write(instruction.arguments[i].bytev);
+							break;
 						case OpcodeArgumentType.UByteLiteral:
 							sb.write(instruction.arguments[i].ubytev);
 							break;

@@ -269,6 +269,7 @@ final class ASProgram
 		Opcode opcode;
 		union Argument
 		{
+			byte bytev;
 			ubyte ubytev;
 
 			long intv;
@@ -598,6 +599,9 @@ private final class ABCtoAS
 				case OpcodeArgumentType.Unknown:
 					throw new Exception("Don't know how to convert OP_" ~ opcodeInfo[instruction.opcode].name);
 
+				case OpcodeArgumentType.ByteLiteral:
+					r.arguments[i].bytev = instruction.arguments[i].bytev;
+					break;
 				case OpcodeArgumentType.UByteLiteral:
 					r.arguments[i].ubytev = instruction.arguments[i].ubytev;
 					break;
@@ -1239,6 +1243,9 @@ private final class AStoABC : ASVisitor
 				case OpcodeArgumentType.Unknown:
 					throw new Exception("Don't know how to convert OP_" ~ opcodeInfo[instruction.opcode].name);
 
+				case OpcodeArgumentType.ByteLiteral:
+					r.arguments[i].bytev = instruction.arguments[i].bytev;
+					break;
 				case OpcodeArgumentType.UByteLiteral:
 					r.arguments[i].ubytev = instruction.arguments[i].ubytev;
 					break;
@@ -1524,6 +1531,7 @@ class ASVisitor : ASTraitsVisitor
 						case OpcodeArgumentType.Unknown:
 							throw new Exception("Don't know how to visit OP_" ~ opcodeInfo[instruction.opcode].name);
 
+						case OpcodeArgumentType.ByteLiteral:
 						case OpcodeArgumentType.UByteLiteral:
 						case OpcodeArgumentType.IntLiteral:
 						case OpcodeArgumentType.UIntLiteral:

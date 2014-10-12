@@ -259,7 +259,7 @@ final class Assembler
 				break;
 			case "version":
 				sourceVersion = readUInt().to!uint();
-				enforce(sourceVersion >= 1 && sourceVersion <= 3, "Invalid/unknown #version");
+				enforce(sourceVersion >= 1 && sourceVersion <= 4, "Invalid/unknown #version");
 				break;
 			default:
 				backpedal(word.length);
@@ -1164,6 +1164,12 @@ final class Assembler
 					case OpcodeArgumentType.Unknown:
 						throw new Exception("Don't know how to assemble OP_" ~ opcodeInfo[instruction.opcode].name);
 
+					case OpcodeArgumentType.ByteLiteral:
+						if (sourceVersion < 4)
+							instruction.arguments[i].bytev = to!ubyte(readInt());
+						else
+							instruction.arguments[i].bytev = to!byte(readInt());
+						break;
 					case OpcodeArgumentType.UByteLiteral:
 						instruction.arguments[i].ubytev = to!ubyte(readUInt());
 						break;

@@ -237,6 +237,7 @@ class ABCFile
 		Opcode opcode;
 		union Argument
 		{
+			byte bytev;
 			ubyte ubytev;
 			long intv;
 			ulong uintv;
@@ -641,6 +642,7 @@ enum OpcodeArgumentType
 {
 	Unknown,
 
+	ByteLiteral,
 	UByteLiteral,
 	IntLiteral,
 	UIntLiteral,
@@ -702,7 +704,7 @@ const OpcodeInfo[256] opcodeInfo = [
 	/* 0x21 */		{"pushundefined",		[]},
 	/* 0x22 */		{"pushuninitialized",	[OpcodeArgumentType.Unknown]},
 	/* 0x23 */		{"nextvalue",			[]},
-	/* 0x24 */		{"pushbyte",			[OpcodeArgumentType.UByteLiteral]},
+	/* 0x24 */		{"pushbyte",			[OpcodeArgumentType.ByteLiteral]},
 	/* 0x25 */		{"pushshort",			[OpcodeArgumentType.IntLiteral]},
 	/* 0x26 */		{"pushtrue",			[]},
 	/* 0x27 */		{"pushfalse",			[]},
@@ -1378,6 +1380,9 @@ private final class ABCReader
 									case OpcodeArgumentType.Unknown:
 										throw new Exception("Don't know how to decode OP_" ~ opcodeInfo[instruction.opcode].name);
 
+									case OpcodeArgumentType.ByteLiteral:
+										instruction.arguments[i].bytev = readU8();
+										break;
 									case OpcodeArgumentType.UByteLiteral:
 										instruction.arguments[i].ubytev = readU8();
 										break;
@@ -1933,6 +1938,9 @@ private final class ABCWriter
 						case OpcodeArgumentType.Unknown:
 							throw new Exception("Don't know how to encode OP_" ~ opcodeInfo[instruction.opcode].name);
 
+						case OpcodeArgumentType.ByteLiteral:
+							writeU8(instruction.arguments[i].bytev);
+							break;
 						case OpcodeArgumentType.UByteLiteral:
 							writeU8(instruction.arguments[i].ubytev);
 							break;

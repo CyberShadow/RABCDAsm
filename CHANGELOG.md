@@ -1,6 +1,17 @@
 RABCDAsm Changelog
 ==================
 
+RABCDAsm v1.18 (2014.??.??)
+---------------------------
+
+ * Fix disassembly of `pushbyte` instructions (the AVM specification 
+   incorrectly lists the argument as unsigned).
+ * Bumped `#version` directive of new disassemblies to 4:
+   - Versions below 4 treat `pushbyte` as unsigned, and throw an exception if 
+     the argument is outside the range `0` ... `255`.
+   - Versions 4 and above treat `pushbyte` as signed, and throw an exception 
+     if the argument is outside the range `-128` ... `127`.
+
 RABCDAsm v1.17 (2014.09.10)
 ---------------------------
 
