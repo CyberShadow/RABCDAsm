@@ -61,6 +61,16 @@ void test(string code, string extraFlags=null)
 	stderr.writeln(" >>> OK");
 }
 
+void testBug(string description, int bugId, string code)
+{
+	scope(failure)
+	{
+		stderr.writefln("Compiler bug detected: %s ( https://issues.dlang.org/show_bug.cgi?id=%d ).", description, bugId);
+		stderr.writeln("Try again with a different D compiler, compiler version, or build flags (DCFLAGS environment variable)");
+	}
+	test(code);
+}
+
 int main(string[] args)
 {
 	try
@@ -87,6 +97,11 @@ int main(string[] args)
 		stderr.writeln("* Checking for working compiler...");
 		test(`
 			void main() {}
+		`);
+
+		stderr.writeln("* Checking for known compiler bugs...");
+		testBug("[REG 2.064] Wrong code with -O on x86_64 for char comparisons", 11508, `
+			import assembler; int main() { foreach (c; "_") if (!Assembler.isWordChar(c)) return 1; return 0; }
 		`);
 
 		bool haveLZMA;
