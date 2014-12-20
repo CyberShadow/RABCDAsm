@@ -1,0 +1,17 @@
+*.exe
+*.dll
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.suo
+
+/rabcasm
+/rabcdasm
+/abcexport
+/abcreplace
+/swfbinexport
+/swfbinreplace
+/swfdecompress
+/swf7zcompress
+/swflzmacompress
