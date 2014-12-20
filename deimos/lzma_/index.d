@@ -223,7 +223,7 @@ struct lzma_index_iter
 		size_t s;
 		lzma_vli v;
 	}
-	InternalData internal[6];
+	InternalData[6] internal;
 }
 
 
