@@ -535,7 +535,7 @@ final class RefBuilder : ASTraitsVisitor
 				if (obj !in contexts)
 					getContext(refs, obj);
 
-			foreach (obj; contexts.keys.sort)
+			foreach (obj; contexts.keys.sort())
 			{
 				auto context = contexts[obj];
 				auto bname = refs.contextToString(context, false);
