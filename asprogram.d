@@ -835,7 +835,8 @@ private final class AStoABC : ASVisitor
 			// sort
 			static if (is(T == double))
 			{
-				static ulong repr(double d) { static assert(double.sizeof == ulong.sizeof); return *cast(ulong*)(&d); }
+				// Need ref to work around https://issues.dlang.org/show_bug.cgi?id=13998
+				static ulong repr(ref double d) { static assert(double.sizeof == ulong.sizeof); return *cast(ulong*)(&d); }
 				static bool sortPred(Entry* a, Entry* b) { return a.hits > b.hits || (a.hits == b.hits && repr(a.value) < repr(b.value)); }
 			}
 			else
