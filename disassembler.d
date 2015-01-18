@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011, 2012, 2013, 2014 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012, 2013, 2014, 2015 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -1146,17 +1146,33 @@ final class Disassembler
 			static double forceDouble(double d) { static double n; n = d; return n; }
 			if (s != "nan" && s != "inf" && s != "-inf")
 			{
-				foreach_reverse (i; 1..s.length)
-					if (s[i]>='0' && s[i]<='8')
-					{
-						s[i]++;
-						if (forceDouble(to!double(s[0..i+1]))==v)
-							s = s[0..i+1];
-						else
-							s[i]--;
-					}
-				while (s.length>2 && s[$-1]!='.' && forceDouble(to!double(s[0..$-1]))==v)
-					s = s[0..$-1];
+				if (forceDouble(to!double(s)) == v)
+				{
+					foreach_reverse (i; 1..s.length)
+						if (s[i]>='0' && s[i]<='8')
+						{
+							s[i]++;
+							if (forceDouble(to!double(s[0..i+1]))==v)
+								s = s[0..i+1];
+							else
+								s[i]--;
+						}
+					while (s.length>2 && s[$-1]!='.' && forceDouble(to!double(s[0..$-1]))==v)
+						s = s[0..$-1];
+				}
+				else
+				{
+					buf.pos = 0;
+					formattedWrite(&buf, "%.13a", v);
+					s = buf.data();
+					auto n = forceDouble(to!double(s));
+					assert(n == v,
+						"Can't print precise representation of double: %(%02X %) (%.18g) => %s => %(%02X %) (%.18g)".format(
+							cast(ubyte[])cast(void[])[v], v,
+							s,
+							cast(ubyte[])cast(void[])[n], n,
+						));
+				}
 			}
 			sb ~= s;
 		}
