@@ -83,6 +83,11 @@ final class Assembler
 				f = openFile(name, "rb");
 			}
 		}
+		
+		~this()
+		{
+			f.close();
+		}
 
 		bool loadNextChunk()
 		{
@@ -1331,7 +1336,8 @@ final class Assembler
 
 	void assemble(string mainFilename)
 	{
-		pushFile(new File(mainFilename));
+		scope mainFile = new File(mainFilename);
+		pushFile(mainFile);
 
 		try
 		{
