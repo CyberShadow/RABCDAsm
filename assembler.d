@@ -25,6 +25,7 @@ import std.path;
 import std.range;
 import std.stdio;
 import std.string;
+import std.typecons;
 
 import abcfile;
 import asprogram;
@@ -1336,7 +1337,7 @@ final class Assembler
 
 	void assemble(string mainFilename)
 	{
-		scope mainFile = new File(mainFilename);
+		auto mainFile = scoped!File(mainFilename);
 		pushFile(mainFile);
 
 		try
