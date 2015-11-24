@@ -1012,6 +1012,7 @@ final class Disassembler
 	ASProgram as;
 	string name, dir;
 	RefBuilder refs;
+	bool dumpRaw = true;
 
 	void newInclude(StringBuilder mainsb, string filename, void delegate(StringBuilder) callback, bool doInline = true)
 	{
@@ -1681,7 +1682,8 @@ final class Disassembler
 
 			if (instruction.opcode == Opcode.OP_raw)
 			{
-				sb ~= "; 0x%02X".format(instruction.arguments[0].ubytev);
+				if (dumpRaw)
+					sb ~= "; 0x%02X".format(instruction.arguments[0].ubytev);
 				sb.newLine();
 				continue;
 			}
