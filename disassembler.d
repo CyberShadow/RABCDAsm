@@ -1561,8 +1561,7 @@ final class Disassembler
 
 	void dumpScript(StringBuilder sb, ASProgram.Script script, uint index)
 	{
-		sb ~= "script ; ";
-		sb.write(index);
+		sb ~= "script";
 		sb.indent++; sb.newLine();
 		dumpMethod(sb, script.sinit, "sinit");
 		dumpTraits(sb, script.traits, true);
