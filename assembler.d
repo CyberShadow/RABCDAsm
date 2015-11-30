@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011, 2012, 2013, 2014 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012, 2013, 2014, 2015 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -34,10 +34,10 @@ final class Assembler
 {
 	static struct Position
 	{
-		File file;
+		SourceFile file;
 		ulong offset;
 
-		File load()
+		SourceFile load()
 		{
 			assert(file.ptr == file.end);
 			file.filePosition = offset;
@@ -45,14 +45,14 @@ final class Assembler
 		}
 	}
 
-	static final class File
+	static final class SourceFile
 	{
 		string name;
 		string[] arguments;
 		string data;
 		@property bool isVirtual() { return data ! is null; }
 
-		File parent;
+		SourceFile parent;
 
 		const(char)* ptr, end;
 
@@ -63,7 +63,7 @@ final class Assembler
 
 		ulong filePosition; // File position of buffer.ptr
 		sizediff_t shift; // Error location adjustment
-		std.stdio.File f;
+		File f;
 
 		this(string name, string data = null, string[] arguments = null)
 		{
@@ -177,7 +177,7 @@ final class Assembler
 		}
 	}
 
-	File currentFile;
+	SourceFile currentFile;
 
 	string getBasePath()
 	{
@@ -234,17 +234,17 @@ final class Assembler
 		switch (word)
 		{
 			case "mixin":
-				pushFile(new File("#mixin", readImmString()));
+				pushFile(new SourceFile("#mixin", readImmString()));
 				break;
 			case "call": // #mixin with arguments
-				pushFile(new File("#call", readImmString(), readList!('(', ')', readImmString, false)()));
+				pushFile(new SourceFile("#call", readImmString(), readList!('(', ')', readImmString, false)()));
 				break;
 			case "include":
-				pushFile(new File(convertFilename(readString())));
+				pushFile(new SourceFile(convertFilename(readString())));
 				break;
 			case "get":
 				auto filename = convertFilename(readString());
-				pushFile(new File(filename, toStringLiteral(cast(string)read(longPath(filename)))));
+				pushFile(new SourceFile(filename, toStringLiteral(cast(string)read(longPath(filename)))));
 				break;
 			case "set":
 				vars[readWord()] = readImmString();
@@ -293,7 +293,7 @@ final class Assembler
 					if (index >= f.arguments.length)
 						throw new Exception("Argument index out-of-bounds");
 					string value = f.arguments[index];
-					pushFile(new File('$' ~ name.assumeUnique(), asStringLiteral ? toStringLiteral(value) : value));
+					pushFile(new SourceFile('$' ~ name.assumeUnique(), asStringLiteral ? toStringLiteral(value) : value));
 					return;
 				}
 			throw new Exception("No arguments in context");
@@ -304,7 +304,7 @@ final class Assembler
 			if (pvalue is null)
 				throw new Exception("variable %s is not defined".format(name));
 			string value = *pvalue;
-			pushFile(new File('$' ~ name.assumeUnique(), asStringLiteral ? toStringLiteral(value) : value));
+			pushFile(new SourceFile('$' ~ name.assumeUnique(), asStringLiteral ? toStringLiteral(value) : value));
 		}
 	}
 
@@ -357,14 +357,14 @@ final class Assembler
 		}
 	}
 
-	void pushFile(File file)
+	void pushFile(SourceFile file)
 	{
 		file.parent = currentFile;
 		currentFile = file;
 	}
 
 	/// For restoring the position of an error
-	void setFile(File file)
+	void setFile(SourceFile file)
 	{
 		currentFile = file;
 	}
@@ -1331,7 +1331,7 @@ final class Assembler
 
 	void assemble(string mainFilename)
 	{
-		pushFile(new File(mainFilename));
+		pushFile(new SourceFile(mainFilename));
 
 		try
 		{
