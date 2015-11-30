@@ -25,6 +25,7 @@ import std.path;
 import std.range;
 import std.stdio;
 import std.string;
+import std.typecons;
 
 import abcfile;
 import asprogram;
@@ -82,6 +83,12 @@ final class Assembler
 				createBuffer(BUF_SIZE);
 				f = openFile(name, "rb");
 			}
+		}
+
+		~this()
+		{
+			if (f.isOpen)
+				f.close();
 		}
 
 		bool loadNextChunk()
@@ -1331,7 +1338,8 @@ final class Assembler
 
 	void assemble(string mainFilename)
 	{
-		pushFile(new SourceFile(mainFilename));
+		auto mainFile = scoped!SourceFile(mainFilename);
+		pushFile(mainFile);
 
 		try
 		{
