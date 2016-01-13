@@ -41,21 +41,30 @@ static assert(LZMAHeader.sizeof == 13);
 
 ubyte[] lzmaDecompress(LZMAHeader header, in ubyte[] compressedData)
 {
-	enforce(header.decompressedSize > 0, "Decompression with unknown size is unsupported");
-
 	lzma_stream strm;
 	lzmaEnforce(lzma_alone_decoder(&strm, ulong.max), "lzma_alone_decoder");
 	scope(exit) lzma_end(&strm);
 
-	auto outBuf = new ubyte[to!size_t(header.decompressedSize)];
-	strm.next_out  = outBuf.ptr;
-	strm.avail_out = outBuf.length;
+	auto outBuf = new ubyte[1024];
+	size_t pos = 0;
 
 	void decompress(in ubyte[] chunk)
 	{
-		strm.next_in  = chunk.ptr;
-		strm.avail_in = chunk.length;
-		lzmaEnforce!true(lzma_code(&strm, lzma_action.LZMA_RUN), "lzma_code (LZMA_RUN)");
+		strm.next_in   = chunk.ptr;
+		strm.avail_in  = chunk.length;
+
+	again:
+		strm.next_out  = outBuf.ptr    + pos;
+		strm.avail_out = outBuf.length - pos;
+		auto ret = lzma_code(&strm, lzma_action.LZMA_RUN);
+		pos = strm.next_out - outBuf.ptr;
+
+		if (ret == lzma_ret.LZMA_OK && strm.avail_in && !strm.avail_out)
+		{
+			outBuf.length = outBuf.length * 2;
+			goto again;
+		}
+		lzmaEnforce!true(ret, "lzma_code (LZMA_RUN)");
 		enforce(strm.avail_in == 0, "Not all data was read");
 	}
 
@@ -66,11 +75,13 @@ ubyte[] lzmaDecompress(LZMAHeader header, in ubyte[] compressedData)
 
 	lzmaEnforce!true(lzma_code(&strm, lzma_action.LZMA_FINISH), "lzma_code (LZMA_FINISH)");
 
-	enforce(strm.avail_out == 0,
-		"Decompressed size mismatch (expected %d/0x%X, got %d/0x%X)".format(
-			outBuf.length, outBuf.length,
-			outBuf.length - strm.avail_out, outBuf.length - strm.avail_out,
-	));
+//	enforce(strm.avail_out == 0,
+//		"Decompressed size mismatch (expected %d/0x%X, got %d/0x%X)".format(
+//			outBuf.length, outBuf.length,
+//			outBuf.length - strm.avail_out, outBuf.length - strm.avail_out,
+//	));
+
+	outBuf = outBuf[0..pos];
 
 	return outBuf;
 }
