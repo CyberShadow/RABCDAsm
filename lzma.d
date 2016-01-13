@@ -1,5 +1,5 @@
 /*
- *  Copyright 2012, 2013, 2014 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2012, 2013, 2014, 2016 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -23,6 +23,7 @@ version(HAVE_LZMA) {} else static assert(0, "LZMA is not available (HAVE_LZMA ve
 import deimos.lzma;
 import std.conv;
 import std.exception;
+import std.string : format;
 
 version (Windows)
 	{ pragma(lib, "liblzma"); }
@@ -65,7 +66,11 @@ ubyte[] lzmaDecompress(LZMAHeader header, in ubyte[] compressedData)
 
 	lzmaEnforce!true(lzma_code(&strm, lzma_action.LZMA_FINISH), "lzma_code (LZMA_FINISH)");
 
-	enforce(strm.avail_out == 0, "Decompressed size mismatch");
+	enforce(strm.avail_out == 0,
+		"Decompressed size mismatch (expected %d/0x%X, got %d/0x%X)".format(
+			outBuf.length, outBuf.length,
+			outBuf.length - strm.avail_out, outBuf.length - strm.avail_out,
+	));
 
 	return outBuf;
 }

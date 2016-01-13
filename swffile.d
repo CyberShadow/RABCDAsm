@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011, 2012 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012, 2016 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -20,6 +20,7 @@ module swffile;
 
 import std.conv;
 import std.exception;
+import std.string : format;
 import std.zlib;
 import zlibx;
 version (HAVE_LZMA) import lzma;
@@ -115,7 +116,9 @@ private final class SWFReader
 			else
 				enforce(false, "This version was built without LZMA support");
 		}
-		enforce(swf.header.fileLength == buf.length, "Incorrect file length in file header");
+		enforce(swf.header.fileLength == buf.length,
+			"Incorrect file length in file header (expected %d, got %d)"
+			.format(swf.header.fileLength , buf.length));
 		swf.frameSize = readRect();
 		swf.frameRate = readU16();
 		swf.frameCount = readU16();
