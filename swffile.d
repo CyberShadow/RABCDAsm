@@ -116,9 +116,9 @@ private final class SWFReader
 			else
 				enforce(false, "This version was built without LZMA support");
 		}
-		enforce(swf.header.fileLength == buf.length,
-			"Incorrect file length in file header (expected %d, got %d)"
-			.format(swf.header.fileLength , buf.length));
+		//enforce(swf.header.fileLength == buf.length,
+		//	"Incorrect file length in file header (expected %d, got %d)"
+		//	.format(swf.header.fileLength , buf.length));
 		swf.frameSize = readRect();
 		swf.frameRate = readU16();
 		swf.frameCount = readU16();
