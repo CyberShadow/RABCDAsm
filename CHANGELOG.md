@@ -1,16 +1,21 @@
 RABCDAsm Changelog
 ==================
 
-RABCDAsm v1.18 (2014.??.??)
+RABCDAsm v1.18 (2016.01.16)
 ---------------------------
 
  * Fix disassembly of `pushbyte` instructions (the AVM specification 
    incorrectly lists the argument as unsigned).
- * Bumped `#version` directive of new disassemblies to 4:
+ * Bump `#version` directive of new disassemblies to 4:
    - Versions below 4 treat `pushbyte` as unsigned, and throw an exception if 
      the argument is outside the range `0` ... `255`.
    - Versions 4 and above treat `pushbyte` as signed, and throw an exception 
      if the argument is outside the range `-128` ... `127`.
+ * Fix buffer reuse bugs when using macros
+ * Dump floating-point numbers in hex notation if necessary to ensure precision
+ * Cease emitting a number in a comment after opening `script` tags
+ * Detect a known DMD bug in `build_rabcdasm`
+ * Ignore invalid file size in header
 
 RABCDAsm v1.17 (2014.09.10)
 ---------------------------
