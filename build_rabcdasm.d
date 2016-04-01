@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011, 2012, 2013 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012, 2013, 2016 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -63,6 +63,7 @@ void test(string code, string extraFlags=null)
 
 void testBug(string description, int bugId, string code)
 {
+	stderr.writefln("* Checking for compiler bug %d...", bugId);
 	scope(failure)
 	{
 		stderr.writefln("Compiler bug detected: %s ( https://issues.dlang.org/show_bug.cgi?id=%d ).", description, bugId);
@@ -99,9 +100,11 @@ int main(string[] args)
 			void main() {}
 		`);
 
-		stderr.writeln("* Checking for known compiler bugs...");
 		testBug("[REG 2.064] Wrong code with -O on x86_64 for char comparisons", 11508, `
 			import assembler; int main() { foreach (c; "_") if (!Assembler.isWordChar(c)) return 1; return 0; }
+		`);
+		testBug("[REG 2.069] Wrong double-to-string conversion with -O", 15861, `
+			import std.format; int main() { return format("%.18g", 4286853117.0) == "4286853117" ? 0 : 1; }
 		`);
 
 		bool haveLZMA;
