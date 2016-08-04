@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2016 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -71,7 +71,7 @@ void main(string[] args)
 		if (header.fileLength != data.length + 8)
 			throw new Exception("Incorrect file length in file header");
 		write(arg ~ ".tempdata", data);
-		if (system(`7z a -tgzip -mx=9 -mfb=258 "` ~ arg ~ `.tempdata.gz" "` ~ arg ~ `.tempdata"`) || !exists(arg ~ ".tempdata.gz"))
+		if (spawnProcess(["7z", "a", "-tgzip", "-mx=9", "-mfb=258", arg ~ ".tempdata.gz", arg ~ ".tempdata"]).wait() || !exists(arg ~ ".tempdata.gz"))
 			throw new Exception("7-Zip failed");
 		remove(arg ~ ".tempdata");
 		auto gzipdata = cast(ubyte[])read(arg ~ ".tempdata.gz");
