@@ -35,7 +35,7 @@ else
 	const DEFAULT_COMPILER = "gdmd";
 
 const DEFAULT_FLAGS = "-O -inline";
-const LZMA_FLAGS = "-version=HAVE_LZMA";
+const LZMA_FLAGS = ["-version=HAVE_LZMA"];
 
 import std.exception;
 import std.file;
@@ -43,21 +43,22 @@ import std.process;
 import std.stdio;
 import std.string;
 
-string compiler, flags;
+string compiler;
+string[] flags;
 
 void compile(string program)
 {
 	stderr.writeln("* Building ", program);
-	enforce(system(format("rdmd --build-only --compiler=%s %s %s", compiler, flags, program)) == 0, "Compilation of " ~ program ~ " failed");
+	enforce(spawnProcess(["rdmd", "--build-only", "--compiler=" ~ compiler] ~ flags ~ program).wait() == 0, "Compilation of " ~ program ~ " failed");
 }
 
-void test(string code, string extraFlags=null)
+void test(string code, in string[] extraFlags=null)
 {
 	const BASE = "build_rabcdasm_buildtest";
 	const FN = BASE ~ ".d";
 	std.file.write(FN, code);
 	scope(exit) foreach (de; dirEntries(".", BASE ~ "*", SpanMode.shallow)) remove(de.name);
-	enforce(system(format("rdmd --force --compiler=%s -od. %s %s %s", compiler, flags, extraFlags, FN)) == 0, "Test failed");
+	enforce(spawnProcess(["rdmd", "--force", "--compiler=" ~ compiler, "-od."] ~ flags ~ extraFlags ~ FN).wait() == 0, "Test failed");
 	stderr.writeln(" >>> OK");
 }
 
@@ -78,20 +79,15 @@ int main(string[] args)
 	{
 		auto programs = ["rabcasm", "rabcdasm", "abcexport", "abcreplace", "swfbinexport", "swfbinreplace", "swfdecompress", "swf7zcompress"];
 
-		compiler = getenv("DC");
-		if (compiler is null)
-			compiler = DEFAULT_COMPILER;
-
-		flags = getenv("DCFLAGS");
-		if (flags is null)
-			flags = DEFAULT_FLAGS;
+		compiler = environment.get("DC", DEFAULT_COMPILER);
+		flags = environment.get("DCFLAGS", DEFAULT_FLAGS).split(" ");
 
 		string[] optionArgs, programArgs;
 		foreach (arg; args[1..$])
 			(arg.startsWith("-") ? optionArgs : programArgs) ~= arg;
 
 		if (optionArgs.length)
-			flags = optionArgs.join(" ");
+			flags = optionArgs;
 		if (programArgs.length)
 			programs = programArgs;
 
@@ -132,7 +128,7 @@ int main(string[] args)
 			stderr.writeln(" >>> LZMA not found, building without LZMA support.");
 
 		if (haveLZMA)
-			flags ~= " " ~ LZMA_FLAGS;
+			flags ~= LZMA_FLAGS;
 
 		foreach (program; programs)
 			compile(program);
