@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011, 2012, 2013, 2014, 2015 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012, 2013, 2014, 2015, 2016 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -175,7 +175,7 @@ final class Assembler
 		@property char front()
 		{
 			char c;
-			return (c = *ptr) != 0 ? c : (loadNextChunk(), *ptr);
+			return (c = *ptr) != 0 ? c : { loadNextChunk(); return *ptr; }();
 		}
 
 		void popFront()
