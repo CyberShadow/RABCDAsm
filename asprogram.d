@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011, 2012, 2013, 2014 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012, 2013, 2014, 2016 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -981,7 +981,7 @@ private final class AStoABC : ASVisitor
 		ASProgram.Class[] classObjects = classes.getPreliminaryValues();
 		foreach (c; classObjects)
 		{
-			assert(!(c.instance.name in classByName), "Duplicate class name " ~ c.instance.name.toString());
+			//assert(!(c.instance.name in classByName), "Duplicate class name " ~ c.instance.name.toString());
 			classByName[c.instance.name] = c;
 		}
 
