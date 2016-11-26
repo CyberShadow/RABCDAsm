@@ -2,9 +2,11 @@
 
 module zlibx;
 
+import std.string : format;
 import std.zlib, etc.c.zlib, std.conv;
 static import etc.c.zlib;
 alias std.zlib.Z_SYNC_FLUSH Z_SYNC_FLUSH;
+debug import std.stdio : stderr;
 
 /// Avoid bug(?) in D zlib implementation with 7zip-generated zlib streams
 ubyte[] exactUncompress(ubyte[] srcbuf, size_t destlen)
@@ -35,12 +37,16 @@ ubyte[] exactUncompress(ubyte[] srcbuf, size_t destlen)
 		etc.c.zlib.inflateEnd(&zs);
 		throw new ZlibException(err);
 	}
-	if (zs.avail_out != 0)
-		throw new Exception("Too little data in stream");
 
+	if (zs.avail_in != 0)
+		throw new Exception("Wrong uncompressed file length");
+	
 	err = etc.c.zlib.inflateEnd(&zs);
 	if (err != Z_OK)
 		goto Lerr;
 
-	return destbuf;
+	if (zs.avail_out != 0)
+		debug stderr.writefln("Too little data in zlib stream: expected %d, got %d", destlen, destlen - zs.avail_out);
+
+	return destbuf[0..$-zs.avail_out];
 }
