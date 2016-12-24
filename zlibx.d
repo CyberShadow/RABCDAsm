@@ -39,7 +39,9 @@ ubyte[] exactUncompress(ubyte[] srcbuf, size_t destlen)
 	}
 
 	if (zs.avail_in != 0)
-		throw new Exception("Wrong uncompressed file length");
+		throw new Exception(format("Wrong uncompressed file length (read %d/%d bytes and wrote %d/%d bytes)",
+				srcbuf .length - zs.avail_in , srcbuf .length,
+				destbuf.length - zs.avail_out, destbuf.length));
 	
 	err = etc.c.zlib.inflateEnd(&zs);
 	if (err != Z_OK)
