@@ -29,20 +29,49 @@ ubyte[] exactUncompress(ubyte[] srcbuf, size_t destlen)
 		throw new ZlibException(err);
 	}
 
-	err = etc.c.zlib.inflate(&zs, Z_SYNC_FLUSH);
-	if (err != Z_OK && err != Z_STREAM_END)
+	while (true)
 	{
-	Lerr:
-		delete destbuf;
-		etc.c.zlib.inflateEnd(&zs);
-		throw new ZlibException(err);
+		err = etc.c.zlib.inflate(&zs, Z_SYNC_FLUSH);
+		if (err != Z_OK && err != Z_STREAM_END)
+		{
+		Lerr:
+			delete destbuf;
+			etc.c.zlib.inflateEnd(&zs);
+			throw new ZlibException(err);
+		}
+
+		if (err == Z_STREAM_END)
+			break;
+		else
+		if (zs.avail_out == 0)
+		{
+			debug stderr.writefln("Wrong uncompressed file length (read %d/%d bytes and wrote %d/%d bytes)",
+				srcbuf .length - zs.avail_in , srcbuf .length,
+				destlen        - zs.avail_out, destlen);
+			auto out_pos = zs.next_out - destbuf.ptr;
+			destbuf.length = 1024 + destbuf.length * 2;
+			zs.next_out = destbuf.ptr + out_pos;
+			zs.avail_out = to!uint(destbuf.length - out_pos);
+			continue;
+		}
+		else
+		if (zs.avail_in == 0)
+		{
+			debug stderr.writefln("Unterminated Zlib stream (read %d/%d bytes and wrote %d/%d bytes)",
+				srcbuf .length - zs.avail_in , srcbuf .length,
+				destlen        - zs.avail_out, destlen);
+			break;
+		}
+		else
+			throw new Exception(format("Unexpected zlib state (err=%d, avail_in == %d, avail_out = %d)",
+					err, zs.avail_in , zs.avail_out));
 	}
 
-	if (zs.avail_in != 0)
-		throw new Exception(format("Wrong uncompressed file length (read %d/%d bytes and wrote %d/%d bytes)",
+	if (zs.avail_in != 0 || zs.avail_out != 0)
+		debug stderr.writefln("Zlib stream incongruity (read %d/%d bytes and wrote %d/%d bytes)",
 				srcbuf .length - zs.avail_in , srcbuf .length,
-				destbuf.length - zs.avail_out, destbuf.length));
-	
+				destlen        - zs.avail_out, destlen);
+
 	err = etc.c.zlib.inflateEnd(&zs);
 	if (err != Z_OK)
 		goto Lerr;
