@@ -1310,37 +1310,39 @@ final class Disassembler
 			sb ~= TraitKindNames[trait.kind];
 			sb ~= ' ';
 			dumpMultiname(sb, trait.name);
+			sb.indent++; sb.newLine();
 			if (trait.attr)
-				dumpFlags!(true)(sb, trait.attr, TraitAttributeNames);
-			bool inLine = false;
+				dumpFlags!(false)(sb, trait.attr, TraitAttributeNames);
 			switch (trait.kind)
 			{
 				case TraitKind.Slot:
 				case TraitKind.Const:
 					if (trait.vSlot.slotId)
 					{
-						sb ~= " slotid ";
+						sb ~= "slotid ";
 						dumpUInt(sb, trait.vSlot.slotId);
+						sb.newLine();
 					}
 					if (trait.vSlot.typeName)
 					{
-						sb ~= " type ";
+						sb ~= "type ";
 						dumpMultiname(sb, trait.vSlot.typeName);
+						sb.newLine();
 					}
 					if (trait.vSlot.value.vkind)
 					{
-						sb ~= " value ";
+						sb ~= "value ";
 						dumpValue(sb, trait.vSlot.value);
+						sb.newLine();
 					}
-					inLine = true;
 					break;
 				case TraitKind.Class:
 					if (trait.vClass.slotId)
 					{
-						sb ~= " slotid ";
+						sb ~= "slotid ";
 						dumpUInt(sb, trait.vClass.slotId);
+						sb.newLine();
 					}
-					sb.indent++; sb.newLine();
 
 					newInclude(sb, refs.objects.getFilename(trait.vClass.vclass, "class"), (StringBuilder sb) {
 						dumpClass(sb, trait.vClass.vclass);
@@ -1349,10 +1351,11 @@ final class Disassembler
 				case TraitKind.Function:
 					if (trait.vFunction.slotId)
 					{
-						sb ~= " slotid ";
+						sb ~= "slotid ";
 						dumpUInt(sb, trait.vFunction.slotId);
+						sb.newLine();
 					}
-					sb.indent++; sb.newLine();
+					
 					newInclude(sb, refs.objects.getFilename(trait.vFunction.vfunction, "method"), (StringBuilder sb) {
 						dumpMethod(sb, trait.vFunction.vfunction, "method");
 					}, inScript);
@@ -1362,10 +1365,11 @@ final class Disassembler
 				case TraitKind.Setter:
 					if (trait.vMethod.dispId)
 					{
-						sb ~= " dispid ";
+						sb ~= "dispid ";
 						dumpUInt(sb, trait.vMethod.dispId);
+						sb.newLine();
 					}
-					sb.indent++; sb.newLine();
+					
 					newInclude(sb, refs.objects.getFilename(trait.vMethod.vmethod, "method"), (StringBuilder sb) {
 						dumpMethod(sb, trait.vMethod.vmethod, "method");
 					}, inScript);
@@ -1374,20 +1378,13 @@ final class Disassembler
 					throw new Exception("Unknown trait kind");
 			}
 
-			foreach (metadata; trait.metadata)
-			{
-				if (inLine)
-				{
-					sb.indent++; sb.newLine();
-					inLine = false;
-				}
+			foreach (metadata; trait.metadata) {
 				dumpMetadata(sb, metadata);
 			}
 
-			if (inLine)
-				{ sb ~= " end"; sb.newLine(); }
-			else
-				{ sb.indent--; sb ~= "end ; trait"; sb.newLine(); }
+			sb.indent--;
+			sb ~= "end ; trait";
+			sb.newLine();
 		}
 	}
 
