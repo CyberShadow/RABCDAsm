@@ -1,5 +1,5 @@
 /*
- *  Copyright 2010, 2011, 2012, 2013, 2014 Vladimir Panteleev <vladimir@thecybershadow.net>
+ *  Copyright 2010, 2011, 2012, 2013, 2014, 2021 Vladimir Panteleev <vladimir@thecybershadow.net>
  *  This file is part of RABCDAsm.
  *
  *  RABCDAsm is free software: you can redistribute it and/or modify
@@ -269,8 +269,8 @@ class ABCFile
 
 enum ASType : ubyte
 {
-	Void = 0x00,  // not actually interned
-	Undefined = Void,
+	Undefined = 0x00,
+	Void = Undefined,  // not actually interned
 	Utf8 = 0x01,
 	Decimal = 0x02,
 	Integer = 0x03,
@@ -302,7 +302,7 @@ enum ASType : ubyte
 }
 
 string[ASType.Max] ASTypeNames = [
-	"Void",
+	"Undefined",
 	"Utf8",
 	"Decimal",
 	"Integer",
@@ -340,6 +340,7 @@ static this()
 {
 	foreach (t, n; ASTypeNames)
 		ASTypeByName[n] = cast(ASType)t;
+	ASTypeByName["Void"] = ASType.Void;
 	ASTypeByName = ASTypeByName.rehash;
 }
 

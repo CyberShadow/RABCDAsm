@@ -7,6 +7,9 @@ RABCDAsm v1.19 (????.??.??)
  * Ignore duplicate class names during dependency registration
  * Make over-estimation of uncompressed SWF size non-fatal
  * Improve robustness of zlib decompression
+ * Disassemble type `0x00` as `Undefined` instead of `Void`
+   - This matches the terminology used in the AVM specification.
+   - `Void` continues to be recognized as a synonym for `Undefined`.
 
 RABCDAsm v1.18 (2016.01.16)
 ---------------------------

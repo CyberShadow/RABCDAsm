@@ -110,6 +110,7 @@
       </keywords>
 
       <keywords ignorecase="no" region="ASType">
+        <word name="Undefined"/>
         <word name="Void"/>
         <word name="Utf8"/>
         <word name="Decimal"/>
