@@ -1,6 +1,13 @@
 RABCDAsm Changelog
 ==================
 
+RABCDAsm v1.19 (????.??.??)
+---------------------------
+
+ * Ignore duplicate class names during dependency registration
+ * Make over-estimation of uncompressed SWF size non-fatal
+ * Improve robustness of zlib decompression
+
 RABCDAsm v1.18 (2016.01.16)
 ---------------------------
 
