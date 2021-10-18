@@ -772,7 +772,7 @@ const OpcodeInfo[256] opcodeInfo = [
 	/* 0x64 */		{"getglobalscope",		[]},
 	/* 0x65 */		{"getscopeobject",		[OpcodeArgumentType.UByteLiteral]},
 	/* 0x66 */		{"getproperty",			[OpcodeArgumentType.Multiname]},
-	/* 0x67 */		{"getouterscope",		[]},
+	/* 0x67 */		{"getouterscope",		[OpcodeArgumentType.UIntLiteral]},
 	/* 0x68 */		{"initproperty",		[OpcodeArgumentType.Multiname]},
 	/* 0x69 */		{"setpropertylate",		[]},
 	/* 0x6A */		{"deleteproperty",		[OpcodeArgumentType.Multiname]},
