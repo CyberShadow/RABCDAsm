@@ -241,7 +241,7 @@
         <word name="getglobalscope"/>
         <word name="getscopeobject"/>
         <word name="getproperty"/>
-        <word name="getpropertylate"/>
+        <word name="getouterscope"/>
         <word name="initproperty"/>
         <word name="setpropertylate"/>
         <word name="deleteproperty"/>
