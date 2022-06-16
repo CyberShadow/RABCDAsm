@@ -25,7 +25,7 @@ ubyte[] exactUncompress(ubyte[] srcbuf, size_t destlen)
 	err = etc.c.zlib.inflateInit2(&zs, 15);
 	if (err)
 	{
-		delete destbuf;
+		destbuf.destroy();
 		throw new ZlibException(err);
 	}
 
@@ -35,7 +35,7 @@ ubyte[] exactUncompress(ubyte[] srcbuf, size_t destlen)
 		if (err != Z_OK && err != Z_STREAM_END)
 		{
 		Lerr:
-			delete destbuf;
+			destbuf.destroy();
 			etc.c.zlib.inflateEnd(&zs);
 			throw new ZlibException(err);
 		}

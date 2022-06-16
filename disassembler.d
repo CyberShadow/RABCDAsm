@@ -89,6 +89,9 @@ final class StringBuilder
 		buf[pos++] = c;
 	}
 
+	void opOpAssign(string op : "~", V)(V s) {
+		put(s);
+	}
 	alias put opCatAssign;
 
 	void write(T)(T v)
