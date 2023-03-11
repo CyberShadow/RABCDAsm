@@ -2,6 +2,7 @@
 
 module zlibx;
 
+import core.memory;
 import std.string : format;
 import std.zlib, etc.c.zlib, std.conv;
 static import etc.c.zlib;
@@ -25,7 +26,7 @@ ubyte[] exactUncompress(ubyte[] srcbuf, size_t destlen)
 	err = etc.c.zlib.inflateInit2(&zs, 15);
 	if (err)
 	{
-		delete destbuf;
+		GC.free(destbuf.ptr);
 		throw new ZlibException(err);
 	}
 
@@ -35,7 +36,7 @@ ubyte[] exactUncompress(ubyte[] srcbuf, size_t destlen)
 		if (err != Z_OK && err != Z_STREAM_END)
 		{
 		Lerr:
-			delete destbuf;
+			GC.free(destbuf.ptr);
 			etc.c.zlib.inflateEnd(&zs);
 			throw new ZlibException(err);
 		}
