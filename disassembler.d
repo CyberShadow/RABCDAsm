@@ -1144,7 +1144,7 @@ final class Disassembler
 		else
 		{
 			StaticBuf!(char, 64) buf;
-			formattedWrite(&buf, "%.18g", v);
+			formattedWrite(&buf, "%g", v);
 			char[] s = buf.data();
 
 			static double forceDouble(double d) { static double n; n = d; return n; }
